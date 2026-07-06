@@ -137,3 +137,51 @@ def get_everytalk_version(uuid):
     except Exception as e:
         print(f"버전 확인 에러: {e}")
         return "버전 확인 불가"
+
+# --- adb_logic.py 맨 아래에 추가 ---
+
+def get_os_version(uuid):
+    """단말기의 안드로이드 OS 버전을 가져옵니다."""
+    try:
+        # 단말기 시스템 정보(getprop)에서 OS 버전 번호만 딱 빼오는 명령어
+        cmd = ["adb", "-s", uuid, "shell", "getprop", "ro.build.version.release"]
+        result = subprocess.run(cmd, capture_output=True, text=True, errors='ignore')
+        
+        # 앞뒤 공백이나 줄바꿈을 지우고 깔끔하게 반환 (예: "13", "14")
+        return result.stdout.strip()
+    except Exception as e:
+        print(f"OS 버전 확인 에러: {e}")
+        return "알 수 없음"
+
+# --- adb_logic.py 맨 아래에 추가 ---
+
+def get_hw_version(uuid):
+    """단말기의 하드웨어(HW) 플랫폼 버전을 가져옵니다."""
+    try:
+        # 단말기 시스템 속성에서 하드웨어 플랫폼 명칭을 추출합니다.
+        cmd = ["adb", "-s", uuid, "shell", "getprop", "ro.board.platform"]
+        result = subprocess.run(cmd, capture_output=True, text=True, errors='ignore')
+        
+        # 값이 비어있다면 대안 속성인 ro.boot.hardware를 탐색합니다.
+        hw_val = result.stdout.strip()
+        if not hw_val:
+            cmd = ["adb", "-s", uuid, "shell", "getprop", "ro.boot.hardware"]
+            result = subprocess.run(cmd, capture_output=True, text=True, errors='ignore')
+            hw_val = result.stdout.strip()
+            
+        return hw_val if hw_val else "Unknown HW"
+    except Exception as e:
+        print(f"HW 버전 확인 에러: {e}")
+        return "알 수 없음"
+
+# --- adb_logic.py 맨 아래에 추가 ---
+
+def get_sdk_version(uuid):
+    """단말기의 안드로이드 SDK(API) 버전을 가져옵니다."""
+    try:
+        cmd = ["adb", "-s", uuid, "shell", "getprop", "ro.build.version.sdk"]
+        result = subprocess.run(cmd, capture_output=True, text=True, errors='ignore')
+        return result.stdout.strip()
+    except Exception as e:
+        print(f"SDK 버전 확인 에러: {e}")
+        return "알 수 없음"
