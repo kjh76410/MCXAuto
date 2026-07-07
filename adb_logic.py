@@ -4,6 +4,8 @@ import time
 import ctypes
 import threading
 import re
+import subprocess
+import time
 
 def get_devices():
     try:
@@ -185,3 +187,87 @@ def get_sdk_version(uuid):
     except Exception as e:
         print(f"SDK 버전 확인 에러: {e}")
         return "알 수 없음"
+    
+def get_build_image_version(uuid):
+    try:
+        # 단말기에서 incremental 빌드 버전 추출
+        cmd = f"adb -s {uuid} shell getprop ro.build.version.incremental"
+        return subprocess.check_output(cmd, shell=True, text=True, encoding='utf-8', errors='ignore').strip()
+    except Exception:
+        return "-"
+    
+def get_hw_version(uuid):
+    try:
+        # 👇 터미널에서 확인한 속성 이름(예: ro.boot.hwversion)으로 바꿔주세요!
+        cmd = f"adb -s {uuid} shell getprop ro.boot.hwversion"
+        result = subprocess.check_output(cmd, shell=True, text=True, encoding='utf-8', errors='ignore').strip()
+        
+        return result if result else "-"
+    except Exception:
+        return "-"
+    
+def get_battery_level(uuid):
+    """실제 배터리 잔량을 가져옵니다."""
+    try:
+        cmd = f"adb -s {uuid} shell dumpsys battery"
+        result = subprocess.check_output(cmd, shell=True, text=True, encoding='utf-8', errors='ignore')
+        
+        for line in result.split('\n'):
+            if "level:" in line:
+                return line.split(':')[1].strip() + "%"
+        return "알 수 없음"
+    except Exception:
+        return "-"
+
+def get_network_status(uuid):
+    """현재 활성화된 네트워크 상태(WiFi 또는 모바일 데이터+통신사)를 가져옵니다."""
+    try:
+        # 안드로이드 라우팅 테이블을 확인하여 주 통신망 확인
+        cmd = f"adb -s {uuid} shell ip route"
+        result = subprocess.check_output(cmd, shell=True, text=True, encoding='utf-8', errors='ignore')
+        
+        if "wlan" in result:
+            return "WiFi 연결됨"
+        elif "rmnet" in result or "ccmni" in result:  # rmnet(퀄컴), ccmni(미디어텍) 모바일 데이터
+            # 통신사 이름(SKT, KT, LGU+) 가져오기
+            carrier_cmd = f"adb -s {uuid} shell getprop gsm.operator.alpha"
+            carrier = subprocess.check_output(carrier_cmd, shell=True, text=True, encoding='utf-8', errors='ignore').strip()
+            # 듀얼심인 경우 콤마로 구분되므로 첫 번째 통신사만 추출
+            carrier = carrier.split(',')[0] if carrier else "데이터"
+            return f"Mobile ({carrier})"
+        else:
+            return "네트워크 끊김"
+    except Exception:
+        return "확인 불가"
+    
+def set_wifi_state(uuid, state):
+    """state: 'enable' 또는 'disable'"""
+    if state == 'enable':
+        os.system(f"adb -s {uuid} shell svc wifi enable")
+    else:
+        os.system(f"adb -s {uuid} shell svc wifi disable")
+
+def connect_saved_wifi(uuid, ssid):
+    """저장된 WiFi 네트워크에 연결 시도"""
+    # 안드로이드 설정에 해당 SSID를 활성화하라는 신호를 보냄
+    cmd = f"adb -s {uuid} shell cmd wifi connect-network {ssid} open" 
+    # (주의: 네트워크가 이미 저장되어 있어야 함)
+    os.system(cmd)
+
+def connect_to_specific_wifi(uuid, ssid, password):
+    """
+    설정창을 열고 SSID와 비밀번호를 입력하여 연결하는 자동화 함수
+    """
+    # 1. WiFi 설정 화면 진입
+    os.system(f"adb -s {uuid} shell am start -a android.settings.WIFI_SETTINGS")
+    time.sleep(1)
+    
+    # 2. '네트워크 추가' 메뉴로 이동 (보통 검색이나 메뉴 버튼 제어 필요)
+    # 기기마다 다르지만 보통 아래 좌표 클릭 또는 키 이벤트로 제어
+    os.system(f"adb -s {uuid} shell input text {ssid}") # SSID 입력
+    time.sleep(0.5)
+    os.system(f"adb -s {uuid} shell input keyevent 66") # 엔터(연결)
+    time.sleep(0.5)
+    os.system(f"adb -s {uuid} shell input text {password}") # PWD 입력
+    time.sleep(0.5)
+    os.system(f"adb -s {uuid} shell input keyevent 66") # 연결 완료
