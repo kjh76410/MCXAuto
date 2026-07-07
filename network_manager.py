@@ -2,6 +2,7 @@ import subprocess
 import os
 import time
 
+
 class NetworkManager:
     """
     단말기의 네트워크(WiFi, LTE) 및 배터리 상태를 조회하고 제어하는 매니저 클래스입니다.

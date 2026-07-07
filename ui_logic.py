@@ -1,8 +1,12 @@
 import customtkinter as ctk
+import tkinter as tk  # ✨ [추가됨] 순수 프레임을 쓰기 위해 가져옵니다!
 import adb_logic
 import os
 import ctypes
 import sys
+import datetime
+import json
+import time
 from tkinter import filedialog
 from file_manager import FileManager
 
@@ -107,28 +111,18 @@ class App(ctk.CTk):
         header_frame = ctk.CTkFrame(self.control_panel, fg_color="transparent")
         header_frame.pack(fill="x", padx=20, pady=(10, 0))
 
-        # 2. 제목 라벨 (왼쪽 배치)
         ctk.CTkLabel(header_frame, text="실시간 그룹 목록", font=("Pretendard", 14, "bold")).pack(side="left")
 
-        # 3. 새로고침 버튼 (오른쪽 배치)
-        # 버튼을 작게 만들어서 아이콘 느낌으로 배치합니다
         self.btn_refresh = ctk.CTkButton(
-            header_frame, 
-            text="🔄", 
-            width=30, 
-            fg_color="transparent", # 배경 투명하게
-            hover_color="#E0E0E0",  # 마우스 올리면 색상 변경
-            text_color=self.text_main,
-            command=self.refresh_group_list # 함수 연결
+            header_frame, text="🔄", width=30, fg_color="transparent", hover_color="#E0E0E0", 
+            text_color=self.text_main, command=self.refresh_group_list
         )
         self.btn_refresh.pack(side="right")
 
-        # 4. 리스트 영역 (기존 코드 아래에 배치)
         self.group_list_frame = ctk.CTkScrollableFrame(self.control_panel, height=200)
         self.group_list_frame.pack(fill="x", padx=20, pady=5)
 
-        # 기존 그룹 목록 리스트 아래에 추가
-        self.my_id_label = ctk.CTkLabel(self.control_panel, text="내 Call ID: -", font=("Pretendard", 12, "bold"))
+        self.my_id_label = ctk.CTkLabel(self.control_panel, text="내 정보: -", font=("Pretendard", 12, "bold"))
         self.my_id_label.pack(fill="x", padx=20, pady=(10, 5))
 
         # ==========================================
@@ -160,7 +154,6 @@ class App(ctk.CTk):
         self.info_row1 = ctk.CTkFrame(self.info_card, fg_color="transparent")
         self.info_row1.pack(expand=True, fill="both", padx=24, pady=(16, 4))
         
-        # 👇👇👇 [변경점] 정보 1열 라벨 완벽 정리 👇👇👇
         self.lbl_uuid = ctk.CTkLabel(self.info_row1, text="UUID: 대기 중", font=("Consolas", 12), text_color=self.text_sub)
         self.lbl_uuid.pack(side="left", expand=True)
         
@@ -190,8 +183,6 @@ class App(ctk.CTk):
         self.main_content = ctk.CTkFrame(self.right_panel, fg_color="transparent")
         self.main_content.pack(expand=True, fill="both")
 
- 
-
         # --- [좌측] 미러링 영역 ---
         self.mirror_section = ctk.CTkFrame(self.main_content, fg_color="transparent")
         self.mirror_section.pack(side="left", expand=True, fill="both", padx=(0, 16))
@@ -206,8 +197,10 @@ class App(ctk.CTk):
         self.btn_capture = ctk.CTkButton(self.mirror_top_bar, text="📸 캡쳐", font=("Pretendard", 12), fg_color="transparent", text_color=self.text_main, hover_color=self.btn_hover_secondary, width=60, height=28, corner_radius=self.radius, command=self.capture_screen)
         self.btn_capture.pack(side="right", padx=0, pady=8)
 
-        self.mirror_container = ctk.CTkFrame(self.mirror_section, fg_color="#1E293B", corner_radius=self.radius) 
+        # ✨ [핵심 변경점 1] CTkFrame 대신 tk.Frame 사용! (화면 덮어쓰기 방지)
+        self.mirror_container = tk.Frame(self.mirror_section, bg="#1E293B") 
         self.mirror_container.pack(expand=True, fill="both", pady=(0, 8))
+        
         self.lbl_placeholder = ctk.CTkLabel(self.mirror_container, text="대기 중...", font=("Pretendard", 14), text_color="#94A3B8")
         self.lbl_placeholder.place(relx=0.5, rely=0.5, anchor="center")
 
@@ -267,11 +260,9 @@ class App(ctk.CTk):
         if devices:
             self.current_uuid = devices[0]
             
-            # 👇👇👇 [변경점] 새로운 정보들 불러오기 👇👇👇
             model = adb_logic.get_model_name(self.current_uuid)
-            android_version = adb_logic.get_os_version(self.current_uuid) # "12" 같은 안드로이드 버전
+            android_version = adb_logic.get_os_version(self.current_uuid)
             
-            # 방금 adb_logic에 추가한 함수를 호출합니다!
             try:
                 os_build = adb_logic.get_build_image_version(self.current_uuid) 
             except AttributeError:
@@ -279,13 +270,13 @@ class App(ctk.CTk):
                 
             version_name = adb_logic.get_everytalk_version(self.current_uuid)
             
-            project_name = "EveryTalk Global" 
+            project_name = FileManager.get_project_name(version_name)
+
             battery_status = "95%"
             network_status = "LTE (SKT)" 
 
             self.label.configure(text=f"연결됨: {model}", text_color=self.accent_green) 
             
-            # 👇👇👇 UI 텍스트 업데이트 👇👇👇
             self.lbl_uuid.configure(text=f"UUID: {self.current_uuid}", text_color=self.text_main)
             self.lbl_model.configure(text=f"모델: {model}")
             self.lbl_os_build.configure(text=f"OS 버전: {os_build}")
@@ -296,7 +287,6 @@ class App(ctk.CTk):
             self.lbl_network.configure(text=f"📶 {network_status}", text_color=self.brand_blue)
             self.lbl_project.configure(text=f"프로젝트: {project_name}")
             
-            # 버튼 한 번에 화면 미러링까지 실행!
             self.run_mirror()
 
         else:
@@ -316,31 +306,18 @@ class App(ctk.CTk):
             print("[Debug] ❌ 기기가 연결되지 않았습니다.")
             return
         
-        print("[Debug] 1. 파일 pull 시작...")
         path = FileManager.pull_profile_xml(self.current_uuid)
         
-        # 파일이 PC 폴더에 생겼는지 확인
         if not os.path.exists(path):
-            print(f"[Debug] ❌ 파일이 PC에 생성되지 않았습니다. 경로 확인: {os.path.abspath(path)}")
             return
-        else:
-            print(f"[Debug] ✅ 파일 존재 확인: {os.path.abspath(path)}")
 
-        print("[Debug] 2. XML 파싱 시작...")
         groups = FileManager.parse_group_list(path)
-        print(f"[Debug] ✅ 파싱 결과: {groups}") # 여기서 [] 라고 뜨는지, 아니면 그룹 목록이 뜨는지 확인!
-
-        # 1. 새로 추가: 내 Call ID 가져오기
-        my_id = FileManager.parse_my_call_id(path)
-        
-        # 2. 새로 추가: 라벨 텍스트 업데이트
-        self.my_id_label.configure(text=f"내 Call ID: {my_id}")
+        my_info = FileManager.parse_my_info(path)
+        self.my_id_label.configure(text=f"내 정보: {my_info}")
 
         if not groups:
-            print("[Debug] ⚠️ 결과가 비어있습니다. 파일 내용을 확인해보세요.")
             return
 
-        # UI 갱신
         for widget in self.group_list_frame.winfo_children():
             widget.destroy()
             
@@ -352,18 +329,23 @@ class App(ctk.CTk):
 
     def on_group_selected(self, group_info):
         print(f"▶ 선택한 그룹: {group_info}")
-        # 여기서 추후 그룹별 PTT 명령 등을 연결하시면 됩니다!
 
     def run_mirror(self):
-        if self.current_uuid:
-            self.lbl_placeholder.place_forget()
-            self.update_idletasks()
-            width = self.mirror_container.winfo_width()
-            height = self.mirror_container.winfo_height()
-            if width <= 1 or height <= 1:
-                width, height = 400, 600
-            parent_hwnd = self.mirror_container.winfo_id()
-            adb_logic.start_mirroring_embedded(self.current_uuid, parent_hwnd, width, height)
+        # ✨ [핵심 변경점 2] 대기 중 글자 가리기!
+        self.lbl_placeholder.place_forget() 
+
+        # UI 강제 갱신
+        self.mirror_container.update_idletasks()
+        
+        width = self.mirror_container.winfo_width()
+        height = self.mirror_container.winfo_height()
+        parent_hwnd = self.mirror_container.winfo_id()
+        
+        if width <= 1 or height <= 1:
+            width, height = 400, 800  
+            
+        # 미러링 시작
+        adb_logic.start_mirroring_embedded(self.current_uuid, parent_hwnd, width, height)
 
     def press_key(self, keycode):
         if self.current_uuid:
@@ -386,14 +368,77 @@ class App(ctk.CTk):
             adb_logic.install_apk(self.current_uuid, file_path)
 
     def open_env_setup(self):
-        print("⚙️ 테스트 환경 설정 창을 엽니다.")
+        # 1. JSON 파일 불러오기
+        try:
+            with open("env_config.json", "r", encoding="utf-8") as f:
+                self.config_data = json.load(f)
+        except FileNotFoundError:
+            print("❌ 설정 파일(env_config.json)이 없습니다.")
+            return
 
+        # 2. 팝업 창 생성
+        window = ctk.CTkToplevel(self)
+        window.title("프로젝트 환경 선택")
+        window.geometry("300x200")
+
+        # 3. 프로젝트 목록 (JSON의 키값들) 가져오기
+        project_list = list(self.config_data.keys())
+
+        ctk.CTkLabel(window, text="적용할 프로젝트를 선택하세요:").pack(pady=20)
+        
+        # 4. 선택형 메뉴 생성
+        self.selected_project = ctk.StringVar(value=project_list[0])
+        dropdown = ctk.CTkOptionMenu(window, variable=self.selected_project, values=project_list)
+        dropdown.pack(pady=10)
+
+        # 5. 적용 버튼
+        ctk.CTkButton(window, text="설정 적용", command=lambda: self.apply_settings(window)).pack(pady=20)
+
+    def apply_settings(self, window):
+        proj_name = self.selected_project.get()
+        env = self.config_data[proj_name] # 이 env 변수에 JSON 내용이 다 들어있습니다!
+        
+        if self.current_uuid:
+            self.txt_log.insert("end", "[System] 자동화 실행 중...\n")
+            
+            # 여기서 env(데이터 덩어리)를 그냥 통째로 넘겨버립니다.
+            adb_logic.automate_pta_login_u2(self.current_uuid, env)
+            
+            self.txt_log.insert("end", "[System] 완료!\n")
+        
+        window.destroy()
     
-
     def capture_screen(self):
         if not self.current_uuid:
+            print("⚠️ 연결된 단말기가 없습니다.")
             return
-        print("📸 화면 캡쳐를 실행합니다.")
+
+        # 1. 저장할 폴더 경로 만들기 (내 PC > 사진 > QA_Captures)
+        pictures_dir = os.path.join(os.path.expanduser('~'), 'Pictures', 'QA_Captures')
+        
+        # 폴더가 없으면 자동으로 생성
+        os.makedirs(pictures_dir, exist_ok=True)
+
+        # 2. 파일명 지정 (예: screenshot_20231025_153022.png)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"screenshot_{timestamp}.png"
+        save_path = os.path.join(pictures_dir, filename)
+
+        print("📸 캡쳐를 진행 중입니다...")
+        
+        # 3. adb_logic의 캡쳐 함수 실행
+        success = adb_logic.take_screenshot(self.current_uuid, save_path)
+        
+        if success:
+            print(f"✅ 캡쳐 완료! 파일이 저장되었습니다:\n{save_path}")
+            
+            # 꿀팁: 캡쳐 완료 후 사진이 저장된 폴더를 윈도우 탐색기로 자동으로 열어줍니다!
+            try:
+                os.startfile(pictures_dir)
+            except Exception:
+                pass
+        else:
+            print("❌ 캡쳐에 실패했습니다.")
 
     def toggle_record(self):
         if not self.current_uuid:
@@ -402,7 +447,6 @@ class App(ctk.CTk):
 
     def run_automation(self):
         if not self.current_uuid:
-            print("⚠️ 기기가 연결되지 않았습니다.")
             return
         print("🚀 [자동화 시작] 시나리오를 연속 실행합니다...")
         
@@ -414,24 +458,35 @@ class App(ctk.CTk):
 
     def toggle_log(self):
         if not self.is_log_on:
-            self.btn_toggle_log.configure(text="■ LOG OFF", fg_color="#FEE2E2", border_width=1, border_color=self.danger_color, text_color=self.danger_color, hover_color="#FECACA")
-            self.txt_log.insert("end", "[System] 실시간 로그 수집 시작...\n")
-            self.txt_log.see("end")
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            log_path = os.path.join(os.getcwd(), "logs", f"log_{timestamp}.txt")
+            
+            # 로그 프로세스 시작
+            self.log_proc, self.log_file = adb_logic.start_log_process(self.current_uuid, log_path)
+            
+            self.btn_toggle_log.configure(text="■ LOG OFF", fg_color="#FEE2E2", text_color=self.danger_color)
             self.is_log_on = True
         else:
-            self.btn_toggle_log.configure(text="LOG ON", fg_color=self.btn_bg_secondary, border_width=0, text_color=self.text_main, hover_color=self.btn_hover_secondary)
-            self.txt_log.insert("end", "[System] 로그 수집 중지됨.\n")
-            self.txt_log.see("end")
+            adb_logic.stop_process(self.log_proc)
+            self.log_file.close() # 파일 닫기
+            
+            self.btn_toggle_log.configure(text="LOG ON", fg_color=self.btn_bg_secondary, text_color=self.text_main)
             self.is_log_on = False
 
     def toggle_pcap(self):
         if not self.is_pcap_on:
-            self.btn_toggle_pcap.configure(text="■ PCAP OFF", fg_color="#FEE2E2", border_width=1, border_color=self.danger_color, text_color=self.danger_color, hover_color="#FECACA")
-            self.txt_pcap.insert("end", "[Network] 패킷 덤프 시작 (tcpdump)...\n")
-            self.txt_pcap.see("end")
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            pcap_path = os.path.join(os.getcwd(), "logs", f"pcap_{timestamp}.pcap")
+            
+            # 캡처 시작
+            self.pcap_proc, self.remote_path = adb_logic.start_tcpdump_process(self.current_uuid, pcap_path)
+            self.pcap_local_path = pcap_path
+            
+            self.btn_toggle_pcap.configure(text="■ PCAP OFF", fg_color="#FEE2E2", text_color=self.danger_color)
             self.is_pcap_on = True
         else:
-            self.btn_toggle_pcap.configure(text="PCAP ON", fg_color=self.btn_bg_secondary, border_width=0, text_color=self.text_main, hover_color=self.btn_hover_secondary)
-            self.txt_pcap.insert("end", "[Network] 패킷 덤프 중지됨.\n")
-            self.txt_pcap.see("end")
+            # 캡처 중지 및 파일 pull
+            adb_logic.stop_process(self.pcap_proc, self.current_uuid, self.remote_path, self.pcap_local_path)
+            
+            self.btn_toggle_pcap.configure(text="PCAP ON", fg_color=self.btn_bg_secondary, text_color=self.text_main)
             self.is_pcap_on = False

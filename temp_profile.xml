@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mcptt-user-profile etag="MTAwMzQxMjQ5ODE5"  xmlns="urn:3gpp:mcptt:user-profile:1.0" xmlns:cp="urn:ietf:params:xml:ns:common-policy" XUI-URI="sip:06180098701@mcptt.nokia.com" user-profile-index="1">
+    <Name xml:lang="en">98701</Name>
+    <Status>true</Status>
+    <ProfileName xml:lang="en">user-profile.xml</ProfileName>
+    <Pre-selected-indication/>
+    <Common index="co-1">
+        <UserAlias>
+            <alias-entry index="ua-1" xml:lang="en">06180098701</alias-entry>
+        </UserAlias>
+        <MCPTTUserID>
+            <uri-entry>sip:06180098701@mcptt.nokia.com</uri-entry>
+            <display-name xml:lang="en">jh001_O_P_H</display-name>
+        </MCPTTUserID>
+        <MCPTT-group-call>
+            <MaxSimultaneousCallsN6>1</MaxSimultaneousCallsN6>
+            <EmergencyCall>
+                <MCPTTGroupInitiation>
+                    <entry entry-info="UsePreConfigured" index="ge-1">
+                        <uri-entry>sip:</uri-entry>
+                    </entry>
+                </MCPTTGroupInitiation>
+            </EmergencyCall>
+            <Priority>10</Priority>
+        </MCPTT-group-call>
+        <MissionCriticalOrganization>jh</MissionCriticalOrganization>
+        <ParticipantType>user</ParticipantType>
+        <anyExt>
+            <initial-join-group>sip:06180098712@mcptt.nokia.com</initial-join-group>
+            <group-forced-type>0</group-forced-type>
+            <pre-selected-emergency-type>0</pre-selected-emergency-type>
+            <user-configuration-password>35303736</user-configuration-password>
+            <mcdata-max-storage-period>PT0S</mcdata-max-storage-period>
+            <terminal-type>1</terminal-type>
+        </anyExt>
+    </Common>
+    <OnNetwork index="on-1">
+        <MCPTTGroupInfo xml:lang="en" index="gi-1">
+            <entry index="sip:06180098723@mcptt.nokia.com">
+                <uri-entry>sip:06180098723@mcptt.nokia.com</uri-entry>
+                <display-name xml:lang="en">jh_03</display-name>
+                <anyExt>
+                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
+                    <group-priority>5</group-priority>
+                    <user-priority>10</user-priority>
+                    <invite-members>true</invite-members>
+                    <recording>true</recording>
+                    <GMK-GKTPs>
+                        <GKTP id="1">ARoFAQvPfqcAAQsA7e74hQAAAAAOEBu79ElBEyK5wvK0oG91ZMUOAQEAILkhkSyMzSLhRIHtZWEQwr8DLPNnKQeTjKCrEbawRuzPDgIBACA6ue6F6eh6mMZfPJVYNujM//yB6jxposUMitsx3bAUAQ4GAQANa21zLm1jcHR0LmNvbRoHAQANa21zLm1jcHR0LmNvbQQBAQERBGmP5g69q+KhNQzhAgU2qU3Vkbr8kab3DIL2pq30111XMm8yfCHlPhgqfjxy7QrtgwiykPVs1ltHOBW7zhcMnx1usTLlRaUDyWUmne/XxM1BMosBR2ZPhNQ7PfDrfum4MWFEJ9eO0b7j7+B60X5eACq3KVfimEPV2xQez7Iur2iIS87Zd447fwfPxcbQrqUfX6MTlZnEdYe7NbK28I3azXw8T6UHpnmL2hbNL/UEwPd8WC0UWLOqpOCUW1axpkyUPVn+J93TlmJqMivgYvO0dcWT8cJ9c5aveQzWMyxhe4EXIsMYX9C4NSJWo4ldy8w3P1v58bT3Ncqcj4fIVBo//Qrz42S5Cz9b6oP1umvNwhkeIIFuRq8unb9NpaulTNsAe5tsNcJkVbALNsgmvA2i08PPopAWycaWORD4C6y/wrOGeqGK0sLKSswXf3SqKUnQdHpeBBou64yR1/8K2c+bTJgUbT53HHwVU3chYbm5GJVsI9gaPpqC7LTs1oPatJp0eg8ZguOs136TYe0SkaVvh640+Wk=</GKTP>
+                    </GMK-GKTPs>
+                </anyExt>
+            </entry>
+            <entry index="sip:06180098712@mcptt.nokia.com">
+                <uri-entry>sip:06180098712@mcptt.nokia.com</uri-entry>
+                <display-name xml:lang="en">Ajh_02</display-name>
+                <anyExt>
+                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
+                    <group-priority>5</group-priority>
+                    <user-priority>10</user-priority>
+                    <invite-members>true</invite-members>
+                    <recording>true</recording>
+                    <GMK-GKTPs>
+                        <GKTP id="1">ARoFAQongAcAAQsA7e74hQAAAAAOEMD/Temcb7YLVh1GDYHZU5IOAQEAILkhkSyMzSLhRIHtZWEQwr8DLPNnKQeTjKCrEbawRuzPDgIBACA6ue6F6eh6mMZfPJVYNujM//yB6jxposUMitsx3bAUAQ4GAQANa21zLm1jcHR0LmNvbRoHAQANa21zLm1jcHR0LmNvbQQBAQERBEHUJz9DG6BeV33arYCampvoqgXFysoWJJ9loKBWCRhaMRcjR3UQLpeFxlWIodfBNEe7MIL1YrRCwoBpLcXSIP3tMdoUB/MDo9alJZqLSDWaKjqHFisecqMn8bmqQHfQ2TAy5DKjr0POnOPOxXnW9IFK/Em/N/o0/FBr6syid03dPNfI1d7qOWSQQUqnNA1xT+Ls0GQp+WlJLTuoLq4Ft0aFqj8BoCMaIV69N39LmuE6infajII/AjOuEFGG/3E/9/JVWuStZkZyN/JUaeemchV6Cn18Z9eUIL5r8oX6RzjDo6K8mfCpjhXmKxwAy6d2BaeJl6FjA1sjr+cfJaSWKXkmE42c8aF1vBNE7PbyLeYJIIE8JXjzkeF5Slx73rz4JtcU/2GX8uI4Sgv6obyAtNRRT2oXA5CnIA4zxkIrkmU3jHeHbeandsqDRYRLlmCAS3oLBBou64yR1/8K2c+bTJgUbT53HHwVU3chYbm5GJVsI9gaPpqC7LTs1oPatJp0eg8ZguOs136TYe0SkaVvh640+Wk=</GKTP>
+                    </GMK-GKTPs>
+                </anyExt>
+            </entry>
+            <entry index="sip:06180098711@mcptt.nokia.com">
+                <uri-entry>sip:06180098711@mcptt.nokia.com</uri-entry>
+                <display-name xml:lang="en">jh_01</display-name>
+                <anyExt>
+                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
+                    <group-priority>5</group-priority>
+                    <user-priority>10</user-priority>
+                    <invite-members>true</invite-members>
+                    <recording>true</recording>
+                    <GMK-GKTPs>
+                        <GKTP id="1">ARoFAQzjevwAAQsA7e74hQAAAAAOEPHiMQKuTpWSVwBcFm/QgkMOAQEAILkhkSyMzSLhRIHtZWEQwr8DLPNnKQeTjKCrEbawRuzPDgIBACA6ue6F6eh6mMZfPJVYNujM//yB6jxposUMitsx3bAUAQ4GAQANa21zLm1jcHR0LmNvbRoHAQANa21zLm1jcHR0LmNvbQQBAQERBExE6OrUSs/EmV9geQ/+GIYZx0QZxUN1CFp+PgPjIZsID6/4NdINAUdf3BdFE9Nm0aCtHFmVuKSI1aEgNSroXIlNDFVbeW8TPvejcXparInO+Q3NF7l4EIThka6zAiIV2XoOTOsZRHCjV5Brf4QWRj/ErrOQ5af2Q8+/wZjnRHOaJ/zOILmTVe5A6kD6WPtbMXztST9b3IoA5mxx2UP0CmmRbyq6ZgLCOO4QkkEpd16H7CeZUwISQAFkBQuoGABdNf7DLbkK1WyWbzZNyKS8MkngoMlS9hTMLXPq2IsZo5TGKgeL2DF+x2MER1I9Qg2ceGxsux/9ZCAAMpae0Q3EnvaTP/h9ZOA/6ADcVERd+2JUIIHm3dAw2D2T47O87JYj+9CaaQlz8o5YmB7cnzYmLp/Kc8yERs9tZMmhnX+Cjq/w8yFeTLRr+zanwS1Tg0ZvG+p6BBou64yR1/8K2c+bTJgUbT53HHwVU3chYbm5GJVsI9gaPpqC7LTs1oPatJp0eg8ZguOs136TYe0SkaVvh640+Wk=</GKTP>
+                    </GMK-GKTPs>
+                </anyExt>
+            </entry>
+            <entry index="sip:06180098735@mcptt.nokia.com">
+                <uri-entry>sip:06180098735@mcptt.nokia.com</uri-entry>
+                <display-name xml:lang="en">jh_05</display-name>
+                <anyExt>
+                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
+                    <group-priority>5</group-priority>
+                    <user-priority>10</user-priority>
+                    <invite-members>true</invite-members>
+                    <recording>true</recording>
+                    <GMK-GKTPs>
+                        <GKTP id="1">ARoFAQgHDzYAAQsA7e75OwAAAAAOEGD354Z4peVl+f6HLx7ilIcOAQEAILkhkSyMzSLhRIHtZWEQwr8DLPNnKQeTjKCrEbawRuzPDgIBACA6ue6F6eh6mMZfPJVYNujM//yB6jxposUMitsx3bAUAQ4GAQANa21zLm1jcHR0LmNvbRoHAQANa21zLm1jcHR0LmNvbQQBAQERBItANp+agY9rWVWYayORBcFBR+WL9jVvjWu9xLNtZkses8hqdavNVMsCueBsAGb6sZ2RSR5ZY1PHcWO40KZd/Eiml2RYZL06aUg/h7t78gUF8NcmWmeVLT6dEkbj8DmvNi5SabgnvjQEwL+a4rzAKvlboHz0Z+7tcN72g2pksd3jPAnGZlviu/RxdxxMgXR+oGftArE3VWMTLo6mcMcPkNLCGOXFvgKhMBtjedzWBVIFoMiIb51fSf5GiCmv7kqybCsRD4F+fJ/LAs9kPwE4YCgwIsV9yBhJaiTvjuVccnXTGsg9ZhyrFeerzru3SeNjPOi94jxoIhNbdlOhNYNe7VNCkxmcA4A22YhQOH7ZrKBOIIF0wH5lzC/ozCIdHNBgWQ4a4GyhYqYDgemYtQjMjm4rOJwXvXCSrNNQ24vgP4YueK/OM1XyNDNGT5RmXQBXds+/BBou64yR1/8K2c+bTJgUbT53HHwVU3chYbm5GJVsI9gaPpqC7LTs1oPatJp0eg8ZguOs136TYe0SkaVvh640+Wk=</GKTP>
+                    </GMK-GKTPs>
+                </anyExt>
+            </entry>
+            <entry index="sip:06180051231@mcptt.nokia.com">
+                <uri-entry>sip:06180051231@mcptt.nokia.com</uri-entry>
+                <display-name xml:lang="en">jh_S2TPA</display-name>
+                <anyExt>
+                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
+                    <group-priority>5</group-priority>
+                    <user-priority>10</user-priority>
+                    <invite-members>true</invite-members>
+                    <recording>true</recording>
+                    <GMK-GKTPs>
+                        <GKTP id="1">ARoFAQLOLUcAAQsA7e757QAAAAAOEKMKk1ZmdwtehZqmPm2n9uYOAQEAILkhkSyMzSLhRIHtZWEQwr8DLPNnKQeTjKCrEbawRuzPDgIBACA6ue6F6eh6mMZfPJVYNujM//yB6jxposUMitsx3bAUAQ4GAQANa21zLm1jcHR0LmNvbRoHAQANa21zLm1jcHR0LmNvbQQBAQERBFenoHfi/4nW9eK/gg+O8lbbV5zclTjzJN1mOVC3MPekk6MdNKmuIB0fRDq4yjiZ/mFuQsUOGMg/cZLlg7Zk/SAuLtXNQGU/VUhomaixB+SFIRhH0k9SNHxh3v3qxrbZTZONn77G+RAXsBLdxIubai5O8cWX1jw5Ik6k3r7Z2m7mi1UaB3/NzG3J8Rw4wSllQQdgoei5DXL96PLXd6Oua6vAnhnxGefvoUhqO53GRYZ+U412Tz/0P0iKr4nJAxlJZHBlgVOZ3c+BY6k2Bf6I86V7WogSGAUnfkVuPR9gUDZS7o20HY+eIwWZkLn7qsoV6UnAY/2kn60PRjvbgaKdAPbfwl4hGC4V6Fm00k5XlZH4IIHFMpMamWUnMfgjNROMEpBj8plHGyQQjgbsH7hPxeE/eG44CpCYX//P2GLNFjVqL8o1qNQ943NOU3pniMGhavlNBBou64yR1/8K2c+bTJgUbT53HHwVU3chYbm5GJVsI9gaPpqC7LTs1oPatJp0eg8ZguOs136TYe0SkaVvh640+Wk=</GKTP>
+                    </GMK-GKTPs>
+                </anyExt>
+            </entry>
+            <entry index="sip:06180005123@mcptt.nokia.com">
+                <uri-entry>sip:06180005123@mcptt.nokia.com</uri-entry>
+                <display-name xml:lang="en">JH_S2TPA_02</display-name>
+                <anyExt>
+                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
+                    <group-priority>5</group-priority>
+                    <user-priority>10</user-priority>
+                    <invite-members>true</invite-members>
+                    <recording>true</recording>
+                    <GMK-GKTPs>
+                        <GKTP id="1">ARoFAQx4VQwAAQsA7e8sSQAAAAAOELblufnsn4sSrPhBdReN00EOAQEAILkhkSyMzSLhRIHtZWEQwr8DLPNnKQeTjKCrEbawRuzPDgIBACA6ue6F6eh6mMZfPJVYNujM//yB6jxposUMitsx3bAUAQ4GAQANa21zLm1jcHR0LmNvbRoHAQANa21zLm1jcHR0LmNvbQQBAQERBAwqrKvwgos0CZ+r3cfMId8uQ8A/S1sX1ctWskkNVYy/Ib5lSYj0KXdMShJOLJPu+B4qpdKuVJVFut2a+RRAt8YVTC5CtftAWT6loRY8pnQ7HzEUmqgPCqEZ4XtNFf27mBxRpwie0sjloUyIA8r7au9t4x0L1DXdVlGv8igZsfxci3bIh3bnPKqv0tsmYMbkifFd7ZEOLzw3JdNFAaCOJuhDAL7DpsPJ70WFjLgT2GaXa1z0uZ0tyF58deE7z9LYv5mUX6l7sEvA0CpvRLbAqLQxiWa0xbyArm8c3hqWlVjiOXIJs3+ygUA9WiJnKJBeHfQOshLsKyz4xH3YreKbzRhhGx8sfjOC5pvefpiqX3FEIIE94Ok4WX6yBkzjB1Nc11Q1KTI4/j3/WiW16uk4UXFkx+XJ8oXQ4TBUuHhyNaP/+pNJ7MiA7VetVhJX6aTcLqGCBBou64yR1/8K2c+bTJgUbT53HHwVU3chYbm5GJVsI9gaPpqC7LTs1oPatJp0eg8ZguOs136TYe0SkaVvh640+Wk=</GKTP>
+                    </GMK-GKTPs>
+                </anyExt>
+            </entry>
+            <entry index="sip:06180000488@mcptt.nokia.com">
+                <uri-entry>sip:06180000488@mcptt.nokia.com</uri-entry>
+                <display-name xml:lang="en">jh_Pri_00</display-name>
+                <anyExt>
+                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
+                    <group-priority>5</group-priority>
+                    <user-priority>10</user-priority>
+                    <invite-members>true</invite-members>
+                    <recording>true</recording>
+                    <GMK-GKTPs>
+                        <GKTP id="1">ARoFAQBsBxEAAQsA7e8+awAAAAAOEKWKMrtsXbPAjhG2a5e+Ge4OAQEAILkhkSyMzSLhRIHtZWEQwr8DLPNnKQeTjKCrEbawRuzPDgIBACA6ue6F6eh6mMZfPJVYNujM//yB6jxposUMitsx3bAUAQ4GAQANa21zLm1jcHR0LmNvbRoHAQANa21zLm1jcHR0LmNvbQQBAQERBCAaSw0k5Iz+WpJcEeTpk2hpduR2l46+dMyFqz6vL+TMGI2ton2STg/P30PcwxBo6gmcvaf1xxknR6XJt60DWw+inux2ba4yLumXBJ9YsBmQmt2hL8/R+L6vHKZPKtn1dzT6hzvwtjFtGc3ZvI7adn1e2lh7iyTVYYM/rn50YDNkaEfDzEND6dshbV29tPXHkBhccFpAuoDTL9QCJH9bzP4PuLy+01Lm8G5ejxA5+1eOt2R0GTxD/XlsnzOghOLdkYbBwwp/SK6G+Txe0PqFNCIwRuR/WC8CU1KtYWvoNAYoE7viG6dPIdm4v+WvwhN6aYsceInWqD/HMu7C/fZJeLF9g2y5cPDV87CCQlE8+4HDIIGSf8xI4JLM8IUz9+oWVWKAu+SlHedE40E66uY9s0WYfuaiKG1vcMPf8Q+be4ckYJ0JHId511LkwfspKiPiMtyhBBou64yR1/8K2c+bTJgUbT53HHwVU3chYbm5GJVsI9gaPpqC7LTs1oPatJp0eg8ZguOs136TYe0SkaVvh640+Wk=</GKTP>
+                    </GMK-GKTPs>
+                </anyExt>
+            </entry>
+        </MCPTTGroupInfo>
+        <MaxAffiliationsN2>1</MaxAffiliationsN2>
+        <MaxSimultaneousTransmissionsN7>1</MaxSimultaneousTransmissionsN7>
+        <ImplicitAffiliations xml:lang="en" index="ia-1">
+        </ImplicitAffiliations>
+        <anyExt>
+            <FunctionalAliasList>
+                <entry index="token">
+                    <uri-entry>sip:K.JH01@mcptt.nokia.com</uri-entry>
+                    <display-name xml:lang="en">K.JH01</display-name>
+                </entry>
+                <entry index="token">
+                    <uri-entry>sip:K.JH02@mcptt.nokia.com</uri-entry>
+                    <display-name xml:lang="en">K.JH02</display-name>
+                </entry>
+                <entry index="token">
+                    <uri-entry>sip:K.JH03@mcptt.nokia.com</uri-entry>
+                    <display-name xml:lang="en">K.JH03</display-name>
+                </entry>
+                <entry index="token">
+                    <uri-entry>sip:K.JH04@mcptt.nokia.com</uri-entry>
+                    <display-name xml:lang="en">K.JH04</display-name>
+                </entry>
+                <entry index="token">
+                    <uri-entry>sip:K.JH05@mcptt.nokia.com</uri-entry>
+                    <display-name xml:lang="en">K.JH05</display-name>
+                </entry>
+                <entry index="token">
+                    <uri-entry>sip:K.JH06@mcptt.nokia.com</uri-entry>
+                    <display-name xml:lang="en">K.JH06</display-name>
+                </entry>
+                <entry index="token">
+                    <uri-entry>sip:K.JH07@mcptt.nokia.com</uri-entry>
+                    <display-name xml:lang="en">K.JH07</display-name>
+                </entry>
+                <entry index="token">
+                    <uri-entry>sip:K.JH08@mcptt.nokia.com</uri-entry>
+                    <display-name xml:lang="en">K.JH08</display-name>
+                </entry>
+                <entry index="token">
+                    <uri-entry>sip:K.JH09@mcptt.nokia.com</uri-entry>
+                    <display-name xml:lang="en">K.JH09</display-name>
+                </entry>
+                <entry index="token">
+                    <uri-entry>sip:K.JH10@mcptt.nokia.com</uri-entry>
+                    <display-name xml:lang="en">K.JH10</display-name>
+                </entry>
+            </FunctionalAliasList>
+            <ExtendedServices>
+                <LocallyInitiatedAmbientListeningCallURI>
+                    <uri-entry>sip:06180098725@mcptt.nokia.com</uri-entry>
+                </LocallyInitiatedAmbientListeningCallURI>
+            </ExtendedServices>
+            <MCDataContentServerURI>https://10.10.10.227:2359/mcData/file/upload</MCDataContentServerURI>
+        </anyExt>
+    </OnNetwork>
+    <cp:ruleset>
+        <cp:rule id="n2c1">
+            <cp:conditions>
+                <identity>
+                    <one id="sip:06180098701@mcptt.nokia.com"/>
+                </identity>
+            </cp:conditions>
+            <cp:actions>
+                <allow-presence-status>true</allow-presence-status>
+                <allow-request-presence>true</allow-request-presence>
+                <allow-query-availability-for-private-calls>true</allow-query-availability-for-private-calls>
+                <allow-enable-disable-user>false</allow-enable-disable-user>
+                <allow-enable-disable-UE>false</allow-enable-disable-UE>
+                <allow-create-delete-user-alias>true</allow-create-delete-user-alias>
+                <allow-private-call>true</allow-private-call>
+                <allow-manual-commencement>true</allow-manual-commencement>
+                <allow-automatic-commencement>true</allow-automatic-commencement>
+                <allow-force-auto-answer>true</allow-force-auto-answer>
+                <allow-failure-restriction>false</allow-failure-restriction>
+                <allow-emergency-group-call>true</allow-emergency-group-call>
+                <allow-emergency-private-call>true</allow-emergency-private-call>
+                <allow-cancel-group-emergency>true</allow-cancel-group-emergency>
+                <allow-cancel-private-emergency-call>true</allow-cancel-private-emergency-call>
+                <allow-imminent-peril-call>true</allow-imminent-peril-call>
+                <allow-cancel-imminent-peril>true</allow-cancel-imminent-peril>
+                <allow-activate-emergency-alert>true</allow-activate-emergency-alert>
+                <allow-cancel-emergency-alert>true</allow-cancel-emergency-alert>
+                <allow-private-call-media-protection>false</allow-private-call-media-protection>
+                <allow-private-call-floor-control-protection>false</allow-private-call-floor-control-protection>
+                <allow-request-affiliated-groups>true</allow-request-affiliated-groups>
+                <allow-request-to-affiliate-other-users>true</allow-request-to-affiliate-other-users>
+                <allow-recommend-to-affiliate-other-users>true</allow-recommend-to-affiliate-other-users>
+                <allow-private-call-to-any-user>true</allow-private-call-to-any-user>
+                <allow-regroup>true</allow-regroup>
+                <allow-private-call-participation>true</allow-private-call-participation>
+                <allow-override-of-transmission>false</allow-override-of-transmission>
+                <allow-revoke-transmit>false</allow-revoke-transmit>
+                <allow-create-group-broadcast-group>false</allow-create-group-broadcast-group>
+                <allow-create-user-broadcast-group>false</allow-create-user-broadcast-group>
+                <anyExt>
+                    <allow-instant-message>true</allow-instant-message>
+                    <allow-user-auto-login>true</allow-user-auto-login>
+                    <allow-group-scan>false</allow-group-scan>
+                    <allow-mcvideo-call>true</allow-mcvideo-call>
+                    <allow-gis-subscription>true</allow-gis-subscription>
+                    <external-services>
+                        <mqls>
+                            <bwcStream>false</bwcStream>
+                            <bwcLocation>false</bwcLocation>
+                            <tetraLocation>false</tetraLocation>
+                            <carCameraStream>false</carCameraStream>
+                            <carCameraLocation>false</carCameraLocation>
+                            <historicalLocation>false</historicalLocation>
+                        </mqls>
+                    </external-services>
+                    <allow-request-command-message>false</allow-request-command-message>
+                    <allow-request-remote-group-selection>false</allow-request-remote-group-selection>
+                    <allow-request-remote-initiated-ambient-viewing>false</allow-request-remote-initiated-ambient-viewing>
+                    <allow-request-locally-initiated-ambient-viewing>true</allow-request-locally-initiated-ambient-viewing>
+                    <allow-request-remote-initiated-ambient-listening>false</allow-request-remote-initiated-ambient-listening>
+                    <allow-request-locally-initiated-ambient-listening>true</allow-request-locally-initiated-ambient-listening>
+                    <allow-query-functional-alias-other-user>true</allow-query-functional-alias-other-user>
+                    <allow-takeover-functional-alias-other-user>true</allow-takeover-functional-alias-other-user>
+                    <allow-location-info-when-talking>true</allow-location-info-when-talking>
+                    <allow-ambient-listening-indication>true</allow-ambient-listening-indication>
+                    <allow-adhoc-group-call>true</allow-adhoc-group-call>
+                    <allow-adhoc-group-call-participation>true</allow-adhoc-group-call-participation>
+                    <allow-emergency-adhoc-group-call>true</allow-emergency-adhoc-group-call>
+                    <allow-imminent-peril-adhoc-group-call>true</allow-imminent-peril-adhoc-group-call>
+                    <allow-to-recv-adhoc-group-call-participants-info>true</allow-to-recv-adhoc-group-call-participants-info>
+                    <allow-activate-adhoc-group-emergency-alert>true</allow-activate-adhoc-group-emergency-alert>
+                    <allow-cancel-adhoc-group-emergency-alert>true</allow-cancel-adhoc-group-emergency-alert>
+                    <allow-to-recv-adhoc-group-emergency-alert-participants-info>true</allow-to-recv-adhoc-group-emergency-alert-participants-info>
+                    <allow-to-setup-adhoc-group-call-using-emergency-alert-adhoc-group>true</allow-to-setup-adhoc-group-call-using-emergency-alert-adhoc-group>
+                    <allow-to-modify-adhoc-group-call-participants-info>true</allow-to-modify-adhoc-group-call-participants-info>
+                </anyExt>
+            </cp:actions>
+        </cp:rule>
+    </cp:ruleset>
+</mcptt-user-profile>

@@ -1,0 +1,13 @@
+{
+    "projects": [
+        {
+            "keyword": "PTA.R",
+            "project_name": "PTA"
+        },
+        {
+            "keyword": "PTA.L",
+            "project_name": "PTA Local"
+        }
+    ],
+    "default": "알 수 없는 프로젝트"
+}
