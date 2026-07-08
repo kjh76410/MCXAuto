@@ -354,6 +354,24 @@ def set_server_config(uuid, ip, port):
     # 3. 앱이 이 파일을 읽도록 알림(필요시)
     print("✅ 서버 설정 파일 전송 완료!")
 
+def push_server_config(uuid, ip, port):
+    """PC에 임시 파일을 만들고 폰의 /sdcard/ 경로로 파일을 쏩니다."""
+    try:
+        # 1. PC에 임시 설정파일(config.ini) 생성
+        with open("config.ini", "w") as f:
+            f.write(f"server_ip={ip}\nserver_port={port}")
+        
+        # 2. 폰으로 전송 (폰의 내부 저장소 루트에 넣음)
+        subprocess.run(["adb", "-s", uuid, "push", "config.ini", "/sdcard/config.ini"], check=True)
+        
+        # 3. 임시 파일 삭제
+        os.remove("config.ini")
+        print(f"✅ 서버 설정 전송 완료! (IP: {ip}:{port})")
+        return True
+    except Exception as e:
+        print(f"❌ 설정 파일 전송 실패: {e}")
+        return False
+    
 def connect_wifi_via_settings(uuid, ssid, password):
     """설정창을 열어 WiFi를 검색하고 연결하는 함수"""
     try:
@@ -383,23 +401,21 @@ def connect_wifi_via_settings(uuid, ssid, password):
     except Exception as e:
         print(f"❌ WiFi 연결 실패: {e}")
 
-def push_server_config(uuid, ip, port):
-    """PC에 임시 파일을 만들고 폰의 /sdcard/ 경로로 파일을 쏩니다."""
-    try:
-        # 1. PC에 임시 설정파일(config.ini) 생성
-        with open("config.ini", "w") as f:
-            f.write(f"server_ip={ip}\nserver_port={port}")
-        
-        # 2. 폰으로 전송 (폰의 내부 저장소 루트에 넣음)
-        subprocess.run(["adb", "-s", uuid, "push", "config.ini", "/sdcard/config.ini"], check=True)
-        
-        # 3. 임시 파일 삭제
-        os.remove("config.ini")
-        print(f"✅ 서버 설정 전송 완료! (IP: {ip}:{port})")
-        return True
-    except Exception as e:
-        print(f"❌ 설정 파일 전송 실패: {e}")
-        return False
+def connect_wifi(uuid, ssid, password):
+    # SSID와 비밀번호에 따옴표를 붙여서 명령어 오류를 방지합니다.
+    cmd = f'adb -s {uuid} shell cmd wifi connect-network "{ssid}" wpa2 "{password}"'
+    
+    print(f"📡 실행 명령어: {cmd}")
+    
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    
+    if result.returncode == 0:
+        print("✅ 성공!")
+    else:
+        # 🚨 여기서 에러 내용을 봅니다!
+        print(f"❌ 연결 실패! 내용: {result.stderr}")
+        print(f"❌ 결과 코드: {result.returncode}")
+    return result.returncode == 0
 
 def adb_tap(uuid, x, y):
     # 좌표는 정수형으로 변환합니다.

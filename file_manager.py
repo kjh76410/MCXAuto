@@ -64,8 +64,9 @@ class FileManager:
 
     @staticmethod
     def parse_group_list(file_path):
-        """네임스페이스를 제거하고 MCPTTGroupInfo 하위의 entry 태그에서 그룹 목록을 추출합니다."""
-        group_data = []
+        """XML에서 그룹 이름, ID, 그리고 타입을 추출합니다."""
+        group_data = [] # {name, id, type} 형태의 딕셔너리를 담을 리스트
+        
         if not file_path or not os.path.exists(file_path):
             return group_data
 
@@ -73,28 +74,33 @@ class FileManager:
             with open(file_path, 'r', encoding='utf-8') as f:
                 xml_string = f.read()
             
-            # xmlns=... 로 시작하는 부분을 강제 제거 (네임스페이스 에러 방지)
             xml_string = re.sub(r' xmlns=".*?"', '', xml_string)
             root = ET.fromstring(xml_string)
             
-            # 💡 수정된 부분: <MCPTTGroupInfo> 안쪽에 있는 <entry> 태그들을 찾습니다.
             for entry in root.findall('.//MCPTTGroupInfo/entry'):
-                # 1. display-name 추출
+                # 1. 이름 및 ID 추출
                 name_tag = entry.find('display-name')
                 name = name_tag.text if name_tag is not None else "Unknown"
                 
-                # 2. uri-entry에서 Call ID 추출 (예: sip:06180098723@... -> 06180098723)
                 uri_tag = entry.find('uri-entry')
                 call_id = "Unknown"
                 if uri_tag is not None and uri_tag.text:
-                    match = re.search(r'sip:(\d+)@', uri_tag.text)
-                    if match:
-                        call_id = match.group(1)
+                    match = re.search(r'sip:([^@]+)@', uri_tag.text)
+                    if match: call_id = match.group(1)
+
+                # 2. 타입 분류 (Priority 값 활용)
+                priority_tag = entry.find('.//anyExt/group-priority')
+                priority = priority_tag.text if priority_tag is not None else "0"
                 
-                group_data.append(f"{name} ({call_id})")
+                # Priority 31이면 Chat Group, 10이면 PreArranged Group으로 분류
+                group_type = "Chat Group" if priority == "31" else "PreArranged Group"
                 
-            print(f"[FileManager] ✅ 파싱 완료: {len(group_data)}개의 그룹 발견")
-                    
+                group_data.append({
+                    "name": name,
+                    "id": call_id,
+                    "type": group_type
+                })
+                
         except Exception as e:
             print(f"[FileManager] ⚠️ XML 파싱 에러: {e}")
             

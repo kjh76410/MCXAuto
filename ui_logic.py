@@ -74,17 +74,29 @@ class App(ctk.CTk):
         self.btn_connect = ctk.CTkButton(self.control_panel, text="🔄 기기 연결 및 화면 띄우기", font=("Pretendard", 13, "bold"), fg_color=self.brand_blue, hover_color=self.brand_blue_hover, text_color="#FFFFFF", height=42, corner_radius=self.radius, command=self.check_device)
         self.btn_connect.pack(pady=4, padx=20, fill="x")
 
-        self.util_frame = ctk.CTkFrame(self.control_panel, fg_color="transparent")
-        self.util_frame.pack(pady=(20, 4), padx=20, fill="x") 
+        # [1행] 데이터 지우기 | 앱 설치 (가로 배치)
+        self.row1_frame = ctk.CTkFrame(self.control_panel, fg_color="transparent")
+        self.row1_frame.pack(fill="x", padx=20, pady=(20, 4))
         
-        self.btn_clear_data = ctk.CTkButton(self.util_frame, text="데이터 지우기", font=("Pretendard", 12, "bold"), fg_color="transparent", border_width=1, border_color=self.border_color, hover_color=self.btn_hover_secondary, text_color=self.danger_color, height=32, corner_radius=self.radius, command=self.run_clear_data)
+        self.btn_clear_data = ctk.CTkButton(self.row1_frame, text="데이터 지우기", font=("Pretendard", 12, "bold"), fg_color="transparent", border_width=1, border_color=self.border_color, hover_color=self.btn_hover_secondary, text_color=self.danger_color, height=32, corner_radius=self.radius, command=self.run_clear_data)
         self.btn_clear_data.pack(side="left", expand=True, fill="x", padx=(0, 4))
         
-        self.btn_install = ctk.CTkButton(self.util_frame, text="앱 설치", font=("Pretendard", 12, "bold"), fg_color="transparent", border_width=1, border_color=self.border_color, hover_color=self.btn_hover_secondary, text_color=self.text_main, height=32, corner_radius=self.radius, command=self.run_install_app)
-        self.btn_install.pack(side="right", expand=True, fill="x", padx=(4, 0))
+        self.btn_install = ctk.CTkButton(self.row1_frame, text="앱 설치", font=("Pretendard", 12, "bold"), fg_color="transparent", border_width=1, border_color=self.border_color, hover_color=self.btn_hover_secondary, text_color=self.text_main, height=32, corner_radius=self.radius, command=self.run_install_app)
+        self.btn_install.pack(side="left", expand=True, fill="x", padx=(4, 0))
 
-        self.btn_env = ctk.CTkButton(self.control_panel, text="⚙️ 환경 설정", font=("Pretendard", 12, "bold"), fg_color="transparent", border_width=1, border_color=self.border_color, hover_color=self.btn_hover_secondary, text_color=self.text_main, height=32, corner_radius=self.radius, command=self.open_env_setup)
-        self.btn_env.pack(pady=4, padx=20, fill="x")
+        # [2행] 환경 설정 | WiFi 설정 (가로 배치)
+        self.row2_frame = ctk.CTkFrame(self.control_panel, fg_color="transparent")
+        self.row2_frame.pack(fill="x", padx=20, pady=4)
+        
+        self.btn_env = ctk.CTkButton(self.row2_frame, text="⚙️ 환경 설정", font=("Pretendard", 12, "bold"), fg_color="transparent", border_width=1, border_color=self.border_color, hover_color=self.btn_hover_secondary, text_color=self.text_main, height=32, corner_radius=self.radius, command=self.open_env_setup)
+        self.btn_env.pack(side="left", expand=True, fill="x", padx=(0, 4))
+        
+        self.btn_wifi = ctk.CTkButton(self.row2_frame, text="📶 WiFi 설정", font=("Pretendard", 12, "bold"), fg_color="transparent", border_width=1, border_color=self.border_color, hover_color=self.btn_hover_secondary, text_color=self.text_main, height=32, corner_radius=self.radius, command=self.open_wifi_setup)
+        self.btn_wifi.pack(side="left", expand=True, fill="x", padx=(4, 0))
+
+        # [3행] 앱 삭제 (단독 - 크게 배치)
+        self.btn_uninstall = ctk.CTkButton(self.control_panel, text="🗑️ 앱 삭제", font=("Pretendard", 12, "bold"), fg_color="transparent", border_width=1, border_color=self.border_color, hover_color=self.btn_hover_secondary, text_color=self.danger_color, height=32, corner_radius=self.radius, command=self.run_uninstall_app)
+        self.btn_uninstall.pack(fill="x", padx=20, pady=4)
 
         ctk.CTkFrame(self.control_panel, height=1, fg_color=self.border_color).pack(fill="x", padx=20, pady=20)
 
@@ -311,7 +323,6 @@ class App(ctk.CTk):
             return
         
         path = FileManager.pull_profile_xml(self.current_uuid)
-        
         if not os.path.exists(path):
             return
 
@@ -322,17 +333,42 @@ class App(ctk.CTk):
         if not groups:
             return
 
+        # 1. 기존 위젯 초기화
         for widget in self.group_list_frame.winfo_children():
             widget.destroy()
             
-        for g_info in groups:
-            btn = ctk.CTkButton(self.group_list_frame, text=g_info, fg_color="transparent", 
-                                text_color=self.text_main, hover_color=self.btn_hover_secondary,
-                                anchor="w", height=30, command=lambda g=g_info: self.on_group_selected(g))
-            btn.pack(fill="x", padx=10, pady=2)
+        # 2. 그룹 분류 (타입별 분리)
+        pre_groups = [g for g in groups if g["type"] == "PreArranged Group"]
+        chat_groups = [g for g in groups if g["type"] == "Chat Group"]
 
-    def on_group_selected(self, group_info):
-        print(f"▶ 선택한 그룹: {group_info}")
+        # 3. 구분선 및 리스트 생성 함수
+        def create_section(title, group_list):
+            if not group_list: return
+            
+            # 섹션 헤더 (구분 제목)
+            header = ctk.CTkLabel(self.group_list_frame, text=title, font=("Pretendard", 11, "bold"), text_color=self.text_sub)
+            header.pack(anchor="w", padx=10, pady=(10, 5))
+            
+            # 그룹 버튼 생성
+            for g_info in group_list:
+                # 🌟 수정된 부분: 이름과 ID를 합쳐서 출력합니다
+                btn_text = f"{g_info['name']} ({g_info['id']})"
+                
+                btn = ctk.CTkButton(self.group_list_frame, text=btn_text, fg_color="transparent", 
+                                    text_color=self.text_main, hover_color=self.btn_hover_secondary,
+                                    anchor="w", height=30, 
+                                    command=lambda g=g_info: self.on_group_selected(g))
+                btn.pack(fill="x", padx=10, pady=2)
+
+        # 4. 화면에 출력
+        create_section("◆ PreArranged Group", pre_groups)
+        create_section("◆ Chat Group", chat_groups)
+
+    def on_group_selected(self, group_dict):
+        # group_dict는 이제 {'name': '...', 'id': '...', 'type': '...'} 입니다.
+        name = group_dict["name"]
+        call_id = group_dict["id"]
+        print(f"선택된 그룹: {name}, ID: {call_id}")
 
     def run_mirror(self):
         # ✨ [핵심 변경점 2] 대기 중 글자 가리기!
@@ -409,6 +445,60 @@ class App(ctk.CTk):
             adb_logic.automate_pta_login_u2(self.current_uuid, env)
             
             self.txt_log.insert("end", "[System] 완료!\n")
+        
+        window.destroy()
+
+    def open_wifi_setup(self):
+        # 1. WiFi 설정 파일 불러오기
+        import os
+        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wifi_config.json")
+        
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                self.wifi_data = json.load(f) # {SSID: Password} 형태의 딕셔너리
+        except FileNotFoundError:
+            print("❌ WiFi 설정 파일(wifi_config.json)이 없습니다.")
+            return
+
+        # 2. 팝업 창 생성
+        window = ctk.CTkToplevel(self)
+        window.title("WiFi 설정")
+        window.geometry("300x200")
+        window.attributes("-topmost", True)
+
+        # 3. 목록 가져오기 (JSON의 키값들이 곧 WiFi SSID)
+        wifi_list = list(self.wifi_data.keys())
+
+        ctk.CTkLabel(window, text="접속할 WiFi를 선택하세요:").pack(pady=20)
+        
+        # 4. 선택형 메뉴
+        self.selected_wifi = ctk.StringVar(value=wifi_list[0] if wifi_list else "목록 없음")
+        dropdown = ctk.CTkOptionMenu(window, variable=self.selected_wifi, values=wifi_list)
+        dropdown.pack(pady=10)
+
+        # 5. 연결 버튼
+        ctk.CTkButton(window, text="WiFi 연결", command=lambda: self.apply_wifi_settings(window)).pack(pady=20)
+
+    def apply_wifi_settings(self, window):
+        """WiFi 연결 버튼 클릭 시 실행"""
+        ssid = self.selected_wifi.get()
+        password = self.wifi_data.get(ssid) 
+        
+        print(f"📡 WiFi 연결 시도: {ssid} / 비밀번호: {password}")
+        
+        if self.current_uuid:
+            self.txt_log.insert("end", f"[System] {ssid} WiFi 연결 시도 중...\n")
+            self.txt_log.see("end") # 로그 아래로 자동 스크롤
+            
+            # 🌟 여기가 핵심입니다! 주석을 풀고 실제 연결 함수를 실행합니다.
+            # adb_logic을 불러와서 connect_wifi를 실행합니다.
+            success = adb_logic.connect_wifi(self.current_uuid, ssid, password)
+            
+            if success:
+                self.txt_log.insert("end", f"[System] ✅ {ssid} 연결 성공!\n")
+            else:
+                self.txt_log.insert("end", f"[System] ❌ {ssid} 연결 실패!\n")
+            self.txt_log.see("end")
         
         window.destroy()
     
@@ -547,3 +637,8 @@ class App(ctk.CTk):
             else:
                 self.txt_pcap.insert("end", "[System] ❌ 단말 PCAP 중지 실패. 수동으로 확인해 주세요.\n")
             self.txt_pcap.see("end")
+
+    def run_clear_data(self): print("데이터 지우기")
+    def run_install_app(self): print("앱 설치")
+    def run_uninstall_app(self): print("앱 삭제")
+    
