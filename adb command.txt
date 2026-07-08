@@ -1,0 +1,2 @@
+실행된 화면의 APP 패키지명 확인하는 방법  = adb shell dumpsys window | findstr mCurrentFocus
+

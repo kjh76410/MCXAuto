@@ -20,20 +20,43 @@ class FileManager:
 
     @staticmethod
     def get_project_name(version_name):
-        """버전 이름(예: PTA.R-3.1.3...)에서 첫 번째 점(.) 앞의 텍스트만 추출합니다."""
-        
-        # 앱이 설치되어 있지 않거나 에러가 났을 때의 방어 코드
+        """
+        버전 이름에서 json 설정 파일의 키워드를 매칭하여 프로젝트 이름을 반환합니다.
+        예: 'CTB.R-3.1.3...' -> 'CTB POC'
+        """
+        import json
+        import os
+
+        # 1. 앱이 설치되어 있지 않거나 에러가 났을 때의 방어 코드
         if not version_name or version_name in ["설치 안 됨", "버전 확인 불가", "알 수 없음"]:
             return "대기 중"
             
         try:
-            # 1. '-' 기호를 기준으로 앞부분(PTA.R)만 가져옴
-            prefix = version_name.split('-')[0]
+            # 2. json 파일 경로 설정 (main.py나 프로젝트 루트 폴더 기준)
+            config_path = os.path.join(os.getcwd(), "project_config.json")
             
-            # 2. '.' 기호를 기준으로 앞부분(PTA)만 최종적으로 가져옴
-            project_name = prefix.split('.')[0]
+            # 기본값 설정 (만약 파일이 없거나 매칭이 안 될 때를 대비)
+            default_name = "알 수 없는 프로젝트"
             
-            return project_name
+            if os.path.exists(config_path):
+                # 3. JSON 파일 읽기
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config_data = json.load(f)
+                
+                projects = config_data.get("projects", [])
+                default_name = config_data.get("default", default_name)
+                
+                # 4. 버전명에 keyword가 포함되어 있는지 매칭 검사
+                # (대소문자 구분을 없애기 위해 둘 다 소문자로 변환해서 비교하면 더 안전합니다)
+                for proj in projects:
+                    keyword = proj.get("keyword", "")
+                    if keyword and (keyword.lower() in version_name.lower()):
+                        return proj.get("project_name", default_name)
+            else:
+                print(f"⚠️ 경고: {config_path} 파일을 찾을 수 없습니다.")
+
+            # 5. 매칭되는 키워드가 없으면 JSON에 정의된 default 값 반환
+            return default_name
             
         except Exception as e:
             print(f"프로젝트명 추출 오류: {e}")

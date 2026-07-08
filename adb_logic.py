@@ -302,6 +302,7 @@ def take_screenshot(uuid, save_path):
 def start_log_process(uuid, log_path):
     # -v threadtime: 날짜, 시간, 스레드 정보까지 포함한 상세 로그
     # > 는 파이썬이 처리하므로 Popen의 stdout에 파일을 직접 넘깁니다.
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
     f = open(log_path, "w", encoding="utf-8")
     return subprocess.Popen(["adb", "-s", uuid, "logcat", "-v", "threadtime"], stdout=f), f
 
@@ -454,3 +455,296 @@ def automate_pta_login_u2(uuid, env):
             
     except Exception as e:
         print(f"❌ 자동화 실패: {e}")
+
+    
+def ensure_pcapdroid_installed(uuid, apk_path="PCAPdroid.apk"):
+    """PCAPdroid 설치 여부를 확인하고, 없으면 자동 설치합니다."""
+    package_name = "com.emanuelef.remote_capture"
+    
+    check_cmd = f"adb -s {uuid} shell pm list packages {package_name}"
+    result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True)
+    
+    if package_name in result.stdout:
+        print("✅ PCAPdroid가 이미 설치되어 있습니다. (설치 패스!)")
+        return True
+    else:
+        print("⚠️ PCAPdroid 미설치 상태입니다. 폰에 자동 설치를 진행합니다...")
+        
+        install_cmd = f"adb -s {uuid} install -r {apk_path}"
+        install_result = subprocess.run(install_cmd, shell=True, capture_output=True, text=True)
+        
+        if "Success" in install_result.stdout:
+            print("✅ PCAPdroid 설치 완료!")
+            # 🚨 원흉이었던 setup_pcapdroid_settings(...) 코드 삭제 완료!
+            return True
+        else:
+            print(f"❌ 설치 실패: {install_result.stderr}")
+            return False
+
+def start_pcapdroid(uuid):
+    """PCAPdroid를 실행하여 캡처를 시작합니다."""
+    # 1. 앱이 깔려있는지 확인 (없으면 설치됨)
+    if not ensure_pcapdroid_installed(uuid):
+        print("❌ 앱 설치/확인 실패로 캡처를 시작할 수 없습니다.")
+        return False
+        
+    # 🌟 2. 캡처 시작 전, 설정이 올바른지 무조건 1회 점검! (이미 되어있으면 바로 패스함)
+    setup_pcapdroid_settings(uuid)
+        
+    # 3. 백그라운드 캡처 시작
+    try:
+        print("📡 PCAP 캡처 시작 (백그라운드)...")
+        cmd = f"adb -s {uuid} shell am start -n com.emanuelef.remote_capture/.activities.CaptureCtrl -a com.emanuelef.remote_capture.action.START"
+        subprocess.run(cmd, shell=True, check=True)
+        return True
+    except Exception as e:
+        print(f"❌ PCAP 시작 실패: {e}")
+        return False
+
+def stop_pcapdroid(uuid):
+    """PCAPdroid 캡처를 종료합니다."""
+    try:
+        print("🛑 PCAP 캡처 종료 중...")
+        # 캡처 종료 명령어
+        cmd = f"adb -s {uuid} shell am start -n com.emanuelef.remote_capture/.activities.CaptureCtrl -a com.emanuelef.remote_capture.action.STOP"
+        subprocess.run(cmd, shell=True, check=True)
+        print("✅ 캡처가 중지되었습니다. (파일은 폰의 Download 폴더에 저장됨)")
+        return True
+    except Exception as e:
+        print(f"❌ PCAP 종료 실패: {e}")
+        return False
+    
+def setup_pcapdroid_settings(uuid):
+    d = u2.connect(uuid)
+    
+    try:
+        print("⚙️ PCAPdroid 설정 상태를 점검합니다...")
+        d.app_start("com.emanuelef.remote_capture")
+        time.sleep(2)
+        
+        # 🌟 [0] 최초 설치 시 뜨는 튜토리얼(Welcome) 화면 스킵
+        if d(text="SKIP").exists:
+            print("- 최초 실행 튜토리얼 감지! [SKIP] 버튼을 클릭합니다.")
+            d(text="SKIP").click()
+            time.sleep(1)
+        elif d(text="Skip").exists:
+            print("- 최초 실행 튜토리얼 감지! [Skip] 버튼을 클릭합니다.")
+            d(text="Skip").click()
+            time.sleep(1)
+            
+        # 메인 화면 로딩 대기
+        if not d(text="Ready").wait(timeout=10):
+            print("❌ PCAPdroid 메인 화면 로딩 실패")
+            return
+
+        # ----------------------------------------------------
+        # 1. 덤프 모드 세팅 (No dump -> PCAP file)
+        # ----------------------------------------------------
+        if d(text="No dump").exists:
+            d(text="No dump").click()
+            time.sleep(1)
+            if d(text="PCAP file").exists:
+                d(text="PCAP file").click()
+                time.sleep(1)
+
+        # ----------------------------------------------------
+        # 2. Target apps 스마트 점검 (메인 화면에서 바로 확인!)
+        # ----------------------------------------------------
+        # 스크린샷처럼 메인 화면에 "com.EveryTalk.Global" 글씨가 이미 있다면?
+        if d(textContains="com.EveryTalk.Global").exists or d(textContains="MCX Client").exists:
+            print("- ✅ 메인 화면에서 [EveryTalk] 타겟 앱 설정을 확인했습니다.")
+            
+            # 메인 화면에 있는 토글 스위치가 켜져 있는지 확인
+            main_toggle = d(resourceId="com.emanuelef.remote_capture:id/app_filter_switch")
+            if main_toggle.exists:
+                is_main_on = main_toggle.info.get('checked')
+                if not is_main_on: # 만약 꺼져있다면
+                    print("- 메인 화면 토글이 OFF 상태입니다. ON으로 켭니다.")
+                    main_toggle.click()
+                    time.sleep(1)
+                else:
+                    print("- 메인 화면 토글도 이미 ON 상태입니다. (상세 셋팅 완벽 패스!)")
+                    
+        else:
+            # 메인 화면에 앱 이름이 없다면 상세 설정으로 딥-다이브 진입!
+            print("- 타겟 앱이 지정되지 않았습니다. 상세 설정 화면으로 진입합니다.")
+            d(text="Target apps").click()
+            time.sleep(2) 
+            
+            # [1] 우측 상단 3닷 메뉴 클릭 & 시스템 앱 활성화 점검
+            if d(description="More options").exists:
+                d(description="More options").click()
+                time.sleep(1)
+                
+                sys_menu = d(text="Show system apps")
+                if sys_menu.exists:
+                    checkbox = d(className="android.widget.CheckBox")
+                    is_checked = checkbox.info.get('checked') if checkbox.exists else sys_menu.info.get('checked')
+                        
+                    if not is_checked:
+                        print("- [Show system apps] 활성화합니다.")
+                        sys_menu.click()
+                        time.sleep(1.5)
+                    else:
+                        print("- [Show system apps] 이미 체크되어 있습니다! (유지)")
+                        d.press("back")
+                        time.sleep(1)
+
+            # [2] 검색 버튼 클릭 및 앱 검색 (소문자 everytalk)
+            search_btn = d(resourceId="com.emanuelef.remote_capture:id/search_button")
+            if search_btn.exists:
+                search_btn.click()
+                time.sleep(1.5)
+                
+                search_box = d(className="android.widget.EditText")
+                if search_box.exists:
+                    search_box.set_text("everytalk")
+                else:
+                    d.send_keys("everytalk")
+                    
+                time.sleep(2)
+                
+            # [3] 검색된 앱 토글 켜기
+            toggle_btn = d(resourceId="com.emanuelef.remote_capture:id/toggle_btn")
+            if toggle_btn.exists:
+                is_on = toggle_btn.info.get('checked')
+                if not is_on:
+                    print("- [EveryTalk] 토글을 ON으로 변경합니다!")
+                    toggle_btn.click()
+                    time.sleep(1)
+                else:
+                    print("- [EveryTalk] 토글이 이미 ON 상태입니다.")
+                    
+            # [4] 메인 화면 복귀 루프
+            print("- 셋팅 완료! 메인 화면으로 돌아갑니다.")
+            while not d(resourceId="com.emanuelef.remote_capture:id/action_start").exists:
+                d.press("back")
+                time.sleep(1)
+                
+        # ----------------------------------------------------
+        # 3. 캡처 시작 (상단 Play 버튼 클릭)
+        # ----------------------------------------------------
+        play_btn = d(resourceId="com.emanuelef.remote_capture:id/action_start")
+        if play_btn.exists:
+            print("- ▶️ 상단 Play 버튼을 클릭하여 캡처를 시작합니다!")
+            play_btn.click()
+            
+            # 🌟 [업그레이드] 최대 2번 뜨는 팝업 스마트 처리
+            # (처음 실행이면 2번 누르고, 두 번째 실행이면 바로 break로 빠져나감)
+            for i in range(2):
+                time.sleep(1.5) # 팝업창 뜰 시간 살짝 대기
+                
+                if d(text="OK").exists:
+                    print(f"- 권한/안내 팝업 감지 ({i+1}/2) : [OK] 클릭")
+                    d(text="OK").click()
+                elif d(text="확인").exists:
+                    print(f"- 권한/안내 팝업 감지 ({i+1}/2) : [확인] 클릭")
+                    d(text="확인").click()
+                else:
+                    # 화면에 더 이상 OK나 확인 버튼이 없다면 반복문 즉시 탈출!
+                    break 
+                    
+            print("✅ PCAPdroid 캡처가 정상적으로 실행되었습니다!")
+        else:
+            print("❌ Play 버튼을 찾지 못했습니다.")
+
+    except Exception as e:
+        print(f"❌ 설정 점검 및 실행 중 오류 발생: {e}")
+
+
+def start_device_pcap(uuid):
+    """단말기 다이얼러를 통해 히든 메뉴에 진입하여 PCAP 캡처를 시작합니다.
+    이미 실행 중(STOP 버튼이 보임)이면 STOP 후 다시 START 및 OK 팝업까지 처리합니다."""
+    d = u2.connect(uuid)
+    
+    try:
+        print("⚙️ 단말 PCAP 상태 점검 및 진입 시작...")
+        
+        # 1. 다이얼러 앱 강제 실행
+        d.app_start("org.codeaurora.dialer")
+        time.sleep(2) 
+        
+        if d(resourceIdMatches=".*fab.*").exists:
+            d(resourceIdMatches=".*fab.*").click()
+            time.sleep(1)
+            
+        # 2. 다이얼 코드 입력 (**9##)
+        print("- 다이얼 코드 [**9##] 자동 타이핑 중...")
+        d.press(17) # *
+        d.press(17) # *
+        d.press(16) # 9
+        d.press(18) # #
+        d.press(18) # #
+        time.sleep(2) # 히든 메뉴 화면 뜰 때까지 대기
+        
+        # 🌟 3. 현재 상태 스마트 체크 및 덮어쓰기 분기안내
+        # 만약 화면에 'PCAP DUMP STOP'이 보인다면 이미 실행 중인 상태입니다!
+        if d(text="PCAP DUMP STOP").exists:
+            print("- ⚠️ 이미 PCAP 캡처가 실행 중입니다. [STOP ➡️ START] 재시작을 진행합니다.")
+            d(text="PCAP DUMP STOP").click()
+            time.sleep(1.5) # 꺼질 때까지 대기
+            
+            # 혹시 STOP 버튼 누른 후에도 확인/OK 팝업이 뜨는 기종이라면 클릭 처리 (방어 코드)
+            if d(text="OK").exists: d(text="OK").click()
+            elif d(text="확인").exists: d(text="확인").click()
+            time.sleep(1)
+
+        # 🌟 4. PCAP DUMP START 실행 및 후속 OK 팝업 처리
+        if d(text="PCAP DUMP START").exists:
+            print("- [PCAP DUMP START] 버튼을 클릭합니다.")
+            d(text="PCAP DUMP START").click()
+            time.sleep(1.5) # START 클릭 후 뜨는 안내 팝업 대기
+            
+            # 🚀 핵심: START 클릭 직후 뜨는 OK/확인 팝업 자동 클릭!
+            if d(text="OK").exists:
+                print("- 팝업 감지: [OK] 클릭 완료")
+                d(text="OK").click()
+            elif d(text="확인").exists:
+                print("- 팝업 감지: [확인] 클릭 완료")
+                d(text="확인").click()
+                
+            print("✅ 단말자체 PCAP 캡처가 성공적으로 시작되었습니다!")
+            time.sleep(1)
+            d.press("home") # 홈 화면으로 복귀
+            return True
+        else:
+            print("❌ 'PCAP DUMP START' 버튼을 찾지 못했습니다. 화면을 확인해 주세요.")
+            return False
+
+    except Exception as e:
+        print(f"❌ 단말 PCAP 실행 중 오류 발생: {e}")
+        return False
+
+
+def stop_device_pcap(uuid):
+    """단말기 히든 메뉴에 다시 진입하여 PCAP 캡처를 종료합니다."""
+    d = u2.connect(uuid)
+    
+    try:
+        print("⚙️ 단말 PCAP 종료를 시도합니다...")
+        
+        # 종료 버튼이 이미 화면에 떠 있는지 먼저 확인 (안 떠있으면 다시 다이얼러 켬)
+        if not d(text="PCAP DUMP STOP").exists:
+            d.app_start("org.codeaurora.dialer")
+            time.sleep(1.5)
+            if d(resourceIdMatches=".*fab.*").exists:
+                d(resourceIdMatches=".*fab.*").click()
+                time.sleep(1)
+            
+            # 다시 **9## 입력
+            d.press(17); d.press(17); d.press(16); d.press(18); d.press(18)
+            time.sleep(2)
+            
+        if d(text="PCAP DUMP STOP").exists:
+            d(text="PCAP DUMP STOP").click()
+            print("✅ 단말 PCAP 캡처가 중지되었습니다!")
+            time.sleep(1)
+            d.press("home")
+            return True
+        else:
+            print("❌ 'PCAP DUMP STOP' 버튼을 찾지 못했습니다.")
+            return False
+
+    except Exception as e:
+        print(f"❌ 단말 PCAP 종료 중 오류 발생: {e}")
+        return False

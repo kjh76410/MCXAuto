@@ -226,8 +226,12 @@ class App(ctk.CTk):
         self.btn_toggle_log = ctk.CTkButton(self.log_ctrl_frame, text="LOG ON", font=("Pretendard", 12, "bold"), fg_color=self.btn_bg_secondary, text_color=self.text_main, hover_color=self.btn_hover_secondary, height=34, corner_radius=self.radius, command=self.toggle_log)
         self.btn_toggle_log.pack(side="left", expand=True, fill="x", padx=(0, 6))
         
-        self.btn_toggle_pcap = ctk.CTkButton(self.log_ctrl_frame, text="PCAP ON", font=("Pretendard", 12, "bold"), fg_color=self.btn_bg_secondary, text_color=self.text_main, hover_color=self.btn_hover_secondary, height=34, corner_radius=self.radius, command=self.toggle_pcap)
-        self.btn_toggle_pcap.pack(side="right", expand=True, fill="x", padx=(6, 0))
+        self.btn_toggle_device_pcap = ctk.CTkButton(self.log_ctrl_frame, text="단말 PCAP ON", font=("Pretendard", 12, "bold"), fg_color=self.btn_bg_secondary, text_color=self.text_main, hover_color=self.btn_hover_secondary, height=34, corner_radius=self.radius, command=self.toggle_device_pcap)
+        self.btn_toggle_device_pcap.pack(side="left", expand=True, fill="x", padx=(4, 4))
+
+        # 🌟 3. [이름 변경됨] PCAPdroid ON 버튼
+        self.btn_toggle_pcap = ctk.CTkButton(self.log_ctrl_frame, text="PCAPdroid ON", font=("Pretendard", 12, "bold"), fg_color=self.btn_bg_secondary, text_color=self.text_main, hover_color=self.btn_hover_secondary, height=34, corner_radius=self.radius, command=self.toggle_pcap)
+        self.btn_toggle_pcap.pack(side="left", expand=True, fill="x", padx=(4, 0))
 
         self.log_search_frame = ctk.CTkFrame(self.log_section, fg_color="transparent")
         self.log_search_frame.pack(fill="x", padx=16, pady=(0, 10))
@@ -250,7 +254,7 @@ class App(ctk.CTk):
 
         self.is_log_on = False
         self.is_pcap_on = False
-
+        self.is_device_pcap_on = False
 
     # ==========================================
     # 기능 동작 메서드들
@@ -474,19 +478,72 @@ class App(ctk.CTk):
             self.is_log_on = False
 
     def toggle_pcap(self):
+        if not self.current_uuid:
+            self.txt_pcap.insert("end", "[System] ❌ 먼저 단말기를 연결해 주세요.\n")
+            self.txt_pcap.see("end")
+            return
+
         if not self.is_pcap_on:
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            pcap_path = os.path.join(os.getcwd(), "logs", f"pcap_{timestamp}.pcap")
+            self.txt_pcap.insert("end", "[System] PCAPdroid 상태 점검 및 실행 중...\n")
+            self.txt_pcap.see("end")
             
-            # 캡처 시작
-            self.pcap_proc, self.remote_path = adb_logic.start_tcpdump_process(self.current_uuid, pcap_path)
-            self.pcap_local_path = pcap_path
+            # 1. 캡처 시작 (앱이 없으면 여기서 자동 설치까지 해줍니다)
+            success = adb_logic.start_pcapdroid(self.current_uuid)
             
-            self.btn_toggle_pcap.configure(text="■ PCAP OFF", fg_color="#FEE2E2", text_color=self.danger_color)
-            self.is_pcap_on = True
+            if success:
+                self.btn_toggle_pcap.configure(text="■ PCAPdroid OFF", fg_color="#FEE2E2", text_color=self.danger_color)
+                self.is_pcap_on = True
+                self.txt_pcap.insert("end", "[System] 📡 PCAPdroid 캡처 활성화 완료!\n")
+            else:
+                self.txt_pcap.insert("end", "[System] ❌ 캡처를 시작하지 못했습니다. 로그를 확인하세요.\n")
+            
+            self.txt_pcap.see("end")
         else:
-            # 캡처 중지 및 파일 pull
-            adb_logic.stop_process(self.pcap_proc, self.current_uuid, self.remote_path, self.pcap_local_path)
+            self.txt_pcap.insert("end", "[System] 캡처 종료 중...\n")
+            self.txt_pcap.see("end")
             
-            self.btn_toggle_pcap.configure(text="PCAP ON", fg_color=self.btn_bg_secondary, text_color=self.text_main)
+            # 2. 캡처 중지
+            adb_logic.stop_pcapdroid(self.current_uuid)
+            
+            self.btn_toggle_pcap.configure(text="PCAPdroid ON", fg_color=self.btn_bg_secondary, text_color=self.text_main)
             self.is_pcap_on = False
+            
+            self.txt_pcap.insert("end", "[System] 🛑 캡처가 중지되었습니다.\n")
+            self.txt_pcap.insert("end", "[Info] 📥 패킷 파일은 단말기 내부 [Download] 폴더에 저장되어 있습니다.\n")
+            self.txt_pcap.see("end")
+
+    def toggle_device_pcap(self):
+        if not self.current_uuid:
+            self.txt_pcap.insert("end", "[System] ❌ 먼저 단말기를 연결해 주세요.\n")
+            self.txt_pcap.see("end")
+            return
+
+        if not self.is_device_pcap_on:
+            self.txt_pcap.insert("end", "[System] 📱 단말(히든 메뉴) PCAP 캡처 시작...\n")
+            self.txt_pcap.see("end")
+            
+            # adb_logic의 새 시작 함수 호출!
+            success = adb_logic.start_device_pcap(self.current_uuid)
+            
+            if success:
+                self.btn_toggle_device_pcap.configure(text="■ 단말 PCAP OFF", fg_color="#FEE2E2", text_color=self.danger_color)
+                self.is_device_pcap_on = True
+                self.txt_pcap.insert("end", "[System] 📡 단말 자체 PCAP 캡처 활성화 완료!\n")
+            else:
+                self.txt_pcap.insert("end", "[System] ❌ 단말 PCAP 시작 실패. 터미널 로그를 확인하세요.\n")
+            self.txt_pcap.see("end")
+            
+        else:
+            self.txt_pcap.insert("end", "[System] 📱 단말 PCAP 캡처 중지 중...\n")
+            self.txt_pcap.see("end")
+            
+            # adb_logic의 새 중지 함수 호출!
+            success = adb_logic.stop_device_pcap(self.current_uuid)
+            
+            if success:
+                self.btn_toggle_device_pcap.configure(text="단말 PCAP ON", fg_color=self.btn_bg_secondary, text_color=self.text_main)
+                self.is_device_pcap_on = False
+                self.txt_pcap.insert("end", "[System] 🛑 단말 PCAP 캡처가 완료되었습니다.\n")
+            else:
+                self.txt_pcap.insert("end", "[System] ❌ 단말 PCAP 중지 실패. 수동으로 확인해 주세요.\n")
+            self.txt_pcap.see("end")
