@@ -8,6 +8,24 @@ import re
 class FileManager:
 
     @staticmethod
+    def get_project_features(project_name):
+        """프로젝트 이름을 받아 JSON에서 features 딕셔너리를 반환합니다."""
+        try:
+            config_path = os.path.join(os.getcwd(), "project_config.json")
+            if os.path.exists(config_path):
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config_data = json.load(f)
+
+                # 프로젝트 목록을 돌면서 일치하는 프로젝트의 features 반환
+                for proj in config_data.get("projects", []):
+                    if proj.get("project_name") == project_name:
+                        return proj.get("features", {})
+        except Exception as e:
+            print(f"[FileManager] ⚠️ 기능 설정 로드 에러: {e}")
+
+        return {}  # 실패하거나 없으면 빈 딕셔너리 반환
+
+    @staticmethod
     def pull_profile_xml(uuid, local_folder="temp_xml"):
         """단말기에서 XML 폴더 전체를 PC로 가져온 뒤, 메인 프로필 파일 경로를 반환합니다."""
         import os
@@ -116,7 +134,6 @@ class FileManager:
         if not file_path or not os.path.exists(file_path):
             return group_data
 
-        # 파일이 위치한 폴더의 절대 경로를 가져옵니다 (코덱 파일 검색용)
         xml_folder_path = os.path.dirname(os.path.abspath(file_path))
 
         try:
@@ -126,8 +143,8 @@ class FileManager:
             xml_string = re.sub(r' xmlns=".*?"', "", xml_string)
             root = ET.fromstring(xml_string)
 
+            # --- [일반 그룹 반복문 시작] ---
             for entry in root.findall(".//MCPTTGroupInfo/entry"):
-                # 1. 이름 및 ID 추출
                 name_tag = entry.find("display-name")
                 name = name_tag.text if name_tag is not None else "Unknown"
 
@@ -138,16 +155,12 @@ class FileManager:
                     if match:
                         call_id = match.group(1)
 
-                # 2. 타입 분류
                 priority_tag = entry.find(".//anyExt/group-priority")
                 priority = priority_tag.text if priority_tag is not None else "0"
                 group_type = "Chat Group" if priority == "31" else "PreArranged Group"
 
-                # 3. 추가: 해당 그룹의 코덱 정보 추출
-                # xml_folder_path에서 call_id(그룹번호)가 포함된 파일을 찾아 파싱합니다.
                 voice, video = FileManager.get_group_codecs(xml_folder_path, call_id)
 
-                # 4. 최종 데이터 추가
                 group_data.append(
                     {
                         "name": name,
@@ -157,12 +170,22 @@ class FileManager:
                         "video_codec": video,
                     }
                 )
-
-                regroups = FileManager.get_regroup_list(xml_folder_path)
-                group_data.extend(regroups)
+            # --- [일반 그룹 반복문 끝] ---
 
         except Exception as e:
             print(f"[FileManager] ⚠️ XML 파싱 에러: {e}")
+
+        # ==========================================
+        # 💡 [핵심] 반복문을 완전히 빠져나온 후, 딱 한 번만 ReGroup을 찾습니다!
+        # ==========================================
+        regroups = FileManager.get_regroup_list(xml_folder_path)
+
+        # 중복 방지: 이미 있는 그룹 ID면 빼고 넣기
+        existing_ids = {g["id"] for g in group_data}
+        for rg in regroups:
+            if rg["id"] not in existing_ids:
+                group_data.append(rg)
+                existing_ids.add(rg["id"])
 
         return group_data
 
@@ -217,12 +240,12 @@ class FileManager:
         except Exception as e:
             print(f"[FileManager] [{group_id}] 코덱 파일 파싱 에러: {e}")
             return "", ""
-        
-    
+
     @staticmethod
     def get_regroup_list(xml_folder_path):
-        """XML 폴더 내의 모든 파일을 탐색하여 ReGroup 정보를 무조건 추출합니다."""
+        """XML 폴더를 탐색하여 중복 없이 ReGroup 정보만 추출합니다."""
         regroup_data = []
+        seen_ids = set()  # 💡 중복 출력을 막기 위한 ID 보관함
 
         if not xml_folder_path or not os.path.exists(xml_folder_path):
             return regroup_data
@@ -235,24 +258,27 @@ class FileManager:
                         tree = ET.parse(file_path)
                         root = tree.getroot()
 
-                        # 💡 핵심: 네임스페이스(mcpttgi 등) 싹 다 무시하고, 문서 내의 모든 태그를 뒤집니다.
                         for elem in root.iter():
-                            # 태그 이름에 'on-network-regrouped'가 포함되어 있는지 확인
-                            if 'on-network-regrouped' in elem.tag:
-                                
-                                # 속성(Attribute)에서 이름과 ID 추출
-                                name = elem.get("temporary-MCPTT-group-name", "Unknown ReGroup")
-                                raw_id = elem.get("temporary-MCPTT-group-ID", "")
+                            if "on-network-regrouped" in elem.tag:
 
-                                # sip:번호@주소 에서 번호만 추출
+                                raw_id = elem.get("temporary-MCPTT-group-ID", "")
                                 call_id = "Unknown"
                                 if raw_id:
                                     match = re.search(r"sip:([^@]+)@", raw_id)
                                     if match:
                                         call_id = match.group(1)
 
-                                # 코덱 정보 추출
-                                voice, video = FileManager.get_group_codecs(xml_folder_path, call_id)
+                                # 💡 [핵심 안전장치] 이미 아까 찾아서 리스트에 넣은 ID면 패스!
+                                if call_id in seen_ids:
+                                    break
+                                seen_ids.add(call_id)  # 처음 보는 ID면 보관함에 넣기
+
+                                name = elem.get(
+                                    "temporary-MCPTT-group-name", "Unknown ReGroup"
+                                )
+                                voice, video = FileManager.get_group_codecs(
+                                    xml_folder_path, call_id
+                                )
 
                                 regroup_data.append(
                                     {
@@ -263,14 +289,69 @@ class FileManager:
                                         "video_codec": video,
                                     }
                                 )
-                                # 찾았으면 이 파일은 더 뒤질 필요 없이 종료하고 다음 파일로 넘어감
-                                break 
-                                
+                                break  # 이 파일에선 찾았으니 다음 파일로 넘어가기
+
                     except Exception as e:
-                        print(f"[FileManager] ⚠️ {filename} 파싱 무시: {e}")
                         continue
 
         except Exception as e:
             print(f"[FileManager] ❌ ReGroup 탐색 중 에러: {e}")
 
         return regroup_data
+
+    @staticmethod
+    def get_all_users_from_xml(xml_folder_path):
+        """XML 폴더를 뒤져서 그룹이 아닌 '유저' 정보만 중복 없이 추출합니다."""
+        user_list = []
+        seen_ids = set()
+
+        if not xml_folder_path or not os.path.exists(xml_folder_path):
+            return user_list
+
+        for filename in os.listdir(xml_folder_path):
+            if not filename.endswith(".xml"):
+                continue
+
+            filepath = os.path.join(xml_folder_path, filename)
+            try:
+                tree = ET.parse(filepath)
+                for elem in tree.getroot().iter():
+                    u_name = ""
+                    d_name = "이름 없음"
+
+                    # 1. 하위 태그 텍스트에서 URI와 이름 찾기
+                    for child in elem:
+                        if "uri-entry" in child.tag or "uri" in child.tag:
+                            if child.text:
+                                match = re.search(r"sip:([^@]+)@", child.text)
+                                if match:
+                                    u_name = match.group(1)
+                        if "display-name" in child.tag:
+                            if child.text:
+                                d_name = child.text
+
+                    # 2. 속성(Attribute)에 URI가 숨어있는 경우 대응 (<entry uri="...">)
+                    if not u_name:
+                        raw_uri = elem.get("uri", "")
+                        if raw_uri:
+                            match = re.search(r"sip:([^@]+)@", raw_uri)
+                            if match:
+                                u_name = match.group(1)
+                                # 이름 태그가 하위에 있는지 확인 (네임스페이스 무시)
+                                for child in elem:
+                                    if "display-name" in child.tag and child.text:
+                                        d_name = child.text
+                                        break
+
+                    # 💡 [핵심 필터링] 번호가 있고, 끝이 'g'로 끝나지 않는 것만(그룹 제외) 추가!
+                    if u_name and not u_name.endswith("g"):
+                        if u_name not in seen_ids:
+                            user_list.append({"name": u_name, "display_name": d_name})
+                            seen_ids.add(u_name)
+
+            except Exception:
+                continue
+
+        # 유저 ID 기준으로 보기 좋게 정렬
+        user_list.sort(key=lambda x: x["name"])
+        return user_list

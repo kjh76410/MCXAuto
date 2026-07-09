@@ -215,11 +215,13 @@ def get_hw_version(uuid):
         # 2. 값이 비어있다면 대안 속성인 ro.boot.hardware.revision 탐색
         if not hw_val:
             cmd = ["adb", "-s", uuid, "shell", "getprop", "ro.boot.hardware.revision"]
-            result = subprocess.run(cmd, capture_output=True, text=True, errors="ignore")
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, errors="ignore"
+            )
             hw_val = result.stdout.strip()
 
         return hw_val if hw_val else "Unknown HW"
-        
+
     except Exception as e:
         print(f"HW 버전 확인 에러: {e}")
         return "알 수 없음"
@@ -272,16 +274,24 @@ def get_network_status(uuid):
 
         if "wlan" in result:
             # 💡 [WiFi] 연결된 경우 SSID 추출 로직
-            
+
             # (1) 최신 안드로이드 명령어 시도 (Android 10 이상)
             status_cmd = f"adb -s {uuid} shell cmd wifi status"
-            status_res = subprocess.run(status_cmd, shell=True, capture_output=True, text=True, errors="ignore").stdout
+            status_res = subprocess.run(
+                status_cmd, shell=True, capture_output=True, text=True, errors="ignore"
+            ).stdout
             match = re.search(r'connected to\s*"([^"]+)"', status_res)
-            
+
             # (2) 실패 시 구형 안드로이드 명령어 시도 (dumpsys 활용)
             if not match:
                 dump_cmd = f'adb -s {uuid} shell "dumpsys wifi | grep mWifiInfo"'
-                dump_res = subprocess.run(dump_cmd, shell=True, capture_output=True, text=True, errors="ignore").stdout
+                dump_res = subprocess.run(
+                    dump_cmd,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    errors="ignore",
+                ).stdout
                 match = re.search(r'SSID:\s*"([^"]+)"', dump_res)
 
             # 결과 확인 (위치 정보가 꺼져있으면 <unknown ssid>로 나올 수 있음)
@@ -292,22 +302,24 @@ def get_network_status(uuid):
 
         elif "rmnet" in result or "ccmni" in result:
             # 💡 [LTE] 모바일 데이터 연결된 경우
-            
+
             # 통신사 이름(SKT, KT, LGU+) 가져오기
             carrier_cmd = f"adb -s {uuid} shell getprop gsm.operator.alpha"
-            carrier = subprocess.check_output(carrier_cmd, shell=True, text=True, errors="ignore").strip()
-            
+            carrier = subprocess.check_output(
+                carrier_cmd, shell=True, text=True, errors="ignore"
+            ).strip()
+
             # 듀얼심인 경우 콤마로 구분되므로 첫 번째 통신사만 추출
             carrier = carrier.split(",")[0] if carrier else ""
-            
+
             if carrier:
                 return f"LTE ({carrier})"
             else:
                 return "LTE"
-                
+
         else:
             return "네트워크 끊김"
-            
+
     except Exception as e:
         print(f"네트워크 상태 확인 에러: {e}")
         return "확인 불가"
@@ -479,32 +491,48 @@ def push_server_config(uuid, ip, port):
 
 def connect_wifi(uuid, ssid, password):
     print(f"📡 [wpa_cli] WiFi 연결 시도: {ssid}")
-    
+
     try:
         # 1. 새 네트워크 ID 생성 (예: 1, 2, 3...)
         cmd_add = f'adb -s {uuid} shell "wpa_cli -i wlan0 add_network"'
         res_add = subprocess.run(cmd_add, shell=True, capture_output=True, text=True)
         net_id = res_add.stdout.strip()
-        
+
         # 숫자가 정상적으로 반환되었는지 확인
         if not net_id.isdigit():
             # wpa_cli가 실패했을 경우를 대비한 백업 (기존 cmd wifi 명령어 형태 보완)
             print("⚠️ wpa_cli 미지원 단말, 보완된 cmd wifi 명령어로 재시도...")
             cmd_fallback = f'adb -s {uuid} shell cmd wifi connect-network "{ssid}" wpa2 "{password}"'
-            res_fallback = subprocess.run(cmd_fallback, shell=True, capture_output=True, text=True)
+            res_fallback = subprocess.run(
+                cmd_fallback, shell=True, capture_output=True, text=True
+            )
             return res_fallback.returncode == 0
 
         # 2. SSID 설정
-        subprocess.run(f'adb -s {uuid} shell "wpa_cli -i wlan0 set_network {net_id} ssid \\"\\"{ssid}\\"\\""', shell=True)
-        
+        subprocess.run(
+            f'adb -s {uuid} shell "wpa_cli -i wlan0 set_network {net_id} ssid \\"\\"{ssid}\\"\\""',
+            shell=True,
+        )
+
         # 3. 비밀번호 설정 (WPA2 기준)
-        subprocess.run(f'adb -s {uuid} shell "wpa_cli -i wlan0 set_network {net_id} psk \\"\\"{password}\\"\\""', shell=True)
-        
+        subprocess.run(
+            f'adb -s {uuid} shell "wpa_cli -i wlan0 set_network {net_id} psk \\"\\"{password}\\"\\""',
+            shell=True,
+        )
+
         # 4. 네트워크 활성화 및 선택
-        subprocess.run(f'adb -s {uuid} shell "wpa_cli -i wlan0 select_network {net_id}"', shell=True)
-        subprocess.run(f'adb -s {uuid} shell "wpa_cli -i wlan0 enable_network {net_id}"', shell=True)
-        subprocess.run(f'adb -s {uuid} shell "wpa_cli -i wlan0 reassociate"', shell=True)
-        
+        subprocess.run(
+            f'adb -s {uuid} shell "wpa_cli -i wlan0 select_network {net_id}"',
+            shell=True,
+        )
+        subprocess.run(
+            f'adb -s {uuid} shell "wpa_cli -i wlan0 enable_network {net_id}"',
+            shell=True,
+        )
+        subprocess.run(
+            f'adb -s {uuid} shell "wpa_cli -i wlan0 reassociate"', shell=True
+        )
+
         print(f"✅ WiFi {ssid} 연결 명령 전송 완료")
         return True
 

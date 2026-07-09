@@ -313,6 +313,31 @@ class App(ctk.CTk):
         )
         self.btn_unit_test.pack(side="left", padx=5, pady=10)
 
+        # ==========================================
+        # 💡 [신규] 프로젝트 기능을 표시할 가로로 긴 하얀색 카드!
+        # ==========================================
+        self.feature_card = ctk.CTkFrame(
+            self.mid_panel,
+            fg_color=self.panel_bg,
+            corner_radius=self.radius,
+            border_width=1,
+            border_color=self.border_color,
+        )
+        # 윗 카드와 동일하게 가로로 꽉 차게(fill="x") 배치합니다.
+        self.feature_card.pack(fill="x", pady=(0, 12), ipady=5)
+
+        # 이 카드 안에 태그들을 담을 쟁반을 만듭니다. (이름은 기존과 동일하게 유지)
+        self.feature_tag_frame = ctk.CTkFrame(self.feature_card, fg_color="transparent")
+        self.feature_tag_frame.pack(fill="x", padx=10, pady=5)
+
+        ctk.CTkLabel(
+            self.feature_tag_frame,
+            text="단말기를 연결하면 이곳에 프로젝트 지원 기능이 표시됩니다.",
+            font=("Pretendard", 12),
+            text_color=self.text_sub,
+        ).pack(pady=2)
+        # ==========================================
+
         # 단위 테스트 & 미러링 분할 (가로배치)
         self.mid_content = ctk.CTkFrame(self.mid_panel, fg_color="transparent")
         self.mid_content.pack(expand=True, fill="both")
@@ -615,9 +640,13 @@ class App(ctk.CTk):
             self.lbl_os_build.configure(text=f"OS 버전: {os_build}")
             self.lbl_version.configure(text=f"앱 버전: {version_name}")
 
-            self.lbl_network.configure(text=f"📶 네트워크: {network_status}", text_color=self.text_main)
+            self.lbl_network.configure(
+                text=f"📶 네트워크: {network_status}", text_color=self.text_main
+            )
 
             self.lbl_project.configure(text=f"프로젝트: {project_name}")
+
+            self.update_project_features(project_name)
 
             adb_logic.unlock_screen(self.current_uuid)
 
@@ -640,28 +669,134 @@ class App(ctk.CTk):
                 text="프로젝트: 대기 중", text_color=self.text_main
             )
 
+            for widget in self.feature_tag_frame.winfo_children():
+                widget.destroy()
+
+            ctk.CTkLabel(
+                self.feature_tag_frame,
+                text="단말기를 연결하면 이곳에 프로젝트 지원 기능이 표시됩니다.",
+                font=("Pretendard", 12),
+                text_color=self.text_sub,
+            ).pack(pady=2)
+
+    def update_project_features(self, project_name):
+        """JSON 설정에 따라 지원하는 기능(1)만 카테고리별로 3줄로 나누어 표시합니다."""
+        # 1. 기존에 그려진 태그들 싹 지우기
+        for widget in self.feature_tag_frame.winfo_children():
+            widget.destroy()
+
+        # 2. JSON에서 지원 기능 가져오기
+        features = FileManager.get_project_features(project_name)
+        if not features:
+            return
+
+        group_map = {"regroup": "ReGroup", "prearranged": "PreArranged", "chat": "Chat"}
+        private_map = {
+            "normal": "Normal",
+            "without_floor_control": "W/O Floor",
+            "mcvideo_push": "Video Push",
+            "mcvideo_pull": "Video Pull",
+            "first_answer": "First Answer",
+        }
+        msg_map = {
+            "normal": "일반",
+            "emergency": "비상",
+            "pre_defined": "Pre-Defined",
+            "canned": "상용문구",
+            "attachment": "첨부파일",
+        }
+
+        # 🎨 카테고리별로 줄(Row)을 생성하는 함수
+        def create_tag_row(title, icon, category_data, name_map, bg_color, txt_color):
+            active_features = [
+                name_map[key]
+                for key, val in category_data.items()
+                if val == 1 and key in name_map
+            ]
+            if not active_features:
+                return
+
+            # 💡 [핵심 수정] side="left"를 빼고 fill="x"로 주어 카테고리마다 한 줄씩 차지하게 합니다.
+            row_frame = ctk.CTkFrame(self.feature_tag_frame, fg_color="transparent")
+            row_frame.pack(fill="x", pady=3)  # 줄 사이의 간격
+
+            # 카테고리 타이틀 (예: 👥 Group:) - 타이틀 너비를 정렬하고 싶다면 width 옵션을 추가해도 좋습니다.
+            ctk.CTkLabel(
+                row_frame,
+                text=f"{icon} {title}:",
+                font=("Pretendard", 12, "bold"),
+                text_color=self.text_sub,
+                width=80,  # 💡 정렬을 위해 타이틀 라벨 가로 길이를 고정
+                anchor="w",  # 왼쪽 정렬
+            ).pack(side="left", padx=(0, 5))
+
+            # 해당 줄에 뱃지들 가로로 나열
+            for f_name in active_features:
+                ctk.CTkLabel(
+                    row_frame,
+                    text=f_name,
+                    font=("Pretendard", 11, "bold"),
+                    fg_color=bg_color,  # 연한 파스텔 배경
+                    text_color=txt_color,  # 진한 포인트 글씨
+                    corner_radius=6,
+                    padx=8,
+                    pady=2,
+                ).pack(side="left", padx=3)
+
+        # 4. 각 카테고리를 독립된 줄로 생성 (최대 3줄)
+        create_tag_row(
+            "Group",
+            "👥",
+            features.get("group_call", {}),
+            group_map,
+            bg_color="#DBEAFE",
+            txt_color="#1E40AF",
+        )
+        create_tag_row(
+            "Private",
+            "👤",
+            features.get("private_call", {}),
+            private_map,
+            bg_color="#D1FAE5",
+            txt_color="#065F46",
+        )
+        create_tag_row(
+            "Message",
+            "✉️",
+            features.get("message", {}),
+            msg_map,
+            bg_color="#FFEDD5",
+            txt_color="#9A3412",
+        )
+
     def refresh_group_list(self):
         if not self.current_uuid:
             return
 
+        # 1. 단말기에서 XML 폴더 가져오기
         path = FileManager.pull_profile_xml(self.current_uuid)
-        if not os.path.exists(path):
+        if not path or not os.path.exists(path):
             return
 
         groups = FileManager.parse_group_list(path)
         my_info = FileManager.parse_my_info(path)
         self.my_id_label.configure(text=f"내 정보: {my_info}")
 
-        # 초기화
+        # 3. 기존 화면 초기화
         self.all_cards = []
         self.group_check_vars = {}
         for widget in self.group_list_frame.winfo_children():
             widget.destroy()
 
-        # 내부 함수: 섹션 그리기
+        # ==========================================
+        # 🎨 내부 함수: 섹션 그리기
+        # ==========================================
         def create_section(title, group_list):
+            # 해당 타입의 그룹이 없으면 섹션 자체를 그리지 않고 패스
             if not group_list:
                 return
+
+            # 섹션 타이틀 라벨
             ctk.CTkLabel(
                 self.group_list_frame,
                 text=title,
@@ -669,8 +804,9 @@ class App(ctk.CTk):
                 text_color=self.text_sub,
             ).pack(anchor="w", padx=5, pady=(15, 5))
 
+            # 그룹 개수만큼 카드 생성
             for g_info in group_list:
-                # 1. 카드 생성
+                # 1) 카드 배경 프레임
                 card = ctk.CTkFrame(
                     self.group_list_frame,
                     fg_color="#F8FAFC",
@@ -680,10 +816,9 @@ class App(ctk.CTk):
                 )
                 card.pack(fill="x", padx=5, pady=4)
 
-                # 2. 코덱 정보 가져오기
+                # 2) 코덱 문자열 조립
                 voice = g_info.get("voice_codec", "")
                 video = g_info.get("video_codec", "")
-
                 codec_str = ""
                 if voice or video:
                     v_str = f"🎤 {voice}" if voice else ""
@@ -691,7 +826,7 @@ class App(ctk.CTk):
                     divider = " | " if (voice and video) else ""
                     codec_str = f"[{v_str}{divider}{vd_str}]"
 
-                # 3. 체크박스 (그룹명) - 부모를 다시 card로 변경!
+                # 3) 체크박스 (그룹명 & ID)
                 var_check = ctk.StringVar(value="off")
                 chk = ctk.CTkCheckBox(
                     card,
@@ -706,10 +841,9 @@ class App(ctk.CTk):
                     text_color=self.text_main,
                     command=self.update_group_visibility,
                 )
-                # 아래쪽 여백(pady)을 0으로 줘서 아래 코덱 글자와 간격을 좁힙니다.
                 chk.pack(anchor="w", padx=10, pady=(10, 0))
 
-                # 4. 코덱 라벨 (그룹명 바로 아래 배치)
+                # 4) 코덱 라벨 출력
                 if codec_str:
                     lbl_codec = ctk.CTkLabel(
                         card,
@@ -717,47 +851,44 @@ class App(ctk.CTk):
                         font=("Pretendard", 10),
                         text_color="#64748B",
                     )
-                    # 💡 [핵심 디테일] 체크박스 네모칸 너비(약 26px)만큼 여백을 더 줘서 글자 줄을 맞춥니다.
                     lbl_codec.pack(anchor="w", padx=(36, 10), pady=(0, 10))
 
-                # 5. 액션 로우 (버튼들을 담을 그릇)
+                # 5) 액션 버튼 행 (통화, 메시지)
                 action_row = ctk.CTkFrame(card, fg_color="transparent")
 
-                # 4. 세그먼트 버튼 생성
                 seg_call = ctk.CTkSegmentedButton(
                     action_row,
                     values=["🔊 PTT", "📹 PTV", "🚨 E-PTT", "🚨 E-PTV"],
                     height=32,
                     font=("Pretendard", 11, "bold"),
-                    # [핵심 스타일링]
-                    fg_color="#F8FAFC",  # 카드 배경색과 동일하게 맞춤 (통일감)
-                    selected_color="#2563EB",  # [사진 느낌] 선택 시 예쁜 파란색
+                    fg_color="#F8FAFC",
+                    selected_color="#2563EB",
                     selected_hover_color="#2563EB",
-                    unselected_color="#E2E8F0",  # [핵심] 기존 칙칙한 회색 대신 아주 연한 회색
+                    unselected_color="#E2E8F0",
                     unselected_hover_color="#CBD5E1",
-                    text_color="#CBD5E1",  # 글자색도 진한 회색으로 조정
+                    text_color="#CBD5E1",
                 )
+
                 seg_msg = ctk.CTkSegmentedButton(
                     action_row,
                     values=["📄 Text", "🖼️ Photo", "🎥 Video"],
                     height=32,
                     font=("Pretendard", 11, "bold"),
-                    # [핵심 스타일링]
-                    fg_color="#F8FAFC",  # 카드 배경색과 동일하게 맞춤 (통일감)
-                    selected_color="#2563EB",  # [사진 느낌] 선택 시 예쁜 파란색
+                    fg_color="#F8FAFC",
+                    selected_color="#2563EB",
                     selected_hover_color="#2563EB",
-                    unselected_color="#E2E8F0",  # [핵심] 기존 칙칙한 회색 대신 아주 연한 회색
+                    unselected_color="#E2E8F0",
                     unselected_hover_color="#CBD5E1",
-                    text_color="#CBD5E1",  # 글자색도 진한 회색으로 조정
+                    text_color="#CBD5E1",
                 )
 
-                # 5. 카드에 참조 저장
+                # 6) 데이터 저장 (나중에 제어하기 위함)
                 card.check_var = var_check
                 card.action_row = action_row
                 card.seg_call = seg_call
                 card.seg_msg = seg_msg
-                self.all_cards.append(card)
 
+                self.all_cards.append(card)
                 self.group_check_vars[g_info["id"]] = {
                     "check_var": var_check,
                     "call_var": seg_call,
@@ -765,13 +896,24 @@ class App(ctk.CTk):
                     "name": g_info["name"],
                 }
 
+        # ==========================================
+        # 🚀 화면에 순서대로 섹션 출력
+        # ==========================================
+        # 1. ReGroup을 최상단에 출력
+        create_section("◆ ReGroup", [g for g in groups if g.get("type") == "ReGroup"])
+
+        # 2. PreArranged 출력
         create_section(
             "◆ PreArranged Group",
-            [g for g in groups if g["type"] == "PreArranged Group"],
+            [g for g in groups if g.get("type") == "PreArranged Group"],
         )
-        create_section("◆ Chat Group", [g for g in groups if g["type"] == "Chat Group"])
 
-        # 마지막에 한번 업데이트해서 초기 상태 적용
+        # 3. Chat Group 출력
+        create_section(
+            "◆ Chat Group", [g for g in groups if g.get("type") == "Chat Group"]
+        )
+
+        # 4. 최종 렌더링 업데이트 (선택 안 된 버튼들 숨기기 등)
         self.update_group_visibility()
 
     def update_group_visibility(self):
@@ -954,12 +1096,12 @@ class App(ctk.CTk):
         btn_apply.pack(fill="x", padx=40, pady=(20, 20))
 
     def apply_settings(self, window):
-        proj_name = self.selected_project.get() # 예: "PTA"
+        proj_name = self.selected_project.get()  # 예: "PTA"
         env = self.config_data[proj_name]
 
         if self.current_uuid:
             self.txt_log.insert("end", "[System] 자동화 실행 중...\n")
-            
+
             try:
                 # 파이썬 문법에 맞게 이름 안전하게 변경 (숫자로 시작 방지)
                 if proj_name.lower() == "450connect":
@@ -972,20 +1114,21 @@ class App(ctk.CTk):
                 # 1. 해당 프로젝트 파일 가져오기 (예: config_handlers.connect450_handler)
                 module_path = f"config_handlers.{safe_proj_name}_handler"
                 module = importlib.import_module(module_path)
-                
+
                 # 2. 클래스 가져오기
                 handler_class = getattr(module, class_name)
                 handler = handler_class()
-                
+
                 # 3. 실행
                 import uiautomator2 as u2
+
                 d = u2.connect(self.current_uuid)
                 handler.run(d, env)  # 👈 여기서 run 메서드 호출!
-                
+
                 self.txt_log.insert("end", "[System] 완료!\n")
             except Exception as e:
                 print(f"❌ 설정 실패: {e}")
-                
+
         window.destroy()
 
     def open_wifi_setup(self):
@@ -1138,20 +1281,20 @@ class App(ctk.CTk):
             # [상태 변경] 로그 켜짐 -> "중지(OFF)" 버튼으로 변경 (빨간색 경고 느낌)
             self.btn_toggle_log.configure(
                 text="■ LOG OFF",
-                fg_color=self.point_pink,     # 핑크색 배경
-                text_color="#FFFFFF"
+                fg_color=self.point_pink,  # 핑크색 배경
+                text_color="#FFFFFF",
             )
             self.is_log_on = True
-            
+
         else:
             adb_logic.stop_process(self.log_proc)
             self.log_file.close()  # 파일 닫기
 
             # 로그 시작 버튼을 핑크 포인트로 강조하고 싶을 때
             self.btn_toggle_log.configure(
-                text="▶ LOG ON", 
-                fg_color=self.btn_bg_light,     # 아까 정의하신 연한 회색 배경 (#F1F5F9)
-                text_color=self.point_pink
+                text="▶ LOG ON",
+                fg_color=self.btn_bg_light,  # 아까 정의하신 연한 회색 배경 (#F1F5F9)
+                text_color=self.point_pink,
             )
             self.is_log_on = False
 
@@ -1171,9 +1314,8 @@ class App(ctk.CTk):
             if success:
                 self.btn_toggle_pcap.configure(
                     text="■ PCAPdroid OFF",
-                    fg_color=self.point_pink,     # 핑크색 배경
-                    text_color="#FFFFFF"
-                    
+                    fg_color=self.point_pink,  # 핑크색 배경
+                    text_color="#FFFFFF",
                 )
                 self.is_pcap_on = True
                 self.txt_pcap.insert("end", "[System] 📡 PCAPdroid 캡처 활성화 완료!\n")
@@ -1192,9 +1334,9 @@ class App(ctk.CTk):
             adb_logic.stop_pcapdroid(self.current_uuid)
 
             self.btn_pcap.configure(
-                text="● PCAPdroid ON", 
-                fg_color=self.btn_bg_light,     # 아까 정의하신 연한 회색 배경 (#F1F5F9)
-                text_color=self.point_pink      # 아까 정의하신 포인트 핑크색 (#EC4899)
+                text="● PCAPdroid ON",
+                fg_color=self.btn_bg_light,  # 아까 정의하신 연한 회색 배경 (#F1F5F9)
+                text_color=self.point_pink,  # 아까 정의하신 포인트 핑크색 (#EC4899)
             )
             self.is_pcap_on = False
 
@@ -1265,56 +1407,61 @@ class App(ctk.CTk):
 
     def run_install_app(self):
         print("앱 설치 버튼 클릭됨")
-        
+
         # 1. 파일 탐색기 열기 (APK 파일만 선택 가능하게 필터링)
         file_path = filedialog.askopenfilename(
-            title="설치할 APK 파일을 선택하세요",
-            filetypes=[("APK files", "*.apk")]
+            title="설치할 APK 파일을 선택하세요", filetypes=[("APK files", "*.apk")]
         )
-        
+
         # 사용자가 취소를 눌렀을 경우 아무것도 하지 않음
         if not file_path:
             print("사용자가 설치를 취소했습니다.")
             return
-        
+
         print(f"📂 선택된 파일: {file_path}")
-        
+
         # 2. ADB를 통해 APK 설치 실행
         try:
-            # 비동기로 실행하면 설치 중 UI가 멈출 수 있으므로, 
+            # 비동기로 실행하면 설치 중 UI가 멈출 수 있으므로,
             # 설치 과정이 끝날 때까지 조금 기다리는 것이 좋습니다.
             print("🚀 설치 진행 중...")
-            result = subprocess.run(["adb", "install", "-r", file_path], capture_output=True, text=True)
-            
+            result = subprocess.run(
+                ["adb", "install", "-r", file_path], capture_output=True, text=True
+            )
+
             # 3. 설치 결과 확인
             if "Success" in result.stdout:
                 print("✅ 앱 설치 성공!")
                 # 필요하다면 여기서 라벨을 "앱 버전: 설치됨" 등으로 업데이트할 수 있습니다.
             else:
                 print(f"❌ 설치 실패: {result.stderr}")
-                
+
         except Exception as e:
             print(f"🚨 설치 중 오류 발생: {e}")
 
     def run_uninstall_app(self):
         package_name = "com.EveryTalk.Global"
         print(f"🚀 앱 삭제 시도 중: {package_name}")
-        
+
         try:
-            result = subprocess.run(["adb", "uninstall", package_name], capture_output=True, text=True)
-            
+            result = subprocess.run(
+                ["adb", "uninstall", package_name], capture_output=True, text=True
+            )
+
             # 결과 확인
             if "Success" in result.stdout:
                 print("✅ 앱 삭제 성공!")
                 # UI 라벨 텍스트 변경
-                if hasattr(self, 'lbl_version'):
+                if hasattr(self, "lbl_version"):
                     self.lbl_version.configure(text="앱 버전: 삭제됨")
             else:
                 # 이미 삭제되었거나 패키지명을 찾을 수 없을 경우 등의 메시지 출력
                 print(f"⚠️ 결과: {result.stdout.strip()}")
                 if "Failure" in result.stdout:
-                     print("❌ 삭제 실패: 앱이 설치되어 있지 않거나 권한이 필요할 수 있습니다.")
-                
+                    print(
+                        "❌ 삭제 실패: 앱이 설치되어 있지 않거나 권한이 필요할 수 있습니다."
+                    )
+
         except Exception as e:
             print(f"🚨 삭제 중 에러 발생: {e}")
 
@@ -1413,146 +1560,161 @@ class App(ctk.CTk):
         """
         import os
         import json
-        
-        config_file = 'project_config.json'
-        xml_dir = 'temp_xml'
-        
+
+        config_file = "project_config.json"
+        xml_dir = "temp_xml"
+
         if not os.path.exists(config_file) or not os.path.exists(xml_dir):
             return "알 수 없는 프로젝트"
-            
+
         # 1. project_config.json 읽기
-        with open(config_file, 'r', encoding='utf-8') as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             config_data = json.load(f)
-            
+
         # 2. temp_xml 폴더 안의 모든 파일 내용 검사
         for root_dir, _, files in os.walk(xml_dir):
             for file in files:
-                if file.endswith('.xml'):
+                if file.endswith(".xml"):
                     file_path = os.path.join(root_dir, file)
                     try:
-                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        with open(
+                            file_path, "r", encoding="utf-8", errors="ignore"
+                        ) as f:
                             content = f.read()
-                            
+
                             # JSON에 등록된 프로젝트 키워드가 파일 내용에 들어있는지 확인
                             for proj in config_data.get("projects", []):
                                 if proj["keyword"] in content:
-                                    print(f"🎯 단말기 데이터에서 키워드 [{proj['keyword']}] 포착 -> 프로젝트: {proj['project_name']}")
-                                    return proj["project_name"] # 매칭되는 프로젝트명 즉시 반환!
+                                    print(
+                                        f"🎯 단말기 데이터에서 키워드 [{proj['keyword']}] 포착 -> 프로젝트: {proj['project_name']}"
+                                    )
+                                    return proj[
+                                        "project_name"
+                                    ]  # 매칭되는 프로젝트명 즉시 반환!
                     except Exception as e:
                         print(f"파일 분석 중 오류 (무시함): {e}")
-                        
+
         return config_data.get("default", "알 수 없는 프로젝트")
 
     def get_db_config_by_project(self, current_project_name):
         """
         project_config.json을 읽어서 현재 프로젝트에 맞는 DB 정보를 가져오는 함수
         """
-        config_file = 'project_config.json'
+        config_file = "project_config.json"
         if not os.path.exists(config_file):
             print("❌ project_config.json 파일이 없습니다.")
             return None
-            
-        with open(config_file, 'r', encoding='utf-8') as f:
+
+        with open(config_file, "r", encoding="utf-8") as f:
             config_data = json.load(f)
-            
+
         for proj in config_data.get("projects", []):
             if proj.get("project_name") == current_project_name:
                 return proj.get("db_config")
-                
+
         print(f"❌ {current_project_name}에 해당하는 DB 설정이 JSON에 없습니다.")
         return None
 
     def refresh_user_list_from_db(self):
         """
+        [DB 접속 대신 XML 탐색으로 변경됨]
         User List 갱신 및 체크박스 선택 시 액션 버튼 표시
         """
-        current_project = self.detect_project_from_xml()
-        
-        if current_project == "알 수 없는 프로젝트":
-            print("❌ 단말기 데이터에서 프로젝트 키워드를 찾지 못해 DB 조회를 중단합니다.")
-            return
-            
-        db_config = self.get_db_config_by_project(current_project)
-        if not db_config:
+        if not self.current_uuid:
+            print("❌ 연결된 단말기가 없어 유저 목록을 갱신할 수 없습니다.")
             return
 
-        # DB 조회 로직 (기존과 동일)
-        try:
-            conn = pymysql.connect(
-                host=db_config["host"],
-                user=db_config["user"],
-                password=db_config["password"],
-                database=db_config["db"],
-                charset='utf8mb4'
+        # 1. 단말기에서 XML 폴더 경로 가져오기
+        path = FileManager.pull_profile_xml(self.current_uuid)
+        if not path or not os.path.exists(path):
+            return
+
+        xml_folder_path = os.path.dirname(os.path.abspath(path))
+
+        # 2. DB 대신 XML 폴더를 스캔해서 유저 목록 싹쓸이!
+        users = FileManager.get_all_users_from_xml(xml_folder_path)
+
+        # 3. 006으로 시작하는 유저만 필터링 (기존 로직 유지)
+        my_group_code = "006"
+        filtered_users = [
+            u for u in users if str(u.get("name", "")).startswith(my_group_code)
+        ]
+
+        print(
+            f"👥 [유저 목록 갱신] 총 {len(filtered_users)}명의 006 유저를 찾았습니다."
+        )
+
+        # ==========================================
+        # 🎨 UI 그리기 시작
+        # ==========================================
+        for widget in self.user_list_frame.winfo_children():
+            widget.destroy()
+
+        self.user_checkbox_vars = {}
+        self.user_ui_registry = {}  # 액션 로우 관리를 위한 레지스트리
+
+        for user in filtered_users:
+            u_name = user.get("name", "")
+            d_name = user.get("display_name", "이름 없음")
+
+            # 1. 카드 생성
+            user_card = ctk.CTkFrame(
+                self.user_list_frame, fg_color="#F1F5F9", corner_radius=6
             )
-            cursor = conn.cursor(pymysql.cursors.DictCursor)
-            query = "SELECT name, display_name, mcptt_id FROM user_profile;"
-            cursor.execute(query)
-            users = cursor.fetchall()
+            user_card.pack(fill="x", padx=5, pady=2)
 
-            my_group_code = "006" 
-            filtered_users = [u for u in users if str(u.get('name', '')).startswith(my_group_code)]
+            # 2. 체크박스 변수 및 체크박스 생성
+            chk_var = ctk.StringVar(value="off")
+            self.user_checkbox_vars[u_name] = chk_var
 
-            # UI 초기화
-            for widget in self.user_list_frame.winfo_children():
-                widget.destroy()
+            chk = ctk.CTkCheckBox(
+                user_card,
+                text=f"👤 {d_name} ({u_name})",
+                font=("Pretendard", 12, "bold"),
+                text_color="#334155",
+                variable=chk_var,
+                onvalue="on",
+                offvalue="off",
+                # 💡 [여기에 추가!] 테두리 굵기와 색상 조정
+                border_width=2,  # 굵기를 1 또는 2로 줄임 (기본값: 3)
+                border_color="#94A3B8",  # 연한 회색으로 지정하면 더 깔끔합니다
+                command=self.update_user_action_frame,
+            )
+            chk.pack(anchor="w", padx=10, pady=8)
 
-            self.user_checkbox_vars = {}
-            self.user_ui_registry = {}  # 액션 로우 관리를 위한 레지스트리 추가
+            # 3. 액션 로우 생성 (기본적으로는 숨김)
+            action_row = ctk.CTkFrame(user_card, fg_color="transparent")
 
-            for user in filtered_users:
-                u_name = user.get('name', '')
-                d_name = user.get('display_name', '이름 없음')
-                
-                # 1. 카드 생성
-                user_card = ctk.CTkFrame(self.user_list_frame, fg_color="#F1F5F9", corner_radius=6)
-                user_card.pack(fill="x", padx=5, pady=2)
-                
-                # 2. 체크박스 변수 및 체크박스 생성
-                chk_var = ctk.StringVar(value="off")
-                self.user_checkbox_vars[u_name] = chk_var
-                
-                chk = ctk.CTkCheckBox(
-                    user_card, 
-                    text=f"👤 {d_name} ({u_name})", 
-                    font=("Pretendard", 12, "bold"),
-                    text_color="#334155",
-                    variable=chk_var,
-                    onvalue="on",
-                    offvalue="off",
-                    command=self.update_user_action_frame # 체크박스 상태 변경 시 호출
-                )
-                chk.pack(anchor="w", padx=10, pady=8)
-                
-                # 3. 액션 로우 생성 (기본적으로는 숨김)
-                action_row = ctk.CTkFrame(user_card, fg_color="transparent")
-                
-                # [세그먼트 버튼] 동일한 스타일 적용
-                seg_call = ctk.CTkSegmentedButton(
-                    action_row, values=["🔊 PTT", "📹 PTV", "🚨 E-PTT", "🚨 E-PTV"],
-                    height=32, font=("Pretendard", 11, "bold"),
-                    fg_color="#F1F5F9", selected_color="#2563EB", unselected_color="#E2E8F0", text_color="#64748B"
-                )
-                seg_call.pack(fill="x", padx=10, pady=(0, 5))
-                
-                seg_msg = ctk.CTkSegmentedButton(
-                    action_row, values=["📄 Text", "🖼️ Photo", "🎥 Video"],
-                    height=32, font=("Pretendard", 11, "bold"),
-                    fg_color="#F1F5F9", selected_color="#2563EB", unselected_color="#E2E8F0", text_color="#64748B"
-                )
-                seg_msg.pack(fill="x", padx=10, pady=(0, 10))
-                
-                # 4. 레지스트리에 저장 (나중에 토글할 때 필요)
-                self.user_ui_registry[u_name] = {
-                    "checkbox_var": chk_var,
-                    "action_row": action_row
-                }
+            # [세그먼트 버튼] 동일한 스타일 적용
+            seg_call = ctk.CTkSegmentedButton(
+                action_row,
+                values=["🔊 PTT", "📹 PTV", "🚨 E-PTT", "🚨 E-PTV"],
+                height=32,
+                font=("Pretendard", 11, "bold"),
+                fg_color="#F1F5F9",
+                selected_color="#2563EB",
+                unselected_color="#E2E8F0",
+                text_color="#64748B",
+            )
+            seg_call.pack(fill="x", padx=10, pady=(0, 5))
 
-        except pymysql.Error as e:
-            print(f"❌ DB 연동 에러: {e}")
-        finally:
-            if 'conn' in locals() and conn.open:
-                conn.close()
+            seg_msg = ctk.CTkSegmentedButton(
+                action_row,
+                values=["📄 Text", "🖼️ Photo", "🎥 Video"],
+                height=32,
+                font=("Pretendard", 11, "bold"),
+                fg_color="#F1F5F9",
+                selected_color="#2563EB",
+                unselected_color="#E2E8F0",
+                text_color="#64748B",
+            )
+            seg_msg.pack(fill="x", padx=10, pady=(0, 10))
+
+            # 4. 레지스트리에 저장 (나중에 토글할 때 필요)
+            self.user_ui_registry[u_name] = {
+                "checkbox_var": chk_var,
+                "action_row": action_row,
+            }
 
     def update_user_action_frame(self):
         """
@@ -1561,7 +1723,7 @@ class App(ctk.CTk):
         for u_name, ui_data in self.user_ui_registry.items():
             var = ui_data["checkbox_var"]
             row = ui_data["action_row"]
-            
+
             if var.get() == "on":
                 # 체크됨: 액션 로우 보여주기
                 row.pack(fill="x", padx=0, pady=(0, 5))
@@ -1570,9 +1732,11 @@ class App(ctk.CTk):
                 row.pack_forget()
 
     def refresh_all_lists(self):
-        self.refresh_group_list()         # 기존에 있던 단말기 연동 그룹 갱신
+        self.refresh_group_list()  # 기존에 있던 단말기 연동 그룹 갱신
         self.refresh_user_list_from_db()
 
     def get_checked_users(self):
         """나중에 버튼(PTT 등) 눌렀을 때, 진짜로 선택된 유저 명단 가져오는 유틸 함수"""
-        return [u_id for u_id, var in self.user_checkbox_vars.items() if var.get() == "on"]
+        return [
+            u_id for u_id, var in self.user_checkbox_vars.items() if var.get() == "on"
+        ]

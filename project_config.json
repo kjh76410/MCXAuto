@@ -2,22 +2,31 @@
     "projects": [
         {
             "keyword": "PTA",
-            "project_name": "PTA",
-            "db_config": {
-                "host": "10.10.10.227",
-                "user": "nokia",
-                "password": "Nokia1234567890!",
-                "db": "mcptt_server"
-            }
+            "project_name": "PTA"
         },
         {
             "keyword": "CTB.R",
             "project_name": "CTB_POC",
-            "db_config": {
-                "host": "211.118.224.205",
-                "user": "cybertel",
-                "password": "Cybertel1234567890!",
-                "db": "mcptt_server"
+            "features": {
+                "group_call": {
+                "regroup": 1,
+                "prearranged": 1,
+                "chat": 1
+                },
+            "private_call": {
+                "normal": 1,
+                "without_floor_control": 1,
+                "mcvideo_push": 0,
+                "mcvideo_pull": 0,
+                "first_answer": 1
+                },
+            "message": {
+                "normal": 1,
+                "emergency": 1,
+                "pre_defined": 1,
+                "canned": 1,
+                "attachment": 1
+                }
             }
         },
         {
