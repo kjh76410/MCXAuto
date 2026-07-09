@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<mcptt-UE-configuration xmlns="urn:3gpp:mcptt:mcpttUEConfig:1.0" XUI-URI="sip:00600112302@ims.mnc001.mcc001.3gppnetwork.org" domain="ims.mnc001.mcc001.3gppnetwork.org">
+<mcptt-UE-configuration xmlns="urn:3gpp:mcptt:mcpttUEConfig:1.0" XUI-URI="sip:00600112301@ims.mnc001.mcc001.3gppnetwork.org" domain="ims.mnc001.mcc001.3gppnetwork.org">
     <name xml:lang="en">mcptt ue config</name>
     <common index="0">
         <private-call>

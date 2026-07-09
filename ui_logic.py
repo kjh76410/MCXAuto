@@ -1,5 +1,5 @@
 import customtkinter as ctk
-import tkinter as tk  # ✨ [추가됨] 순수 프레임을 쓰기 위해 가져옵니다!
+import tkinter as tk
 import adb_logic
 import os
 import ctypes
@@ -7,6 +7,10 @@ import sys
 import datetime
 import json
 import time
+import pymysql
+import re
+import subprocess
+import importlib
 from tkinter import filedialog
 from file_manager import FileManager
 
@@ -369,7 +373,7 @@ class App(ctk.CTk):
             fg_color=self.btn_bg_light,
             text_color=self.text_main,
             hover_color=self.btn_hover_light,
-            command=self.refresh_group_list,
+            command=self.refresh_all_lists,
         )
         self.btn_refresh.pack(side="right", padx=(2, 0))
 
@@ -570,6 +574,10 @@ class App(ctk.CTk):
         self.is_log_on = False
         self.is_pcap_on = False
 
+    def refresh_all_lists(self):
+        # 2. 버튼 눌렀을 때 실행되는 함수 내부에서는 이렇게 호출하세요!
+        self.config_handler.setup_environment()
+
     # ==========================================
     # 기능 동작 메서드들
     # ==========================================
@@ -595,7 +603,7 @@ class App(ctk.CTk):
                 self.current_uuid
             )
 
-            network_status = "LTE (SKT)"
+            network_status = adb_logic.get_network_status(self.current_uuid)
 
             # 2. UI 라벨 텍스트 업데이트
             # (🌟 이전에 쓰던 lbl_battery 같은 코드가 있으면 여기서 에러가 났을 겁니다)
@@ -607,16 +615,15 @@ class App(ctk.CTk):
             self.lbl_os_build.configure(text=f"OS 버전: {os_build}")
             self.lbl_version.configure(text=f"앱 버전: {version_name}")
 
-            self.lbl_network.configure(
-                text=f"📶 {network_status}", text_color=self.text_main
-            )
+            self.lbl_network.configure(text=f"📶 네트워크: {network_status}", text_color=self.text_main)
+
             self.lbl_project.configure(text=f"프로젝트: {project_name}")
 
             adb_logic.unlock_screen(self.current_uuid)
 
             # 3. 미러링 및 그룹 목록 새로고침 실행
             self.run_mirror()
-            self.refresh_group_list()
+            # self.refresh_group_list()
 
         else:
             # 단말기 연결이 끊겼을 때 UI 초기화
@@ -947,17 +954,38 @@ class App(ctk.CTk):
         btn_apply.pack(fill="x", padx=40, pady=(20, 20))
 
     def apply_settings(self, window):
-        proj_name = self.selected_project.get()
-        env = self.config_data[proj_name]  # 이 env 변수에 JSON 내용이 다 들어있습니다!
+        proj_name = self.selected_project.get() # 예: "PTA"
+        env = self.config_data[proj_name]
 
         if self.current_uuid:
             self.txt_log.insert("end", "[System] 자동화 실행 중...\n")
+            
+            try:
+                # 파이썬 문법에 맞게 이름 안전하게 변경 (숫자로 시작 방지)
+                if proj_name.lower() == "450connect":
+                    safe_proj_name = "connect450"
+                    class_name = "Connect450Handler"
+                else:
+                    safe_proj_name = proj_name.lower()
+                    class_name = f"{proj_name.upper()}Handler"
 
-            # 여기서 env(데이터 덩어리)를 그냥 통째로 넘겨버립니다.
-            adb_logic.automate_pta_login_u2(self.current_uuid, env)
-
-            self.txt_log.insert("end", "[System] 완료!\n")
-
+                # 1. 해당 프로젝트 파일 가져오기 (예: config_handlers.connect450_handler)
+                module_path = f"config_handlers.{safe_proj_name}_handler"
+                module = importlib.import_module(module_path)
+                
+                # 2. 클래스 가져오기
+                handler_class = getattr(module, class_name)
+                handler = handler_class()
+                
+                # 3. 실행
+                import uiautomator2 as u2
+                d = u2.connect(self.current_uuid)
+                handler.run(d, env)  # 👈 여기서 run 메서드 호출!
+                
+                self.txt_log.insert("end", "[System] 완료!\n")
+            except Exception as e:
+                print(f"❌ 설정 실패: {e}")
+                
         window.destroy()
 
     def open_wifi_setup(self):
@@ -1107,16 +1135,23 @@ class App(ctk.CTk):
                 self.current_uuid, log_path
             )
 
+            # [상태 변경] 로그 켜짐 -> "중지(OFF)" 버튼으로 변경 (빨간색 경고 느낌)
             self.btn_toggle_log.configure(
-                text="■ LOG OFF", fg_color="#FEE2E2", text_color=self.danger_color
+                text="■ LOG OFF",
+                fg_color=self.point_pink,     # 핑크색 배경
+                text_color="#FFFFFF"
             )
             self.is_log_on = True
+            
         else:
             adb_logic.stop_process(self.log_proc)
             self.log_file.close()  # 파일 닫기
 
+            # 로그 시작 버튼을 핑크 포인트로 강조하고 싶을 때
             self.btn_toggle_log.configure(
-                text="LOG ON", fg_color=self.btn_bg_secondary, text_color=self.text_main
+                text="▶ LOG ON", 
+                fg_color=self.btn_bg_light,     # 아까 정의하신 연한 회색 배경 (#F1F5F9)
+                text_color=self.point_pink
             )
             self.is_log_on = False
 
@@ -1136,8 +1171,9 @@ class App(ctk.CTk):
             if success:
                 self.btn_toggle_pcap.configure(
                     text="■ PCAPdroid OFF",
-                    fg_color="#FEE2E2",
-                    text_color=self.danger_color,
+                    fg_color=self.point_pink,     # 핑크색 배경
+                    text_color="#FFFFFF"
+                    
                 )
                 self.is_pcap_on = True
                 self.txt_pcap.insert("end", "[System] 📡 PCAPdroid 캡처 활성화 완료!\n")
@@ -1155,10 +1191,10 @@ class App(ctk.CTk):
             # 2. 캡처 중지
             adb_logic.stop_pcapdroid(self.current_uuid)
 
-            self.btn_toggle_pcap.configure(
-                text="PCAPdroid ON",
-                fg_color=self.btn_bg_secondary,
-                text_color=self.text_main,
+            self.btn_pcap.configure(
+                text="● PCAPdroid ON", 
+                fg_color=self.btn_bg_light,     # 아까 정의하신 연한 회색 배경 (#F1F5F9)
+                text_color=self.point_pink      # 아까 정의하신 포인트 핑크색 (#EC4899)
             )
             self.is_pcap_on = False
 
@@ -1228,10 +1264,59 @@ class App(ctk.CTk):
         print("데이터 지우기")
 
     def run_install_app(self):
-        print("앱 설치")
+        print("앱 설치 버튼 클릭됨")
+        
+        # 1. 파일 탐색기 열기 (APK 파일만 선택 가능하게 필터링)
+        file_path = filedialog.askopenfilename(
+            title="설치할 APK 파일을 선택하세요",
+            filetypes=[("APK files", "*.apk")]
+        )
+        
+        # 사용자가 취소를 눌렀을 경우 아무것도 하지 않음
+        if not file_path:
+            print("사용자가 설치를 취소했습니다.")
+            return
+        
+        print(f"📂 선택된 파일: {file_path}")
+        
+        # 2. ADB를 통해 APK 설치 실행
+        try:
+            # 비동기로 실행하면 설치 중 UI가 멈출 수 있으므로, 
+            # 설치 과정이 끝날 때까지 조금 기다리는 것이 좋습니다.
+            print("🚀 설치 진행 중...")
+            result = subprocess.run(["adb", "install", "-r", file_path], capture_output=True, text=True)
+            
+            # 3. 설치 결과 확인
+            if "Success" in result.stdout:
+                print("✅ 앱 설치 성공!")
+                # 필요하다면 여기서 라벨을 "앱 버전: 설치됨" 등으로 업데이트할 수 있습니다.
+            else:
+                print(f"❌ 설치 실패: {result.stderr}")
+                
+        except Exception as e:
+            print(f"🚨 설치 중 오류 발생: {e}")
 
     def run_uninstall_app(self):
-        print("앱 삭제")
+        package_name = "com.EveryTalk.Global"
+        print(f"🚀 앱 삭제 시도 중: {package_name}")
+        
+        try:
+            result = subprocess.run(["adb", "uninstall", package_name], capture_output=True, text=True)
+            
+            # 결과 확인
+            if "Success" in result.stdout:
+                print("✅ 앱 삭제 성공!")
+                # UI 라벨 텍스트 변경
+                if hasattr(self, 'lbl_version'):
+                    self.lbl_version.configure(text="앱 버전: 삭제됨")
+            else:
+                # 이미 삭제되었거나 패키지명을 찾을 수 없을 경우 등의 메시지 출력
+                print(f"⚠️ 결과: {result.stdout.strip()}")
+                if "Failure" in result.stdout:
+                     print("❌ 삭제 실패: 앱이 설치되어 있지 않거나 권한이 필요할 수 있습니다.")
+                
+        except Exception as e:
+            print(f"🚨 삭제 중 에러 발생: {e}")
 
     def send_group_message(self):
         if not self.current_uuid:
@@ -1320,3 +1405,174 @@ class App(ctk.CTk):
             # 2. 화면 전환: 그룹은 숨기고, 유저는 보여줌
             self.group_list_frame.pack_forget()
             self.user_list_frame.pack(expand=True, fill="both", padx=5, pady=5)
+
+    def detect_project_from_xml(self):
+        """
+        temp_xml 폴더 안의 파일들을 뒤져서 project_config.json에 등록된
+        키워드(PTA.R, CTB.R 등)가 있는지 자동으로 판별하고 project_name을 반환하는 함수
+        """
+        import os
+        import json
+        
+        config_file = 'project_config.json'
+        xml_dir = 'temp_xml'
+        
+        if not os.path.exists(config_file) or not os.path.exists(xml_dir):
+            return "알 수 없는 프로젝트"
+            
+        # 1. project_config.json 읽기
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config_data = json.load(f)
+            
+        # 2. temp_xml 폴더 안의 모든 파일 내용 검사
+        for root_dir, _, files in os.walk(xml_dir):
+            for file in files:
+                if file.endswith('.xml'):
+                    file_path = os.path.join(root_dir, file)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                            content = f.read()
+                            
+                            # JSON에 등록된 프로젝트 키워드가 파일 내용에 들어있는지 확인
+                            for proj in config_data.get("projects", []):
+                                if proj["keyword"] in content:
+                                    print(f"🎯 단말기 데이터에서 키워드 [{proj['keyword']}] 포착 -> 프로젝트: {proj['project_name']}")
+                                    return proj["project_name"] # 매칭되는 프로젝트명 즉시 반환!
+                    except Exception as e:
+                        print(f"파일 분석 중 오류 (무시함): {e}")
+                        
+        return config_data.get("default", "알 수 없는 프로젝트")
+
+    def get_db_config_by_project(self, current_project_name):
+        """
+        project_config.json을 읽어서 현재 프로젝트에 맞는 DB 정보를 가져오는 함수
+        """
+        config_file = 'project_config.json'
+        if not os.path.exists(config_file):
+            print("❌ project_config.json 파일이 없습니다.")
+            return None
+            
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config_data = json.load(f)
+            
+        for proj in config_data.get("projects", []):
+            if proj.get("project_name") == current_project_name:
+                return proj.get("db_config")
+                
+        print(f"❌ {current_project_name}에 해당하는 DB 설정이 JSON에 없습니다.")
+        return None
+
+    def refresh_user_list_from_db(self):
+        """
+        User List 갱신 및 체크박스 선택 시 액션 버튼 표시
+        """
+        current_project = self.detect_project_from_xml()
+        
+        if current_project == "알 수 없는 프로젝트":
+            print("❌ 단말기 데이터에서 프로젝트 키워드를 찾지 못해 DB 조회를 중단합니다.")
+            return
+            
+        db_config = self.get_db_config_by_project(current_project)
+        if not db_config:
+            return
+
+        # DB 조회 로직 (기존과 동일)
+        try:
+            conn = pymysql.connect(
+                host=db_config["host"],
+                user=db_config["user"],
+                password=db_config["password"],
+                database=db_config["db"],
+                charset='utf8mb4'
+            )
+            cursor = conn.cursor(pymysql.cursors.DictCursor)
+            query = "SELECT name, display_name, mcptt_id FROM user_profile;"
+            cursor.execute(query)
+            users = cursor.fetchall()
+
+            my_group_code = "006" 
+            filtered_users = [u for u in users if str(u.get('name', '')).startswith(my_group_code)]
+
+            # UI 초기화
+            for widget in self.user_list_frame.winfo_children():
+                widget.destroy()
+
+            self.user_checkbox_vars = {}
+            self.user_ui_registry = {}  # 액션 로우 관리를 위한 레지스트리 추가
+
+            for user in filtered_users:
+                u_name = user.get('name', '')
+                d_name = user.get('display_name', '이름 없음')
+                
+                # 1. 카드 생성
+                user_card = ctk.CTkFrame(self.user_list_frame, fg_color="#F1F5F9", corner_radius=6)
+                user_card.pack(fill="x", padx=5, pady=2)
+                
+                # 2. 체크박스 변수 및 체크박스 생성
+                chk_var = ctk.StringVar(value="off")
+                self.user_checkbox_vars[u_name] = chk_var
+                
+                chk = ctk.CTkCheckBox(
+                    user_card, 
+                    text=f"👤 {d_name} ({u_name})", 
+                    font=("Pretendard", 12, "bold"),
+                    text_color="#334155",
+                    variable=chk_var,
+                    onvalue="on",
+                    offvalue="off",
+                    command=self.update_user_action_frame # 체크박스 상태 변경 시 호출
+                )
+                chk.pack(anchor="w", padx=10, pady=8)
+                
+                # 3. 액션 로우 생성 (기본적으로는 숨김)
+                action_row = ctk.CTkFrame(user_card, fg_color="transparent")
+                
+                # [세그먼트 버튼] 동일한 스타일 적용
+                seg_call = ctk.CTkSegmentedButton(
+                    action_row, values=["🔊 PTT", "📹 PTV", "🚨 E-PTT", "🚨 E-PTV"],
+                    height=32, font=("Pretendard", 11, "bold"),
+                    fg_color="#F1F5F9", selected_color="#2563EB", unselected_color="#E2E8F0", text_color="#64748B"
+                )
+                seg_call.pack(fill="x", padx=10, pady=(0, 5))
+                
+                seg_msg = ctk.CTkSegmentedButton(
+                    action_row, values=["📄 Text", "🖼️ Photo", "🎥 Video"],
+                    height=32, font=("Pretendard", 11, "bold"),
+                    fg_color="#F1F5F9", selected_color="#2563EB", unselected_color="#E2E8F0", text_color="#64748B"
+                )
+                seg_msg.pack(fill="x", padx=10, pady=(0, 10))
+                
+                # 4. 레지스트리에 저장 (나중에 토글할 때 필요)
+                self.user_ui_registry[u_name] = {
+                    "checkbox_var": chk_var,
+                    "action_row": action_row
+                }
+
+        except pymysql.Error as e:
+            print(f"❌ DB 연동 에러: {e}")
+        finally:
+            if 'conn' in locals() and conn.open:
+                conn.close()
+
+    def update_user_action_frame(self):
+        """
+        체크박스 상태에 따라 액션 버튼 구역(action_row)의 표시 여부를 결정합니다.
+        """
+        for u_name, ui_data in self.user_ui_registry.items():
+            var = ui_data["checkbox_var"]
+            row = ui_data["action_row"]
+            
+            if var.get() == "on":
+                # 체크됨: 액션 로우 보여주기
+                row.pack(fill="x", padx=0, pady=(0, 5))
+            else:
+                # 체크 해제됨: 액션 로우 숨기기
+                row.pack_forget()
+
+    def refresh_all_lists(self):
+        self.refresh_group_list()         # 기존에 있던 단말기 연동 그룹 갱신
+        self.refresh_user_list_from_db()
+
+    def get_checked_users(self):
+        """나중에 버튼(PTT 등) 눌렀을 때, 진짜로 선택된 유저 명단 가져오는 유틸 함수"""
+        return [u_id for u_id, var in self.user_checkbox_vars.items() if var.get() == "on"]

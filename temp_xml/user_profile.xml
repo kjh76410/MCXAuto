@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<mcptt-user-profile etag="MTgxODUzMDg2Mzky"  xmlns="urn:3gpp:mcptt:user-profile:1.0" xmlns:cp="urn:ietf:params:xml:ns:common-policy" XUI-URI="sip:00600112302@ims.mnc001.mcc001.3gppnetwork.org" user-profile-index="1">
-    <Name xml:lang="en">00600112302</Name>
+<mcptt-user-profile etag="MTczNjU5NTY0OTQ0"  xmlns="urn:3gpp:mcptt:user-profile:1.0" xmlns:cp="urn:ietf:params:xml:ns:common-policy" XUI-URI="sip:00600112301@ims.mnc001.mcc001.3gppnetwork.org" user-profile-index="1">
+    <Name xml:lang="en">00600112301</Name>
     <Status>true</Status>
     <ProfileName xml:lang="en">user-profile.xml</ProfileName>
     <Pre-selected-indication/>
     <Common index="co-1">
         <UserAlias>
-            <alias-entry index="ua-1" xml:lang="en">00600112302</alias-entry>
+            <alias-entry index="ua-1" xml:lang="en">00600112301</alias-entry>
         </UserAlias>
         <MCPTTUserID>
-            <uri-entry>sip:00600112302@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            <display-name xml:lang="en">02_JH</display-name>
+            <uri-entry>sip:00600112301@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+            <display-name xml:lang="en">01_JH</display-name>
         </MCPTTUserID>
         <MCPTT-group-call>
             <MaxSimultaneousCallsN6>4</MaxSimultaneousCallsN6>
@@ -28,7 +28,7 @@
         <anyExt>
             <group-forced-type>0</group-forced-type>
             <pre-selected-emergency-type>5</pre-selected-emergency-type>
-            <user-configuration-password>33303132</user-configuration-password>
+            <user-configuration-password>30313633</user-configuration-password>
             <mcdata-max-storage-period>PT0S</mcdata-max-storage-period>
             <terminal-type>1</terminal-type>
         </anyExt>
@@ -233,6 +233,72 @@
                     <recording>false</recording>
                 </anyExt>
             </entry>
+            <entry index="sip:12301260220144110@ims.mnc001.mcc001.3gppnetwork.org">
+                <uri-entry>sip:12301260220144110@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+                <display-name xml:lang="en">fh</display-name>
+                <anyExt>
+                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
+                    <group-priority>5</group-priority>
+                    <user-priority>1</user-priority>
+                    <invite-members>true</invite-members>
+                    <recording>false</recording>
+                </anyExt>
+            </entry>
+            <entry index="sip:12301260220144143@ims.mnc001.mcc001.3gppnetwork.org">
+                <uri-entry>sip:12301260220144143@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+                <display-name xml:lang="en">yij</display-name>
+                <anyExt>
+                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
+                    <group-priority>5</group-priority>
+                    <user-priority>1</user-priority>
+                    <invite-members>true</invite-members>
+                    <recording>false</recording>
+                </anyExt>
+            </entry>
+            <entry index="sip:12301260220144246@ims.mnc001.mcc001.3gppnetwork.org">
+                <uri-entry>sip:12301260220144246@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+                <display-name xml:lang="en">00</display-name>
+                <anyExt>
+                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
+                    <group-priority>5</group-priority>
+                    <user-priority>1</user-priority>
+                    <invite-members>true</invite-members>
+                    <recording>false</recording>
+                </anyExt>
+            </entry>
+            <entry index="sip:12302260408170617@ims.mnc001.mcc001.3gppnetwork.org">
+                <uri-entry>sip:12302260408170617@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+                <display-name xml:lang="en">uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu</display-name>
+                <anyExt>
+                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
+                    <group-priority>5</group-priority>
+                    <user-priority>1</user-priority>
+                    <invite-members>true</invite-members>
+                    <recording>false</recording>
+                </anyExt>
+            </entry>
+            <entry index="sip:12322260408171315@ims.mnc001.mcc001.3gppnetwork.org">
+                <uri-entry>sip:12322260408171315@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+                <display-name xml:lang="en">88</display-name>
+                <anyExt>
+                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
+                    <group-priority>5</group-priority>
+                    <user-priority>1</user-priority>
+                    <invite-members>true</invite-members>
+                    <recording>false</recording>
+                </anyExt>
+            </entry>
+            <entry index="sip:12301260429173858@ims.mnc001.mcc001.3gppnetwork.org">
+                <uri-entry>sip:12301260429173858@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+                <display-name xml:lang="en">new 1111111111</display-name>
+                <anyExt>
+                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
+                    <group-priority>5</group-priority>
+                    <user-priority>1</user-priority>
+                    <invite-members>true</invite-members>
+                    <recording>false</recording>
+                </anyExt>
+            </entry>
             <entry index="sip:00600121319g@ims.mnc001.mcc001.3gppnetwork.org">
                 <uri-entry>sip:00600121319g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
                 <display-name xml:lang="en">JH_Chat 09</display-name>
@@ -343,6 +409,17 @@
                     <recording>false</recording>
                 </anyExt>
             </entry>
+            <entry index="sip:12305260612142843@ims.mnc001.mcc001.3gppnetwork.org">
+                <uri-entry>sip:12305260612142843@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+                <display-name xml:lang="en">hj</display-name>
+                <anyExt>
+                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
+                    <group-priority>5</group-priority>
+                    <user-priority>1</user-priority>
+                    <invite-members>true</invite-members>
+                    <recording>false</recording>
+                </anyExt>
+            </entry>
             <entry index="sip:12306260615163741@ims.mnc001.mcc001.3gppnetwork.org">
                 <uri-entry>sip:12306260615163741@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
                 <display-name xml:lang="en">chatting</display-name>
@@ -423,6 +500,24 @@
             <entry index="sip:12302260128173758@ims.mnc001.mcc001.3gppnetwork.org">
                 <uri-entry>sip:12302260128173758@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
             </entry>
+            <entry index="sip:12301260220144110@ims.mnc001.mcc001.3gppnetwork.org">
+                <uri-entry>sip:12301260220144110@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+            </entry>
+            <entry index="sip:12301260220144143@ims.mnc001.mcc001.3gppnetwork.org">
+                <uri-entry>sip:12301260220144143@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+            </entry>
+            <entry index="sip:12301260220144246@ims.mnc001.mcc001.3gppnetwork.org">
+                <uri-entry>sip:12301260220144246@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+            </entry>
+            <entry index="sip:12302260408170617@ims.mnc001.mcc001.3gppnetwork.org">
+                <uri-entry>sip:12302260408170617@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+            </entry>
+            <entry index="sip:12322260408171315@ims.mnc001.mcc001.3gppnetwork.org">
+                <uri-entry>sip:12322260408171315@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+            </entry>
+            <entry index="sip:12301260429173858@ims.mnc001.mcc001.3gppnetwork.org">
+                <uri-entry>sip:12301260429173858@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+            </entry>
             <entry index="sip:00600121319g@ims.mnc001.mcc001.3gppnetwork.org">
                 <uri-entry>sip:00600121319g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
             </entry>
@@ -453,6 +548,9 @@
             <entry index="sip:00600121328g@ims.mnc001.mcc001.3gppnetwork.org">
                 <uri-entry>sip:00600121328g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
             </entry>
+            <entry index="sip:12305260612142843@ims.mnc001.mcc001.3gppnetwork.org">
+                <uri-entry>sip:12305260612142843@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+            </entry>
             <entry index="sip:12306260615163741@ims.mnc001.mcc001.3gppnetwork.org">
                 <uri-entry>sip:12306260615163741@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
             </entry>
@@ -463,8 +561,12 @@
         <anyExt>
             <FunctionalAliasList>
                 <entry index="token">
-                    <uri-entry>sip:QWEER@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                    <display-name xml:lang="en">QWEER</display-name>
+                    <uri-entry>sip:AB001@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+                    <display-name xml:lang="en">AB001</display-name>
+                </entry>
+                <entry index="token">
+                    <uri-entry>sip:AB002@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
+                    <display-name xml:lang="en">AB002</display-name>
                 </entry>
             </FunctionalAliasList>
             <MCDataContentServerURI>https://211.118.224.205:2359/mcData/file/upload</MCDataContentServerURI>
@@ -474,7 +576,7 @@
         <cp:rule id="n2c1">
             <cp:conditions>
                 <identity>
-                    <one id="sip:00600112302@ims.mnc001.mcc001.3gppnetwork.org"/>
+                    <one id="sip:00600112301@ims.mnc001.mcc001.3gppnetwork.org"/>
                 </identity>
             </cp:conditions>
             <cp:actions>

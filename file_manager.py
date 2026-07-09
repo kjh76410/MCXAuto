@@ -158,6 +158,9 @@ class FileManager:
                     }
                 )
 
+                regroups = FileManager.get_regroup_list(xml_folder_path)
+                group_data.extend(regroups)
+
         except Exception as e:
             print(f"[FileManager] ⚠️ XML 파싱 에러: {e}")
 
@@ -214,3 +217,60 @@ class FileManager:
         except Exception as e:
             print(f"[FileManager] [{group_id}] 코덱 파일 파싱 에러: {e}")
             return "", ""
+        
+    
+    @staticmethod
+    def get_regroup_list(xml_folder_path):
+        """XML 폴더 내의 모든 파일을 탐색하여 ReGroup 정보를 무조건 추출합니다."""
+        regroup_data = []
+
+        if not xml_folder_path or not os.path.exists(xml_folder_path):
+            return regroup_data
+
+        try:
+            for filename in os.listdir(xml_folder_path):
+                if filename.endswith(".xml"):
+                    file_path = os.path.join(xml_folder_path, filename)
+                    try:
+                        tree = ET.parse(file_path)
+                        root = tree.getroot()
+
+                        # 💡 핵심: 네임스페이스(mcpttgi 등) 싹 다 무시하고, 문서 내의 모든 태그를 뒤집니다.
+                        for elem in root.iter():
+                            # 태그 이름에 'on-network-regrouped'가 포함되어 있는지 확인
+                            if 'on-network-regrouped' in elem.tag:
+                                
+                                # 속성(Attribute)에서 이름과 ID 추출
+                                name = elem.get("temporary-MCPTT-group-name", "Unknown ReGroup")
+                                raw_id = elem.get("temporary-MCPTT-group-ID", "")
+
+                                # sip:번호@주소 에서 번호만 추출
+                                call_id = "Unknown"
+                                if raw_id:
+                                    match = re.search(r"sip:([^@]+)@", raw_id)
+                                    if match:
+                                        call_id = match.group(1)
+
+                                # 코덱 정보 추출
+                                voice, video = FileManager.get_group_codecs(xml_folder_path, call_id)
+
+                                regroup_data.append(
+                                    {
+                                        "name": name,
+                                        "id": call_id,
+                                        "type": "ReGroup",
+                                        "voice_codec": voice,
+                                        "video_codec": video,
+                                    }
+                                )
+                                # 찾았으면 이 파일은 더 뒤질 필요 없이 종료하고 다음 파일로 넘어감
+                                break 
+                                
+                    except Exception as e:
+                        print(f"[FileManager] ⚠️ {filename} 파싱 무시: {e}")
+                        continue
+
+        except Exception as e:
+            print(f"[FileManager] ❌ ReGroup 탐색 중 에러: {e}")
+
+        return regroup_data
