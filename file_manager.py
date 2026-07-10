@@ -113,10 +113,23 @@ class FileManager:
 
                 uri_tag = user_id_tag.find("uri-entry")
                 call_id = "번호 없음"
+                
                 if uri_tag is not None and uri_tag.text:
-                    match = re.search(r"sip:(\d+)@", uri_tag.text)
-                    if match:
-                        call_id = match.group(1)
+                    uri_text = uri_tag.text.strip()
+                    
+                    # 💡 [핵심 수정] 그룹 리스트와 동일하게 sip와 tel 형식을 분리합니다!
+                    if uri_text.startswith("sip:"):
+                        match = re.search(r"sip:([^@]+)@", uri_text)
+                        if match:
+                            call_id = match.group(1)
+                    elif uri_text.startswith("tel:"):
+                        match = re.search(r"tel:\+?(.+)", uri_text)
+                        if match:
+                            call_id = match.group(1).strip()
+                    else:
+                        # 예외적인 포맷이 들어올 경우를 대비한 안전망
+                        call_id = uri_text
+
                 return f"{name} ({call_id})"
 
             return "내 정보 없음"
@@ -151,9 +164,21 @@ class FileManager:
                 uri_tag = entry.find("uri-entry")
                 call_id = "Unknown"
                 if uri_tag is not None and uri_tag.text:
-                    match = re.search(r"sip:([^@]+)@", uri_tag.text)
-                    if match:
-                        call_id = match.group(1)
+                    uri_text = uri_tag.text.strip()
+                    
+                    if uri_text.startswith("sip:"):
+                        # 해외 형식: sip:00600112301@mcptt... -> 00600112301 추출
+                        match = re.search(r"sip:([^@]+)@", uri_text)
+                        if match:
+                            call_id = match.group(1)
+                    elif uri_text.startswith("tel:"):
+                        # 💡 [핵심 수정] 국내 형식: tel:+82900110115 -> 82900110115 추출 (+까지 자름)
+                        match = re.search(r"tel:\+?(.+)", uri_text)
+                        if match:
+                            call_id = match.group(1).strip()
+                    else:
+                        # 혹시 모를 다른 형식이 들어올 경우 원본 텍스트 그대로 사용
+                        call_id = uri_text
 
                 priority_tag = entry.find(".//anyExt/group-priority")
                 priority = priority_tag.text if priority_tag is not None else "0"

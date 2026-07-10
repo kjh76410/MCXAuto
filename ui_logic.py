@@ -11,8 +11,11 @@ import pymysql
 import re
 import subprocess
 import importlib
+import time
+import threading
 from tkinter import filedialog
 from file_manager import FileManager
+from common_logger import start_device_logging
 
 
 def load_custom_font(font_filename):
@@ -29,7 +32,7 @@ def load_custom_font(font_filename):
         print(f"⚠️ 폰트 파일을 찾을 수 없습니다: {font_path}")
 
 
-load_custom_font("Pretendard-Regular.otf")
+load_custom_font("NotoSansKR-Regular.ttf")
 
 
 class App(ctk.CTk):
@@ -78,7 +81,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(
             self.left_panel,
             text="Device Setup",
-            font=("Pretendard", 16, "bold"),
+            font=("Noto Sans KR", 16, "bold"),
             text_color=self.text_main,
         ).pack(pady=(20, 5), padx=20, anchor="w")
 
@@ -86,7 +89,7 @@ class App(ctk.CTk):
         self.lbl_project = ctk.CTkLabel(
             self.left_panel,
             text="프로젝트: 대기 중",
-            font=("Pretendard", 14, "bold"),
+            font=("Noto Sans KR", 14, "bold"),
             text_color=self.text_main,
         )
         self.lbl_project.pack(padx=20, anchor="w")
@@ -94,7 +97,7 @@ class App(ctk.CTk):
         self.label = ctk.CTkLabel(
             self.left_panel,
             text="단말을 연결해주세요.",
-            font=("Pretendard", 12),
+            font=("Noto Sans KR", 12),
             text_color=self.text_sub,
         )
         self.label.pack(pady=(5, 15), padx=20, anchor="w")
@@ -102,7 +105,7 @@ class App(ctk.CTk):
         self.btn_connect = ctk.CTkButton(
             self.left_panel,
             text="🟢 기기 연결 및 미러링",
-            font=("Pretendard", 13, "bold"),
+            font=("Noto Sans KR", 13, "bold"),
             fg_color=self.point_green,
             hover_color="#059669",
             height=42,
@@ -121,7 +124,7 @@ class App(ctk.CTk):
         self.lbl_model = ctk.CTkLabel(
             self.info_frame,
             text="모델: -",
-            font=("Pretendard", 12),
+            font=("Noto Sans KR", 12),
             text_color=self.text_main,
         )
         self.lbl_model.pack(pady=(10, 2), padx=10, anchor="w")
@@ -129,7 +132,7 @@ class App(ctk.CTk):
         self.lbl_hw_version = ctk.CTkLabel(
             self.info_frame,
             text="HW 버전: -",
-            font=("Pretendard", 12),
+            font=("Noto Sans KR", 12),
             text_color=self.text_main,
         )
         self.lbl_hw_version.pack(pady=2, padx=10, anchor="w")
@@ -137,7 +140,7 @@ class App(ctk.CTk):
         self.lbl_android_ver = ctk.CTkLabel(
             self.info_frame,
             text="Android 버전: -",
-            font=("Pretendard", 12),
+            font=("Noto Sans KR", 12),
             text_color=self.text_main,
         )
         self.lbl_android_ver.pack(pady=2, padx=10, anchor="w")
@@ -145,7 +148,7 @@ class App(ctk.CTk):
         self.lbl_os_build = ctk.CTkLabel(
             self.info_frame,
             text="OS 버전: -",
-            font=("Pretendard", 12),
+            font=("Noto Sans KR", 12),
             text_color=self.text_main,
         )
         self.lbl_os_build.pack(pady=2, padx=10, anchor="w")
@@ -153,7 +156,7 @@ class App(ctk.CTk):
         self.lbl_version = ctk.CTkLabel(
             self.info_frame,
             text="앱 버전: -",
-            font=("Pretendard", 12),
+            font=("Noto Sans KR", 12),
             text_color=self.text_main,
         )
         self.lbl_version.pack(pady=2, padx=10, anchor="w")
@@ -161,7 +164,7 @@ class App(ctk.CTk):
         self.lbl_network = ctk.CTkLabel(
             self.info_frame,
             text="📶 네트워크: -",
-            font=("Pretendard", 12),
+            font=("Noto Sans KR", 12),
             text_color=self.text_main,
         )
         self.lbl_network.pack(pady=(2, 10), padx=10, anchor="w")
@@ -174,7 +177,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(
             self.left_panel,
             text="Configuration",
-            font=("Pretendard", 14, "bold"),
+            font=("Noto Sans KR", 14, "bold"),
             text_color=self.text_main,
         ).pack(pady=(15, 10), padx=20, anchor="w")
 
@@ -183,7 +186,7 @@ class App(ctk.CTk):
         self.btn_env = ctk.CTkButton(
             row_config,
             text="⚙️ 환경 설정",
-            font=("Pretendard", 12),
+            font=("Noto Sans KR", 12),
             fg_color=self.btn_bg_light,
             text_color=self.point_blue,
             hover_color=self.btn_hover_light,
@@ -195,7 +198,7 @@ class App(ctk.CTk):
         self.btn_wifi = ctk.CTkButton(
             row_config,
             text="📶 WiFi 설정",
-            font=("Pretendard", 12),
+            font=("Noto Sans KR", 12),
             fg_color=self.btn_bg_light,
             text_color=self.point_blue,
             hover_color=self.btn_hover_light,
@@ -209,14 +212,14 @@ class App(ctk.CTk):
         ctk.CTkLabel(
             self.left_panel,
             text="App Management",
-            font=("Pretendard", 14, "bold"),
+            font=("Noto Sans KR", 14, "bold"),
             text_color=self.text_main,
         ).pack(pady=(25, 10), padx=20, anchor="w")
 
         self.btn_install = ctk.CTkButton(
             self.left_panel,
             text="📦 앱 설치 (.apk)",
-            font=("Pretendard", 12),
+            font=("Noto Sans KR", 12),
             fg_color="transparent",
             border_width=1,
             border_color=self.border_color,
@@ -232,7 +235,7 @@ class App(ctk.CTk):
         self.btn_clear_data = ctk.CTkButton(
             row_app,
             text="🧹 데이터 삭제",
-            font=("Pretendard", 12),
+            font=("Noto Sans KR", 12),
             fg_color="transparent",
             border_width=1,
             border_color=self.border_color,
@@ -245,7 +248,7 @@ class App(ctk.CTk):
         self.btn_uninstall = ctk.CTkButton(
             row_app,
             text="🗑️ 앱 삭제",
-            font=("Pretendard", 12),
+            font=("Noto Sans KR", 12),
             fg_color="transparent",
             border_width=1,
             border_color=self.danger_color,
@@ -275,7 +278,7 @@ class App(ctk.CTk):
         self.btn_run_scenario = ctk.CTkButton(
             self.mid_top,
             text="▶ 전체 시나리오 실행",
-            font=("Pretendard", 13, "bold"),
+            font=("Noto Sans KR", 13, "bold"),
             fg_color=self.point_blue,
             hover_color="#2563EB",
             text_color="#FFFFFF",
@@ -288,7 +291,7 @@ class App(ctk.CTk):
         self.btn_stop_scenario = ctk.CTkButton(
             self.mid_top,
             text="⏹ 중지",
-            font=("Pretendard", 13, "bold"),
+            font=("Noto Sans KR", 13, "bold"),
             fg_color="transparent",
             border_width=1,
             border_color=self.danger_color,
@@ -303,7 +306,7 @@ class App(ctk.CTk):
         self.btn_unit_test = ctk.CTkButton(
             self.mid_top,
             text="🛠️ 단위 테스트",
-            font=("Pretendard", 13, "bold"),
+            font=("Noto Sans KR", 13, "bold"),
             fg_color=self.btn_bg_light,
             text_color=self.text_main,
             hover_color=self.btn_hover_light,
@@ -333,7 +336,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(
             self.feature_tag_frame,
             text="단말기를 연결하면 이곳에 프로젝트 지원 기능이 표시됩니다.",
-            font=("Pretendard", 12),
+            font=("Noto Sans KR", 12),
             text_color=self.text_sub,
         ).pack(pady=2)
         # ==========================================
@@ -422,20 +425,20 @@ class App(ctk.CTk):
         self.btn_group_call = ctk.CTkButton(
             btn_action_frame,
             text="📞 통화",
-            font=("Pretendard", 13, "bold"),
+            font=("Noto Sans KR", 13, "bold"),
             fg_color=self.point_green,
             hover_color="#059669",
             text_color="#FFFFFF",
             height=36,
             corner_radius=self.radius,
-            command=self.make_group_call,
+            command=self.on_main_call_button_clicked,
         )
         self.btn_group_call.pack(side="left", expand=True, fill="x", padx=(0, 4))
 
         self.btn_group_msg = ctk.CTkButton(
             btn_action_frame,
             text="💬 메시지",
-            font=("Pretendard", 13, "bold"),
+            font=("Noto Sans KR", 13, "bold"),
             fg_color=self.point_blue,
             hover_color="#2563EB",
             text_color="#FFFFFF",
@@ -448,7 +451,7 @@ class App(ctk.CTk):
         self.my_id_label = ctk.CTkLabel(
             self.action_container,
             text="내 정보: 연결 대기",
-            font=("Pretendard", 12, "bold"),
+            font=("Noto Sans KR", 12, "bold"),
             text_color=self.point_blue,
         )
         self.my_id_label.pack(fill="x", padx=10, pady=(0, 5))
@@ -470,13 +473,13 @@ class App(ctk.CTk):
         ctk.CTkLabel(
             mirror_top,
             text="📱 Device Preview",
-            font=("Pretendard", 13, "bold"),
+            font=("Noto Sans KR", 13, "bold"),
             text_color=self.text_main,
         ).pack(side="left", padx=5)
         ctk.CTkButton(
             mirror_top,
             text="📸 캡쳐",
-            font=("Pretendard", 11),
+            font=("Noto Sans KR", 11),
             fg_color=self.btn_bg_light,
             text_color=self.text_main,
             hover_color=self.btn_hover_light,
@@ -492,7 +495,7 @@ class App(ctk.CTk):
         self.lbl_placeholder = ctk.CTkLabel(
             self.mirror_container,
             text="미러링 대기 중...",
-            font=("Pretendard", 14),
+            font=("Noto Sans KR", 14),
             text_color="#94A3B8",
         )
         self.lbl_placeholder.place(relx=0.5, rely=0.5, anchor="center")
@@ -518,7 +521,7 @@ class App(ctk.CTk):
         self.btn_toggle_pcap = ctk.CTkButton(
             self.monitor_ctrl,
             text="🔴 PCAPdroid ON",
-            font=("Pretendard", 12, "bold"),
+            font=("Noto Sans KR", 12, "bold"),
             fg_color=self.btn_bg_light,
             text_color=self.point_pink,
             hover_color="#FCE7F3",
@@ -531,7 +534,7 @@ class App(ctk.CTk):
         self.btn_toggle_log = ctk.CTkButton(
             self.monitor_ctrl,
             text="📝 Logcat ON",
-            font=("Pretendard", 12, "bold"),
+            font=("Noto Sans KR", 12, "bold"),
             fg_color=self.btn_bg_light,
             text_color=self.text_main,
             hover_color=self.btn_hover_light,
@@ -558,7 +561,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(
             self.tab_view.tab("SIP Flow"),
             text="SIP Flow Visualization\n(향후 Call 진행 시 이곳에 패킷 흐름 표시)",
-            font=("Pretendard", 12),
+            font=("Noto Sans KR", 12),
             text_color=self.text_sub,
         ).pack(expand=True)
         # TODO: 추후 여기에 트리뷰(Treeview)나 캔버스를 넣어 화살표 흐름을 그릴 수 있습니다.
@@ -675,7 +678,7 @@ class App(ctk.CTk):
             ctk.CTkLabel(
                 self.feature_tag_frame,
                 text="단말기를 연결하면 이곳에 프로젝트 지원 기능이 표시됩니다.",
-                font=("Pretendard", 12),
+                font=("Noto Sans KR", 12),
                 text_color=self.text_sub,
             ).pack(pady=2)
 
@@ -688,6 +691,7 @@ class App(ctk.CTk):
         # 2. JSON에서 지원 기능 가져오기
         features = FileManager.get_project_features(project_name)
         if not features:
+            self.has_private_call = False  # 기능 정보가 없으면 기본 차단
             return
 
         group_map = {"regroup": "ReGroup", "prearranged": "PreArranged", "chat": "Chat"}
@@ -706,6 +710,26 @@ class App(ctk.CTk):
             "attachment": "첨부파일",
         }
 
+        # ==========================================
+        # 💡 [핵심 차단 로직 1] Private Call 지원 여부 판별 및 UI 제어
+        # ==========================================
+        private_call_data = features.get("private_call", {})
+        
+        # private_call 안에 1(활성화)인 값이 하나라도 있는지 검사
+        self.has_private_call = any(val == 1 for val in private_call_data.values())
+
+        if self.has_private_call:
+            # 🟢 지원하는 경우: User List 버튼 활성화
+            self.btn_tab_user.configure(state="normal", text_color="#475569")
+        else:
+            # 🔴 지원하지 않는 경우: User List 버튼 비활성화 (클릭 불가)
+            self.btn_tab_user.configure(state="disabled", text_color="#CBD5E1")
+            
+            # 유저 탭을 보고 있던 중에 프로젝트가 바뀌었다면 강제로 그룹 탭으로 이동
+            if getattr(self, "current_mode", "group") == "user":
+                self.switch_tab("group")
+        # ==========================================
+
         # 🎨 카테고리별로 줄(Row)을 생성하는 함수
         def create_tag_row(title, icon, category_data, name_map, bg_color, txt_color):
             active_features = [
@@ -716,17 +740,15 @@ class App(ctk.CTk):
             if not active_features:
                 return
 
-            # 💡 [핵심 수정] side="left"를 빼고 fill="x"로 주어 카테고리마다 한 줄씩 차지하게 합니다.
             row_frame = ctk.CTkFrame(self.feature_tag_frame, fg_color="transparent")
             row_frame.pack(fill="x", pady=3)  # 줄 사이의 간격
 
-            # 카테고리 타이틀 (예: 👥 Group:) - 타이틀 너비를 정렬하고 싶다면 width 옵션을 추가해도 좋습니다.
             ctk.CTkLabel(
                 row_frame,
                 text=f"{icon} {title}:",
-                font=("Pretendard", 12, "bold"),
+                font=("Noto Sans KR", 12, "bold"),
                 text_color=self.text_sub,
-                width=80,  # 💡 정렬을 위해 타이틀 라벨 가로 길이를 고정
+                width=80,  # 정렬을 위해 타이틀 라벨 가로 길이를 고정
                 anchor="w",  # 왼쪽 정렬
             ).pack(side="left", padx=(0, 5))
 
@@ -735,39 +757,18 @@ class App(ctk.CTk):
                 ctk.CTkLabel(
                     row_frame,
                     text=f_name,
-                    font=("Pretendard", 11, "bold"),
-                    fg_color=bg_color,  # 연한 파스텔 배경
-                    text_color=txt_color,  # 진한 포인트 글씨
+                    font=("Noto Sans KR", 11, "bold"),
+                    fg_color=bg_color,  
+                    text_color=txt_color,  
                     corner_radius=6,
                     padx=8,
                     pady=2,
                 ).pack(side="left", padx=3)
 
         # 4. 각 카테고리를 독립된 줄로 생성 (최대 3줄)
-        create_tag_row(
-            "Group",
-            "👥",
-            features.get("group_call", {}),
-            group_map,
-            bg_color="#DBEAFE",
-            txt_color="#1E40AF",
-        )
-        create_tag_row(
-            "Private",
-            "👤",
-            features.get("private_call", {}),
-            private_map,
-            bg_color="#D1FAE5",
-            txt_color="#065F46",
-        )
-        create_tag_row(
-            "Message",
-            "✉️",
-            features.get("message", {}),
-            msg_map,
-            bg_color="#FFEDD5",
-            txt_color="#9A3412",
-        )
+        create_tag_row("Group", "👥", features.get("group_call", {}), group_map, bg_color="#DBEAFE", txt_color="#1E40AF")
+        create_tag_row("Private", "👤", private_call_data, private_map, bg_color="#D1FAE5", txt_color="#065F46")
+        create_tag_row("Message", "✉️", features.get("message", {}), msg_map, bg_color="#FFEDD5", txt_color="#9A3412")
 
     def refresh_group_list(self):
         if not self.current_uuid:
@@ -800,7 +801,7 @@ class App(ctk.CTk):
             ctk.CTkLabel(
                 self.group_list_frame,
                 text=title,
-                font=("Pretendard", 12, "bold"),
+                font=("Noto Sans KR", 12, "bold"),
                 text_color=self.text_sub,
             ).pack(anchor="w", padx=5, pady=(15, 5))
 
@@ -837,7 +838,7 @@ class App(ctk.CTk):
                     border_width=1,
                     border_color="#94A3B8",
                     fg_color=self.point_blue,
-                    font=("Pretendard", 13, "bold"),
+                    font=("Noto Sans KR", 13, "bold"),
                     text_color=self.text_main,
                     command=self.update_group_visibility,
                 )
@@ -848,7 +849,7 @@ class App(ctk.CTk):
                     lbl_codec = ctk.CTkLabel(
                         card,
                         text=codec_str,
-                        font=("Pretendard", 10),
+                        font=("Noto Sans KR", 10),
                         text_color="#64748B",
                     )
                     lbl_codec.pack(anchor="w", padx=(36, 10), pady=(0, 10))
@@ -860,7 +861,7 @@ class App(ctk.CTk):
                     action_row,
                     values=["🔊 PTT", "📹 PTV", "🚨 E-PTT", "🚨 E-PTV"],
                     height=32,
-                    font=("Pretendard", 11, "bold"),
+                    font=("Noto Sans KR", 11, "bold"),
                     fg_color="#F8FAFC",
                     selected_color="#2563EB",
                     selected_hover_color="#2563EB",
@@ -873,7 +874,7 @@ class App(ctk.CTk):
                     action_row,
                     values=["📄 Text", "🖼️ Photo", "🎥 Video"],
                     height=32,
-                    font=("Pretendard", 11, "bold"),
+                    font=("Noto Sans KR", 11, "bold"),
                     fg_color="#F8FAFC",
                     selected_color="#2563EB",
                     selected_hover_color="#2563EB",
@@ -944,44 +945,7 @@ class App(ctk.CTk):
                 else:
                     card.seg_msg.pack(side="left", expand=True, fill="x", padx=(0, 10))
 
-    def make_group_call(self):
-        if not self.current_uuid:
-            return
-
-        selected_groups = []
-
-        # 1. 딕셔너리를 돌면서 'on'으로 체크된 그룹만 골라냅니다.
-        for g_id, data in self.group_check_vars.items():
-            if data["check_var"].get() == "on":
-
-                # 사용자가 버튼을 선택했는지 확인 (선택 안 했으면 "" 빈칸임)
-                call_type = data["call_var"].get()
-                if not call_type:
-                    print(f"⚠️ [{data['name']}] 통화 방식을 선택하지 않았습니다!")
-                    continue  # 선택 안 된 그룹은 제외하고 다음으로 넘어감
-
-                selected_groups.append(
-                    {
-                        "name": data["name"],
-                        "id": g_id,
-                        "call_type": call_type,
-                    }
-                )
-
-        # 2. 아무것도 선택 안 하고 버튼을 눌렀을 때의 방어 로직
-        if not selected_groups:
-            print("⚠️ 통화할 그룹을 먼저 선택해 주세요!")
-            return
-
-        # 3. 결과 출력 (추후 adb_logic과 연결할 부분)
-        print("=" * 40)
-        print("📞 다음 그룹으로 통화 연결을 시도합니다:")
-        for g in selected_groups:
-            print(f" - {g['name']} (ID: {g['id']})")
-        print("=" * 40)
-
-        # TODO: adb_logic.make_call(self.current_uuid, selected_groups) 호출
-
+    
     def on_call_button(self):
         self.current_mode = "call"
         self.update_group_visibility()
@@ -989,6 +953,99 @@ class App(ctk.CTk):
     def on_msg_button(self):
         self.current_mode = "msg"
         self.update_group_visibility()  # 화면 아이콘 먼저 갱신
+
+    def on_main_call_button_clicked(self):
+
+        
+
+        if not self.current_uuid:
+            self.txt_log.insert("end", "⚠️ 단말기가 연결되지 않았습니다!\n")
+            return
+
+        selected_targets = []
+        
+        # 1. 딕셔너리를 돌면서 체크된 그룹과 선택된 통화 모드를 수집합니다.
+        for group_id, data in self.group_check_vars.items():
+            if data["check_var"].get() == "on": # 체크박스가 켜져 있다면!
+                
+                # seg_call에서 현재 눌려있는 값을 가져옵니다 (예: "🔊 PTT" 또는 "📹 PTV")
+                raw_mode = data["call_var"].get() 
+                
+                if not raw_mode:
+                    self.txt_log.insert("end", f"⚠️ '{data['name']}' 그룹의 통화 방식(PTT/PTV)이 선택되지 않아 제외됩니다.\n")
+                    self.txt_log.see("end")
+                    continue
+                
+                # 💡 "🔊 PTT" 같은 문자열에서 아이콘을 떼고 "PTT" 글자만 깔끔하게 추출합니다.
+                # (빈칸 기준으로 쪼개서 맨 마지막 글자 가져오기)
+                clean_mode = raw_mode.split(" ")[-1] 
+                
+                # 발신 리스트에 딕셔너리 형태로 추가
+                selected_targets.append({
+                    "id": group_id,         # 82900110119
+                    "name": data["name"],   # CT APP 테스트 6_SRTP
+                    "mode": clean_mode      # PTT, PTV, E-PTT 등
+                })
+
+        # 2. 발신할 대상이 없으면 종료
+        if not selected_targets:
+            self.txt_log.insert("end", "⚠️ 발신을 진행할 그룹이 없습니다. 체크박스와 통화 방식을 확인해주세요.\n")
+            self.txt_log.see("end")
+            return
+
+        proj_name = self.project_name
+
+        # 3. UI가 멈추지 않도록 백그라운드 쓰레드에서 순차 발신 실행!
+        threading.Thread(target=self._process_sequential_calls, args=(proj_name, selected_targets), daemon=True).start()
+
+    # ==========================================
+    # 💡 백그라운드에서 순차 발신을 수행하는 쓰레드 함수
+    # ==========================================
+    def _process_sequential_calls(self, proj_name, selected_targets):
+        self.txt_log.insert("end", f"\n[System] 총 {len(selected_targets)}개 그룹에 순차 발신을 시작합니다...\n")
+        self.txt_log.see("end")
+
+        try:
+            import uiautomator2 as u2
+            d = u2.connect(self.current_uuid)
+
+            # 통역사 로직 (어떤 단말기 핸들러를 부를지 결정)
+            if proj_name == "재난망":
+                module_name = "config_handlers.ps_lte_handler"
+                class_name = "PsLteHandler"
+            elif proj_name == "재난망_LM75":
+                module_name = "config_handlers.ps_lte_lm75_handler"
+                class_name = "PsLteLm75Handler"
+            else:
+                self.txt_log.insert("end", f"⚠️ '{proj_name}'에 대한 발신 기능이 아직 없습니다.\n")
+                return
+
+            module = importlib.import_module(module_name)
+            handler_class = getattr(module, class_name)
+            handler_instance = handler_class()
+
+            # 💡 핵심! 수집한 리스트를 하나씩 꺼내면서 전화를 겁니다.
+            for idx, target in enumerate(selected_targets, 1):
+                t_id = target["id"]
+                t_name = target["name"]
+                t_mode = target["mode"]
+                
+                self.txt_log.insert("end", f"\n▶️ [{idx}/{len(selected_targets)}] '{t_name}' ({t_mode}) 발신 진행 중...\n")
+                self.txt_log.see("end")
+                
+                # 🚀 아까 우리가 짰던 완벽한 핸들러 호출! (call_mode 전달)
+                handler_instance.make_call(d, target_info=t_id, call_mode=t_mode, log_console=self.txt_log)
+                
+                # 다음 통화를 걸기 전에 단말기와 네트워크가 안정화될 시간 3초 대기
+                time.sleep(3) 
+
+            self.txt_log.insert("end", "\n✅ 모든 순차 발신 테스트가 완료되었습니다!\n")
+            self.txt_log.see("end")
+
+        except Exception as e:
+            self.txt_log.insert("end", f"❌ 발신 프로세스 중 오류 발생: {e}\n")
+            self.txt_log.see("end")
+    
 
     def on_group_selected(self, group_dict):
         # group_dict는 이제 {'name': '...', 'id': '...', 'type': '...'} 입니다.
@@ -1060,7 +1117,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(
             window,
             text="적용할 프로젝트를 선택하세요",
-            font=("Pretendard", 14, "bold"),
+            font=("Noto Sans KR", 14, "bold"),
             text_color=self.text_main,
         ).pack(pady=(30, 15))
 
@@ -1070,12 +1127,12 @@ class App(ctk.CTk):
             window,
             variable=self.selected_project,
             values=project_list,
-            font=("Pretendard", 13),
+            font=("Noto Sans KR", 13),
             fg_color=self.btn_bg_light,
             text_color=self.text_main,
             button_color=self.point_blue,
             button_hover_color="#2563EB",
-            dropdown_font=("Pretendard", 12),
+            dropdown_font=("Noto Sans KR", 12),
             height=36,
             corner_radius=self.radius,
         )
@@ -1085,7 +1142,7 @@ class App(ctk.CTk):
         btn_apply = ctk.CTkButton(
             window,
             text="✅ 설정 적용",
-            font=("Pretendard", 13, "bold"),
+            font=("Noto Sans KR", 13, "bold"),
             fg_color=self.point_green,
             hover_color="#059669",
             text_color="#FFFFFF",
@@ -1096,38 +1153,55 @@ class App(ctk.CTk):
         btn_apply.pack(fill="x", padx=40, pady=(20, 20))
 
     def apply_settings(self, window):
-        proj_name = self.selected_project.get()  # 예: "PTA"
+        proj_name = self.selected_project.get()  # 예: "재난망"
         env = self.config_data[proj_name]
 
         if self.current_uuid:
             self.txt_log.insert("end", "[System] 자동화 실행 중...\n")
 
             try:
-                # 파이썬 문법에 맞게 이름 안전하게 변경 (숫자로 시작 방지)
-                if proj_name.lower() == "450connect":
+                # ==========================================
+                # 💡 [핵심 추가] UI 이름 -> 파이썬 친화적인 영문 이름으로 변환 (통역사 역할)
+                # ==========================================
+                if proj_name == "재난망":
+                    safe_proj_name = "ps_lte"
+                    class_name = "PsLteHandler"
+                elif proj_name == "재난망_LM75":
+                    safe_proj_name = "ps_lte_lm75"
+                    class_name = "PsLteLm75Handler"
+                elif proj_name.lower() == "450connect":
                     safe_proj_name = "connect450"
                     class_name = "Connect450Handler"
                 else:
+                    # 나머지 일반 프로젝트들은 기존 규칙 적용
                     safe_proj_name = proj_name.lower()
                     class_name = f"{proj_name.upper()}Handler"
+                # ==========================================
 
-                # 1. 해당 프로젝트 파일 가져오기 (예: config_handlers.connect450_handler)
+                # 1. 해당 프로젝트 파일 가져오기 (예: config_handlers.ps_lte_handler)
                 module_path = f"config_handlers.{safe_proj_name}_handler"
+                
+                import importlib
                 module = importlib.import_module(module_path)
 
-                # 2. 클래스 가져오기
+                # 2. 클래스 가져오기 (예: PsLteHandler)
                 handler_class = getattr(module, class_name)
                 handler = handler_class()
 
                 # 3. 실행
                 import uiautomator2 as u2
-
                 d = u2.connect(self.current_uuid)
-                handler.run(d, env)  # 👈 여기서 run 메서드 호출!
+                handler.run(d, env)
+
+                from common_logger import start_device_logging
+                start_device_logging(d, self.txt_log) # 여기서 self.txt_log를 넘겨주는 게 정답!
+                # ==========================================
 
                 self.txt_log.insert("end", "[System] 완료!\n")
+                
             except Exception as e:
                 print(f"❌ 설정 실패: {e}")
+                self.txt_log.insert("end", f"[Error] 설정 실패: {e}\n")
 
         window.destroy()
 
@@ -1162,7 +1236,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(
             window,
             text="접속할 WiFi를 선택하세요",
-            font=("Pretendard", 14, "bold"),
+            font=("Noto Sans KR", 14, "bold"),
             text_color=self.text_main,
         ).pack(pady=(30, 15))
 
@@ -1172,12 +1246,12 @@ class App(ctk.CTk):
             window,
             variable=self.selected_wifi,
             values=wifi_list,
-            font=("Pretendard", 13),
+            font=("Noto Sans KR", 13),
             fg_color=self.btn_bg_light,
             text_color=self.text_main,
             button_color=self.point_blue,
             button_hover_color="#2563EB",
-            dropdown_font=("Pretendard", 12),
+            dropdown_font=("Noto Sans KR", 12),
             height=36,
             corner_radius=self.radius,
         )
@@ -1187,7 +1261,7 @@ class App(ctk.CTk):
         btn_connect = ctk.CTkButton(
             window,
             text="✅ WiFi 연결",
-            font=("Pretendard", 13, "bold"),
+            font=("Noto Sans KR", 13, "bold"),
             fg_color=self.point_green,
             hover_color="#059669",
             text_color="#FFFFFF",
@@ -1515,7 +1589,7 @@ class App(ctk.CTk):
             ctk.CTkLabel(
                 scroll_frame,
                 text=category,
-                font=("Pretendard", 13, "bold"),
+                font=("Noto Sans KR", 13, "bold"),
                 text_color=self.point_blue,
             ).pack(fill="x", pady=(15, 5), anchor="w")
 
@@ -1523,7 +1597,7 @@ class App(ctk.CTk):
                 btn = ctk.CTkButton(
                     scroll_frame,
                     text=f"  {item}",
-                    font=("Pretendard", 12),
+                    font=("Noto Sans KR", 12),
                     fg_color=self.btn_bg_light,
                     text_color=self.text_main,
                     hover_color=self.btn_hover_light,
@@ -1596,26 +1670,26 @@ class App(ctk.CTk):
 
         return config_data.get("default", "알 수 없는 프로젝트")
 
-    def get_db_config_by_project(self, current_project_name):
-        """
-        project_config.json을 읽어서 현재 프로젝트에 맞는 DB 정보를 가져오는 함수
-        """
-        config_file = "project_config.json"
-        if not os.path.exists(config_file):
-            print("❌ project_config.json 파일이 없습니다.")
-            return None
+    # def get_db_config_by_project(self, current_project_name):
+    #     """
+    #     project_config.json을 읽어서 현재 프로젝트에 맞는 DB 정보를 가져오는 함수
+    #     """
+    #     config_file = "project_config.json"
+    #     if not os.path.exists(config_file):
+    #         print("❌ project_config.json 파일이 없습니다.")
+    #         return None
 
-        with open(config_file, "r", encoding="utf-8") as f:
-            config_data = json.load(f)
+    #     with open(config_file, "r", encoding="utf-8") as f:
+    #         config_data = json.load(f)
 
-        for proj in config_data.get("projects", []):
-            if proj.get("project_name") == current_project_name:
-                return proj.get("db_config")
+    #     for proj in config_data.get("projects", []):
+    #         if proj.get("project_name") == current_project_name:
+    #             return proj.get("db_config")
 
-        print(f"❌ {current_project_name}에 해당하는 DB 설정이 JSON에 없습니다.")
-        return None
+    #     print(f"❌ {current_project_name}에 해당하는 DB 설정이 JSON에 없습니다.")
+    #     return None
 
-    def refresh_user_list_from_db(self):
+    def refresh_user_list(self):
         """
         [DB 접속 대신 XML 탐색으로 변경됨]
         User List 갱신 및 체크박스 선택 시 액션 버튼 표시
@@ -1670,7 +1744,7 @@ class App(ctk.CTk):
             chk = ctk.CTkCheckBox(
                 user_card,
                 text=f"👤 {d_name} ({u_name})",
-                font=("Pretendard", 12, "bold"),
+                font=("Noto Sans KR", 12, "bold"),
                 text_color="#334155",
                 variable=chk_var,
                 onvalue="on",
@@ -1690,7 +1764,7 @@ class App(ctk.CTk):
                 action_row,
                 values=["🔊 PTT", "📹 PTV", "🚨 E-PTT", "🚨 E-PTV"],
                 height=32,
-                font=("Pretendard", 11, "bold"),
+                font=("Noto Sans KR", 11, "bold"),
                 fg_color="#F1F5F9",
                 selected_color="#2563EB",
                 unselected_color="#E2E8F0",
@@ -1702,7 +1776,7 @@ class App(ctk.CTk):
                 action_row,
                 values=["📄 Text", "🖼️ Photo", "🎥 Video"],
                 height=32,
-                font=("Pretendard", 11, "bold"),
+                font=("Noto Sans KR", 11, "bold"),
                 fg_color="#F1F5F9",
                 selected_color="#2563EB",
                 unselected_color="#E2E8F0",
@@ -1732,8 +1806,30 @@ class App(ctk.CTk):
                 row.pack_forget()
 
     def refresh_all_lists(self):
-        self.refresh_group_list()  # 기존에 있던 단말기 연동 그룹 갱신
-        self.refresh_user_list_from_db()
+        """그룹 리스트와 유저 리스트를 새로고침합니다."""
+        # 1. Group List는 무조건 갱신
+        self.refresh_group_list() 
+
+        # ==========================================
+        # 💡 [핵심 차단 로직 2] 허가증(has_private_call) 검사 후 유저 로딩
+        # ==========================================
+        if getattr(self, "has_private_call", False):
+            # 허가증이 있을 때만 서버/단말기에서 1000명 리스트를 가져옴
+            self.refresh_user_list()
+        else:
+            print("🚫 Private Call 미지원 프로젝트: 유저 데이터 로딩 스킵 (서버 부하 방지)")
+            
+            # 유저 리스트 프레임 비우기
+            for widget in self.user_list_frame.winfo_children():
+                widget.destroy()
+                
+            # 빈 화면 대신 친절한 안내 문구 표시
+            ctk.CTkLabel(
+                self.user_list_frame,
+                text="이 프로젝트는 1:1 통화를 지원하지 않으므로\n유저 목록을 불러오지 않습니다.",
+                text_color=self.text_sub,
+                font=("Noto Sans KR", 13)
+            ).pack(expand=True, pady=50)
 
     def get_checked_users(self):
         """나중에 버튼(PTT 등) 눌렀을 때, 진짜로 선택된 유저 명단 가져오는 유틸 함수"""

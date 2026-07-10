@@ -2,30 +2,51 @@
     "projects": [
         {
             "keyword": "PTA",
-            "project_name": "PTA"
+            "project_name": "PTA",
+            "features": {
+                "group_call": {
+                    "regroup": 0,
+                    "prearranged": 1,
+                    "chat": 0
+                },
+                "private_call": {
+                    "normal": 0,
+                    "without_floor_control": 0,
+                    "mcvideo_push": 0,
+                    "mcvideo_pull": 0,
+                    "first_answer": 0
+                },
+                "message": {
+                    "normal": 1,
+                    "emergency": 1,
+                    "pre_defined": 1,
+                    "canned": 1,
+                    "attachment": 1
+                }
+            }
         },
         {
             "keyword": "CTB.R",
             "project_name": "CTB_POC",
             "features": {
                 "group_call": {
-                "regroup": 1,
-                "prearranged": 1,
-                "chat": 1
+                    "regroup": 1,
+                    "prearranged": 1,
+                    "chat": 1
                 },
-            "private_call": {
-                "normal": 1,
-                "without_floor_control": 1,
-                "mcvideo_push": 0,
-                "mcvideo_pull": 0,
-                "first_answer": 1
+                "private_call": {
+                    "normal": 1,
+                    "without_floor_control": 1,
+                    "mcvideo_push": 0,
+                    "mcvideo_pull": 0,
+                    "first_answer": 1
                 },
-            "message": {
-                "normal": 1,
-                "emergency": 1,
-                "pre_defined": 1,
-                "canned": 1,
-                "attachment": 1
+                "message": {
+                    "normal": 1,
+                    "emergency": 1,
+                    "pre_defined": 1,
+                    "canned": 1,
+                    "attachment": 1
                 }
             }
         },
@@ -37,6 +58,31 @@
                 "user": "cybertel",
                 "password": "Cybertel1234567890!",
                 "db": "mcptt_server"
+            }
+        },
+        {
+            "keyword": "PSP.R",
+            "project_name": "재난망",
+            "features": {
+                "group_call": {
+                    "regroup": 0,
+                    "prearranged": 1,
+                    "chat": 0
+                },
+                "private_call": {
+                    "normal": 0,
+                    "without_floor_control": 0,
+                    "mcvideo_push": 0,
+                    "mcvideo_pull": 0,
+                    "first_answer": 0
+                },
+                "message": {
+                    "normal": 1,
+                    "emergency": 1,
+                    "pre_defined": 0,
+                    "canned": 1,
+                    "attachment": 1
+                }
             }
         }
     ],

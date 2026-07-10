@@ -1,2 +1,28 @@
 실행된 화면의 APP 패키지명 확인하는 방법  = adb shell dumpsys window | findstr mCurrentFocus
 
+
+/**
+     * 그룹 음성호 발신 : adb shell am broadcast -a action.mcptt.req.groupvoice.call --es groupname tel:+xxxxxxxxx
+     * 그룹 음성호 발신 : adb shell am broadcast -a action.mcptt.req.groupvoice.call --es groupname 그룹명
+     * 그룹 음성호 착신 : adb shell am broadcast -a action.mcptt.req.groupvoice.accept
+     * 그룹 음성호 종료 : adb shell am broadcast -a action.mcptt.req.groupvoice.deactivatechannel
+     * <p>
+     * 주채널 방폭 : adb shell am broadcast -a action.mcptt.req.group.call.destroy
+     * <p>
+     * 그룹 음성호 음성 저장 시작 : adb shell am broadcast -a action.mcptt.req.group.audio.save.start --es filename c01_clip01.wav
+     * 그룹 음성호 음성 저장 종료 : adb shell am broadcast -a action.mcptt.req.group.audio.save.stop
+     * 그룹 영상호 발신 : adb shell am broadcast -a action.mcptt.req.groupvideo.dial --es groupname tel:+xxxxxxxxx
+     * 그룹 영상호 발신 : adb shell am broadcast -a action.mcptt.req.groupvideo.dial --es groupname 그룹명
+     * 그룹 영상호 착신 : adb shell am broadcast -a action.mcptt.req.groupvideo.accept
+     * 그룹 영상호 종료 : adb shell am broadcast -a action.mcptt.req.groupvideo.release
+     * 그룹 문자 발신 : adb shell am broadcast -a action.mcptt.req.groupsms.send  --es groupname tel:+xxxxxxxxx --es message text_string    ( --es groupname tel:+xxxxxxxxx 추가)
+     * 그룹 문자 발신 : adb shell am broadcast -a action.mcptt.req.groupsms.send  --es groupname tel:+xxxxxxxxx --es message text_string    ( --es groupname 그룹명)
+     * 그룹 문자 발신 : adb shell am broadcast -a action.mcptt.req.groupsms.send --es message text_string
+     * 그룹 영상호 영상저장 시작 : adb shell am broadcast -a action.mcptt.req.group.video.save.start --es filename c01.mp4
+     * 그룹 영상호 영상저장 중지 : adb shell am broadcast -a action.mcptt.req.group.video.save.stop
+     * 그룹 호 발언권 요청 : adb shell am broadcast -a action.mcptt.req.groupcall.talkright.acquire
+     * 그룹 호 발언권 반납 : adb shell am broadcast -a action.mcptt.req.groupcall.talkright.release
+     * 그룹 호 가로채기 : adb shell am broadcast -a action.mcptt.req.groupcall.intercept
+     * 그룹 호 비상통화 : adb shell am broadcast -a action.mcptt.req.groupcall.emergency
+     * 그룹 SCAN On/Off : adb shell am broadcast -a action.mcptt.req.scan.onoff --es groupname 그룹명 --es message text (on / off)
+     * 그룹 메인 채널 변경 : adb shell am broadcast -a action.mcptt.req.change.mainsession --es groupname 그룹명 or 그룹번호

@@ -1,643 +1,76 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<mcptt-user-profile etag="MTczNjU5NTY0OTQ0"  xmlns="urn:3gpp:mcptt:user-profile:1.0" xmlns:cp="urn:ietf:params:xml:ns:common-policy" XUI-URI="sip:00600112301@ims.mnc001.mcc001.3gppnetwork.org" user-profile-index="1">
-    <Name xml:lang="en">00600112301</Name>
+<mcptt-user-profile etag="kJ4DY4-zkJk"  XUI-URI="http://ptt.mnc030.mcc450.3gppnetwork.org/org.3gpp.mcptt.user-profile/users/tel:+821352030431" user-profile-index="1" xmlns="urn:3gpp:mcptt:user-profile:1.0" xmlns:cp="urn:ietf:params:xml:ns:common-policy">
+    <Name xml:lang="en-us">Name</Name>
     <Status>true</Status>
-    <ProfileName xml:lang="en">user-profile.xml</ProfileName>
-    <Pre-selected-indication/>
-    <Common index="co-1">
+    <ProfileName xml:lang="en-us">ProfileName</ProfileName>
+    <Common index="common-idx">
         <UserAlias>
-            <alias-entry index="ua-1" xml:lang="en">00600112301</alias-entry>
+            <alias-entry xml:lang="en-us" index="ae-idx">CT01</alias-entry>
         </UserAlias>
-        <MCPTTUserID>
-            <uri-entry>sip:00600112301@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            <display-name xml:lang="en">01_JH</display-name>
+        <MCPTTUserID entry-info="UsePreConfigured" index="muid-idx">
+            <uri-entry>tel:+821352030431</uri-entry>
+            <display-name xml:lang="en-us">CT01</display-name>
         </MCPTTUserID>
         <MCPTT-group-call>
             <MaxSimultaneousCallsN6>4</MaxSimultaneousCallsN6>
             <EmergencyCall>
                 <MCPTTGroupInitiation>
-                    <entry entry-info="UsePreConfigured" index="ge-1">
-                        <uri-entry>sip:</uri-entry>
+                    <entry entry-info="UsePreConfigured" index="er-idx">
+                        <uri-entry></uri-entry>
+                        <display-name xml:lang="en-kr"></display-name>
                     </entry>
                 </MCPTTGroupInitiation>
+                <Recipient>
+                    <entry entry-info="UsePreConfigured" index="er-idx">
+                        <uri-entry></uri-entry>
+                        <display-name xml:lang="en-kr"></display-name>
+                    </entry>
+                </Recipient>
             </EmergencyCall>
-            <Priority>1</Priority>
         </MCPTT-group-call>
-        <MissionCriticalOrganization>hee1</MissionCriticalOrganization>
-        <ParticipantType>user</ParticipantType>
-        <anyExt>
-            <group-forced-type>0</group-forced-type>
-            <pre-selected-emergency-type>5</pre-selected-emergency-type>
-            <user-configuration-password>30313633</user-configuration-password>
-            <mcdata-max-storage-period>PT0S</mcdata-max-storage-period>
-            <terminal-type>1</terminal-type>
-        </anyExt>
+        <MissionCriticalOrganization>경찰청</MissionCriticalOrganization>
+        <Priority>1</Priority>
+        <ParticipantType>General_UE</ParticipantType>
+        <barring_status>0</barring_status>
     </Common>
-    <OnNetwork index="on-1">
-        <MCPTTGroupInfo xml:lang="en" index="gi-1">
-            <entry index="sip:00600112314g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112314g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Pri 04</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>10</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
+    <OnNetwork index="OnNetwork-idx">
+        <MCPTTGroupInfo xml:lang="en-us" index="ong-idx">
+            <entry entry-info="UsePreConfigured" index="tel:+82999990000">
+                <uri-entry>tel:+82999990000</uri-entry>
+                <display-name xml:lang="en-us">행안부_공통_통화그룹_테스트01</display-name>
             </entry>
-            <entry index="sip:00600112313g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112313g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Pri 03</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>10</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
+            <entry entry-info="UsePreConfigured" index="tel:+82900110119">
+                <uri-entry>tel:+82900110119</uri-entry>
+                <display-name xml:lang="en-us">CT APP 테스트 6_SRTP</display-name>
             </entry>
-            <entry index="sip:00600112312g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112312g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Pri 02</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>10</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
+            <entry entry-info="UsePreConfigured" index="tel:+82900110120">
+                <uri-entry>tel:+82900110120</uri-entry>
+                <display-name xml:lang="en-us">CT APP 테스트 3</display-name>
             </entry>
-            <entry index="sip:00600112311g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112311g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Pri 01</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>10</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
+            <entry entry-info="UsePreConfigured" index="tel:+82900110115">
+                <uri-entry>tel:+82900110115</uri-entry>
+                <display-name xml:lang="en-us">CT APP 테스트 7_SRTP</display-name>
             </entry>
-            <entry index="sip:00600121314g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121314g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 04</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
+            <entry entry-info="UsePreConfigured" index="tel:+82900110121">
+                <uri-entry>tel:+82900110121</uri-entry>
+                <display-name xml:lang="en-us">CT APP 테스트 2</display-name>
             </entry>
-            <entry index="sip:00600121313g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121313g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 03</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
+            <entry entry-info="UsePreConfigured" index="tel:+82900100557">
+                <uri-entry>tel:+82900100557</uri-entry>
+                <display-name xml:lang="en-us">CT_APP_테스트_0</display-name>
             </entry>
-            <entry index="sip:00600121312g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121312g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 02</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600121311g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121311g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 01</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600112315g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112315g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Pri 05</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>10</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600121315g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121315g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 05</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600112316g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112316g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Pri 06</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>10</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600112317g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112317g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Pri 07</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>10</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600112318g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112318g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Pri 08</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>10</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600112319g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112319g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Pri 09</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>10</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600121316g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121316g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 06</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600121317g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121317g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 07</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600121318g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121318g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 08</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:12302260128173758@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12302260128173758@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">jk</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>5</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:12301260220144110@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12301260220144110@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">fh</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>5</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:12301260220144143@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12301260220144143@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">yij</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>5</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:12301260220144246@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12301260220144246@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">00</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>5</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:12302260408170617@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12302260408170617@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>5</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:12322260408171315@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12322260408171315@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">88</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>5</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:12301260429173858@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12301260429173858@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">new 1111111111</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>5</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600121319g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121319g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 09</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600121320g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121320g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 10</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600121321g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121321g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 11</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600121322g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121322g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 12</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600121323g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121323g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 13</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600121324g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121324g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 14</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600121325g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121325g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 15</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600121326g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121326g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 16</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600121327g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121327g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 17</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:00600121328g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121328g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">JH_Chat 18</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>31</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>false</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:12305260612142843@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12305260612142843@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">hj</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>5</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:12306260615163741@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12306260615163741@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">chatting</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>5</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
-            </entry>
-            <entry index="sip:12304260615173700@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12304260615173700@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                <display-name xml:lang="en">pppppppp</display-name>
-                <anyExt>
-                    <manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>true</manual-deaffiliation-not-allowed-if-affiliation-rules-are-met>
-                    <group-priority>5</group-priority>
-                    <user-priority>1</user-priority>
-                    <invite-members>true</invite-members>
-                    <recording>false</recording>
-                </anyExt>
+            <entry entry-info="UsePreConfigured" index="tel:+82900990183">
+                <uri-entry>tel:+82900990183</uri-entry>
+                <display-name xml:lang="en-us">0206 생성테스트</display-name>
             </entry>
         </MCPTTGroupInfo>
-        <MaxAffiliationsN2>4</MaxAffiliationsN2>
-        <MaxSimultaneousTransmissionsN7>4</MaxSimultaneousTransmissionsN7>
-        <ImplicitAffiliations xml:lang="en" index="ia-1">
-            <entry index="sip:00600112314g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112314g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600112313g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112313g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600112312g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112312g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600112311g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112311g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121314g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121314g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121313g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121313g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121312g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121312g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121311g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121311g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600112315g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112315g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121315g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121315g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600112316g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112316g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600112317g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112317g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600112318g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112318g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600112319g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600112319g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121316g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121316g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121317g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121317g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121318g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121318g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:12302260128173758@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12302260128173758@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:12301260220144110@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12301260220144110@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:12301260220144143@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12301260220144143@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:12301260220144246@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12301260220144246@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:12302260408170617@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12302260408170617@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:12322260408171315@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12322260408171315@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:12301260429173858@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12301260429173858@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121319g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121319g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121320g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121320g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121321g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121321g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121322g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121322g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121323g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121323g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121324g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121324g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121325g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121325g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121326g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121326g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121327g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121327g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:00600121328g@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:00600121328g@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:12305260612142843@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12305260612142843@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:12306260615163741@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12306260615163741@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-            <entry index="sip:12304260615173700@ims.mnc001.mcc001.3gppnetwork.org">
-                <uri-entry>sip:12304260615173700@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-            </entry>
-        </ImplicitAffiliations>
-        <anyExt>
-            <FunctionalAliasList>
-                <entry index="token">
-                    <uri-entry>sip:AB001@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                    <display-name xml:lang="en">AB001</display-name>
-                </entry>
-                <entry index="token">
-                    <uri-entry>sip:AB002@ims.mnc001.mcc001.3gppnetwork.org</uri-entry>
-                    <display-name xml:lang="en">AB002</display-name>
-                </entry>
-            </FunctionalAliasList>
-            <MCDataContentServerURI>https://211.118.224.205:2359/mcData/file/upload</MCDataContentServerURI>
-        </anyExt>
     </OnNetwork>
     <cp:ruleset>
-        <cp:rule id="n2c1">
-            <cp:conditions>
-                <identity>
-                    <one id="sip:00600112301@ims.mnc001.mcc001.3gppnetwork.org"/>
-                </identity>
-            </cp:conditions>
+        <cp:rule id="a7c">
             <cp:actions>
-                <allow-presence-status>true</allow-presence-status>
-                <allow-request-presence>true</allow-request-presence>
-                <allow-query-availability-for-private-calls>true</allow-query-availability-for-private-calls>
-                <allow-enable-disable-user>false</allow-enable-disable-user>
-                <allow-enable-disable-UE>false</allow-enable-disable-UE>
-                <allow-create-delete-user-alias>true</allow-create-delete-user-alias>
-                <allow-private-call>true</allow-private-call>
-                <allow-manual-commencement>true</allow-manual-commencement>
-                <allow-automatic-commencement>true</allow-automatic-commencement>
-                <allow-force-auto-answer>true</allow-force-auto-answer>
-                <allow-failure-restriction>false</allow-failure-restriction>
-                <allow-emergency-group-call>true</allow-emergency-group-call>
-                <allow-emergency-private-call>true</allow-emergency-private-call>
-                <allow-cancel-group-emergency>true</allow-cancel-group-emergency>
-                <allow-cancel-private-emergency-call>true</allow-cancel-private-emergency-call>
-                <allow-imminent-peril-call>true</allow-imminent-peril-call>
-                <allow-cancel-imminent-peril>true</allow-cancel-imminent-peril>
-                <allow-activate-emergency-alert>true</allow-activate-emergency-alert>
-                <allow-cancel-emergency-alert>true</allow-cancel-emergency-alert>
+                <allow-private-call>false</allow-private-call>
+                <allow-emergency-group-call>false</allow-emergency-group-call>
                 <allow-private-call-media-protection>false</allow-private-call-media-protection>
-                <allow-private-call-floor-control-protection>false</allow-private-call-floor-control-protection>
-                <allow-request-affiliated-groups>true</allow-request-affiliated-groups>
-                <allow-request-to-affiliate-other-users>true</allow-request-to-affiliate-other-users>
-                <allow-recommend-to-affiliate-other-users>true</allow-recommend-to-affiliate-other-users>
-                <allow-private-call-to-any-user>true</allow-private-call-to-any-user>
-                <allow-regroup>true</allow-regroup>
-                <allow-private-call-participation>true</allow-private-call-participation>
-                <allow-override-of-transmission>false</allow-override-of-transmission>
-                <allow-revoke-transmit>false</allow-revoke-transmit>
-                <allow-create-group-broadcast-group>false</allow-create-group-broadcast-group>
-                <allow-create-user-broadcast-group>false</allow-create-user-broadcast-group>
-                <anyExt>
-                    <allow-instant-message>true</allow-instant-message>
-                    <allow-user-auto-login>true</allow-user-auto-login>
-                    <allow-group-scan>true</allow-group-scan>
-                    <allow-mcvideo-call>true</allow-mcvideo-call>
-                    <allow-gis-subscription>false</allow-gis-subscription>
-                    <allow-request-command-message>false</allow-request-command-message>
-                    <allow-request-remote-group-selection>false</allow-request-remote-group-selection>
-                    <allow-request-remote-initiated-ambient-viewing>false</allow-request-remote-initiated-ambient-viewing>
-                    <allow-request-locally-initiated-ambient-viewing>true</allow-request-locally-initiated-ambient-viewing>
-                    <allow-request-remote-initiated-ambient-listening>false</allow-request-remote-initiated-ambient-listening>
-                    <allow-request-locally-initiated-ambient-listening>true</allow-request-locally-initiated-ambient-listening>
-                    <allow-query-functional-alias-other-user>true</allow-query-functional-alias-other-user>
-                    <allow-takeover-functional-alias-other-user>true</allow-takeover-functional-alias-other-user>
-                    <allow-location-info-when-talking>true</allow-location-info-when-talking>
-                    <allow-ambient-listening-indication>true</allow-ambient-listening-indication>
-                    <allow-adhoc-group-call>true</allow-adhoc-group-call>
-                    <allow-adhoc-group-call-participation>true</allow-adhoc-group-call-participation>
-                    <allow-emergency-adhoc-group-call>true</allow-emergency-adhoc-group-call>
-                    <allow-imminent-peril-adhoc-group-call>true</allow-imminent-peril-adhoc-group-call>
-                    <allow-to-recv-adhoc-group-call-participants-info>true</allow-to-recv-adhoc-group-call-participants-info>
-                    <allow-activate-adhoc-group-emergency-alert>true</allow-activate-adhoc-group-emergency-alert>
-                    <allow-cancel-adhoc-group-emergency-alert>true</allow-cancel-adhoc-group-emergency-alert>
-                    <allow-to-recv-adhoc-group-emergency-alert-participants-info>true</allow-to-recv-adhoc-group-emergency-alert-participants-info>
-                    <allow-to-setup-adhoc-group-call-using-emergency-alert-adhoc-group>true</allow-to-setup-adhoc-group-call-using-emergency-alert-adhoc-group>
-                    <allow-to-modify-adhoc-group-call-participants-info>true</allow-to-modify-adhoc-group-call-participants-info>
-                </anyExt>
             </cp:actions>
         </cp:rule>
     </cp:ruleset>

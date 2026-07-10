@@ -266,58 +266,65 @@ def get_battery_level(uuid):
 
 
 def get_network_status(uuid):
-    """현재 활성화된 네트워크 상태(WiFi SSID 또는 LTE)를 가져옵니다."""
+    """현재 활성화된 네트워크 상태(WiFi SSID 또는 LTE/5G)를 가져옵니다."""
+    import subprocess
+    import re
+    
     try:
         # 1. 안드로이드 라우팅 테이블을 확인하여 주 통신망 확인
         cmd = f"adb -s {uuid} shell ip route"
         result = subprocess.check_output(cmd, shell=True, text=True, errors="ignore")
 
         if "wlan" in result:
-            # 💡 [WiFi] 연결된 경우 SSID 추출 로직
-
-            # (1) 최신 안드로이드 명령어 시도 (Android 10 이상)
+            # 💡 [WiFi] 연결된 경우 SSID 추출 (기존 로직 유지)
             status_cmd = f"adb -s {uuid} shell cmd wifi status"
-            status_res = subprocess.run(
-                status_cmd, shell=True, capture_output=True, text=True, errors="ignore"
-            ).stdout
+            status_res = subprocess.run(status_cmd, shell=True, capture_output=True, text=True, errors="ignore").stdout
             match = re.search(r'connected to\s*"([^"]+)"', status_res)
 
-            # (2) 실패 시 구형 안드로이드 명령어 시도 (dumpsys 활용)
             if not match:
                 dump_cmd = f'adb -s {uuid} shell "dumpsys wifi | grep mWifiInfo"'
-                dump_res = subprocess.run(
-                    dump_cmd,
-                    shell=True,
-                    capture_output=True,
-                    text=True,
-                    errors="ignore",
-                ).stdout
+                dump_res = subprocess.run(dump_cmd, shell=True, capture_output=True, text=True, errors="ignore").stdout
                 match = re.search(r'SSID:\s*"([^"]+)"', dump_res)
 
-            # 결과 확인 (위치 정보가 꺼져있으면 <unknown ssid>로 나올 수 있음)
             if match and match.group(1) and match.group(1) != "<unknown ssid>":
                 return f"WiFi ({match.group(1)})"
             else:
                 return "WiFi (연결됨)"
 
-        elif "rmnet" in result or "ccmni" in result:
-            # 💡 [LTE] 모바일 데이터 연결된 경우
-
+        # 💡 [핵심 수정] 삼성(pdp), 기타 통신칩셋(clat, seth, wwan 등)의 인터페이스 이름 모두 포함!
+        elif any(iface in result for iface in ["rmnet", "ccmni", "pdp", "seth", "clat", "wwan"]):
+            
             # 통신사 이름(SKT, KT, LGU+) 가져오기
             carrier_cmd = f"adb -s {uuid} shell getprop gsm.operator.alpha"
-            carrier = subprocess.check_output(
-                carrier_cmd, shell=True, text=True, errors="ignore"
-            ).strip()
-
-            # 듀얼심인 경우 콤마로 구분되므로 첫 번째 통신사만 추출
+            carrier = subprocess.check_output(carrier_cmd, shell=True, text=True, errors="ignore").strip()
             carrier = carrier.split(",")[0] if carrier else ""
 
-            if carrier:
-                return f"LTE ({carrier})"
+            # 💡 [추가] 실제 네트워크 타입(LTE, NR(5G) 등) 알아내기
+            net_type_cmd = f"adb -s {uuid} shell getprop gsm.network.type"
+            net_type_res = subprocess.check_output(net_type_cmd, shell=True, text=True, errors="ignore").strip()
+            net_type = net_type_res.split(",")[0] if net_type_res else ""
+            
+            # 보기 좋게 이름 변환 (NR은 안드로이드 시스템에서 5G를 의미함)
+            if "NR" in net_type:
+                display_type = "5G"
+            elif "LTE" in net_type:
+                display_type = "LTE"
             else:
-                return "LTE"
+                display_type = "Mobile Data" # 3G 이거나 판별 불가할 때
+
+            if carrier:
+                return f"{display_type} ({carrier})"
+            else:
+                return display_type
 
         else:
+            # 💡 [최후의 보루] ip route에 잡히지 않는 특이한 단말기를 위한 추가 검증
+            check_data_cmd = f'adb -s {uuid} shell "dumpsys telephony.registry | grep mDataConnectionState"'
+            data_state = subprocess.check_output(check_data_cmd, shell=True, text=True, errors="ignore")
+            
+            if "mDataConnectionState=2" in data_state: # 2는 모바일 데이터 CONNECTED를 의미합니다.
+                 return "LTE/5G (연결됨)"
+                 
             return "네트워크 끊김"
 
     except Exception as e:

@@ -4,86 +4,34 @@
         "pw": "12345678",
         "server_ip": "10.10.10.227",
         "mc_id": "mcx_hidden_menu_in",
-        "mc_pw": "#2359#",
-        "coords": {
-            "id_pos": [
-                500,
-                1000
-            ],
-            "pw_pos": [
-                500,
-                1200
-            ],
-            "login_btn": [
-                500,
-                1400
-            ],
-            "server_field": [
-                500,
-                800
-            ],
-            "ok_btn": [
-                700,
-                1500
-            ]
-        }
+        "mc_pw": "#2359#"
     },
     "450connect": {
         "wifi": "PTA_Office",
         "pw": "12345678",
         "server_ip": "10.10.10.227",
         "mc_id": "mcx_hidden_menu_in",
-        "mc_pw": "#2359#",
-        "coords": {
-            "id_pos": [
-                500,
-                1000
-            ],
-            "pw_pos": [
-                500,
-                1200
-            ],
-            "login_btn": [
-                500,
-                1400
-            ],
-            "server_field": [
-                500,
-                800
-            ],
-            "ok_btn": [
-                700,
-                1500
-            ]
-        }
+        "mc_pw": "#2359#"
     },
     "CTB_POC": {
         "wifi": "PTA_Office",
         "pw": "12345678",
         "server_ip": "10.10.10.227",
         "mc_id": "mcx_hidden_menu_in",
-        "mc_pw": "#2359#",
-        "coords": {
-            "id_pos": [
-                500,
-                1000
-            ],
-            "pw_pos": [
-                500,
-                1200
-            ],
-            "login_btn": [
-                500,
-                1400
-            ],
-            "server_field": [
-                500,
-                800
-            ],
-            "ok_btn": [
-                700,
-                1500
-            ]
-        }
+        "mc_pw": "#2359#"
+    },
+    "재난망": {
+        "wifi": "PTA_Office",
+        "pw": "12345678",
+        "server_ip": "10.10.10.227",
+        "mc_id": "mcx_hidden_menu_in",
+        "mc_pw": "#2359#"
+    },
+    "재난망_LM75": {
+        "wifi": "PTA_Office",
+        "pw": "12345678",
+        "server_ip": "10.10.10.227",
+        "mc_id": "mcx_hidden_menu_in",
+        "mc_pw": "#2359#"
     }
 }

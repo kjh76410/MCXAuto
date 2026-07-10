@@ -1,0 +1,71 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no' ?>
+<mcptt-UE-initial-configuration xmlns="urn:3gpp:mcptt:mcpttUEinitConfig:1.0" domain="ims.mnc030.mcc450.3gppnetwork.org">
+  <name xml:lang="en">mcptt ue init config</name>
+  <Default-user-profile User-ID="mcptt" user-profile-index="191bd012-02e5-41b4-9326-1d884ed22e75" index="1" />
+  <on-network>
+    <Timers>
+      <T4>0</T4>
+      <T100>0</T100>
+      <T101>0</T101>
+      <T103>0</T103>
+      <T104>0</T104>
+      <T132>0</T132>
+      <T203>15</T203>
+    </Timers>
+    <HPLM PLMN="1001">
+      <service>
+        <MCPTT-to-con-ref>mcptt.ims.mnc001.mcc001.3gppnetwork.org</MCPTT-to-con-ref>
+        <MC-common-core-to-con-ref>csc.ims.mnc001.mcc001.3gppnetwork.org</MC-common-core-to-con-ref>
+        <MC-ID-to-con-ref>id.ims.mnc001.mcc001.3gppnetwork.org</MC-ID-to-con-ref>
+      </service>
+    </HPLM>
+    <App-Server-Info>
+      <idms-auth-endpoint>idms/authreq</idms-auth-endpoint>
+      <idms-token-endpoint>idms/tokenreq</idms-token-endpoint>
+      <idms-tokenrefresh-endpoint>idms/tokenrefresh</idms-tokenrefresh-endpoint>
+      <cscurl>csc1.ptt.mnc030.mcc450.3gppnetwork.org</cscurl>
+      <csc2url>csc2.ptt.mnc030.mcc450.3gppnetwork.org</csc2url>
+      <csc3url>csc3.ptt.mnc030.mcc450.3gppnetwork.org</csc3url>
+      <cscport>4430</cscport>
+      <csctlsport>4420</csctlsport>
+      <usedcsctls>true</usedcsctls>
+      <pcscf1>2001:4200:110:1000:721::11</pcscf1>
+      <pcscf2>2001:4200:210:1000:721::11</pcscf2>
+      <pcscfport>5080</pcscfport>
+      <usedpcopcscf>true</usedpcopcscf>
+      <registerexpire>600000</registerexpire>
+      <subscribeexpire>7200</subscribeexpire>
+      <callsessionexpire>36000</callsessionexpire>
+      <ipsecenabled>false</ipsecenabled>
+      <sleepmodeenabled>true</sleepmodeenabled>
+      <reg-retry-after>0</reg-retry-after>
+      <useragent>PS-LTE/1.2.3 VM65PS/KG06 Device_Type/Android_Phone PS-LTE</useragent>
+      <idmsid>450300010096801</idmsid>
+      <idmspw>aGo2nT8h4QeLUSYW5hIA9VZTp67XDJS5DzlrIUjExds</idmspw>
+      <public-user-identity>sip:+821352030431@ims.mnc030.mcc450.3gppnetwork.org</public-user-identity>
+      <private-user-identity>450300010096801@ims.mnc030.mcc450.3gppnetwork.org</private-user-identity>
+      <domain>ims.mnc030.mcc450.3gppnetwork.org</domain>
+      <gms>csc1.PTT.mnc030.mcc450.3gppnetwork.org</gms>
+      <cms>csc1.PTT.mnc030.mcc450.3gppnetwork.org</cms>
+      <kms>csc1.PTT.mnc030.mcc450.3gppnetwork.org</kms>
+      <mcptt-sip-proxy-server>2001:4200:110:1000:721::11</mcptt-sip-proxy-server>
+      <mcptt-sip-proxy-port>5080</mcptt-sip-proxy-port>
+      <csc-sip-proxy-server>2001:4200:110:1000:721::11</csc-sip-proxy-server>
+      <csc-sip-proxy-port>5080</csc-sip-proxy-port>
+      <sipcore-public-service-identity>ims.mnc030.mcc450.3gppnetwork.org</sipcore-public-service-identity>
+      <origpart-public-service-identity>sip:mcptt1_opf_psi@ptt.mnc030.mcc450.3gppnetwork.org</origpart-public-service-identity>
+      <termpart-public-service-identity>sip:mcptt1_opf_psi@ptt.mnc030.mcc450.3gppnetwork.org</termpart-public-service-identity>
+      <mcdata-public-service-identity>sip:mcs-data@mcptt.safetynet.or.kr</mcdata-public-service-identity>
+      <mbms-public-service-identity>sip:mcs-embms@mcptt.safetynet.or.kr</mbms-public-service-identity>
+      <cms-public-service-identity>sip:cms1_psi@ptt.mnc030.mcc450.3gppnetwork.org</cms-public-service-identity>
+      <gms-public-service-identity>sip:gms1_psi@ptt.mnc030.mcc450.3gppnetwork.org</gms-public-service-identity>
+      <use-wifirouter>false</use-wifirouter>
+      <use-wifirouter-ll>-110</use-wifirouter-ll>
+      <use-wifirouter-ww>-75</use-wifirouter-ww>
+      <use-wifirouter-lw-interval>3</use-wifirouter-lw-interval>
+      <use-wifirouter-lw>0</use-wifirouter-lw>
+      <use-wifirouter-wl>-85</use-wifirouter-wl>
+      <use-wifirouter-wl-interval>3</use-wifirouter-wl-interval>
+    </App-Server-Info>
+  </on-network>
+</mcptt-UE-initial-configuration>
