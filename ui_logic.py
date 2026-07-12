@@ -355,6 +355,26 @@ class App(ctk.CTk):
         self.btn_tab_user.pack(side="left", expand=True, fill="x", padx=(2, 0))
 
         self.current_mode = "call"
+
+        mode_toggle_frame = ctk.CTkFrame(self.list_container, fg_color="transparent")
+        mode_toggle_frame.pack(fill="x", padx=12, pady=(0, 8))
+        ctk.CTkLabel(
+            mode_toggle_frame,
+            text="테스트 모드:",
+            font=("Noto Sans KR", 11),
+            text_color=self.text_sub,
+        ).pack(side="left", padx=(0, 8))
+        self.seg_mode_toggle = ctk.CTkSegmentedButton(
+            mode_toggle_frame,
+            values=["📞 통화", "💬 메시지"],
+            height=30,
+            font=("Noto Sans KR", 11, "bold"),
+            selected_color=self.point_blue,
+            command=self.on_mode_toggle_changed,
+        )
+        self.seg_mode_toggle.set("📞 통화")
+        self.seg_mode_toggle.pack(side="left", fill="x", expand=True)
+
         self.all_cards = []
         self.group_list_frame = ctk.CTkScrollableFrame(
             self.list_container, fg_color="transparent"
@@ -539,7 +559,8 @@ class App(ctk.CTk):
         # 📈 [COLUMN 3 (50%)] Pulse + Logs 모니터링 존
         # ==========================================
         monitor_container = ctk.CTkFrame(self.right_panel, fg_color="transparent")
-        monitor_container.grid(row=0, column=2, sticky="nsew")
+        # 🔥 rowspan=2: 통화 결과 카드가 미러링 아래로만 옮겨간 만큼, SIP Flow 쪽은 아래 행까지 세로로 확장
+        monitor_container.grid(row=0, column=2, rowspan=2, sticky="nsew")
 
         self.pulse_frame = ctk.CTkFrame(
             monitor_container, height=120, fg_color="#091E42", corner_radius=self.radius
@@ -695,7 +716,7 @@ class App(ctk.CTk):
         self.txt_log.insert("1.0", "[Terminal] 시스템 로그 출력을 대기 중입니다...\n")
 
         # ==========================================
-        # 🎯 [BOTTOM ROW] 통화 결과 (미러링 & 로그 카드 싹 다 합쳐서 그 아래에 가로로 쫙 배치!)
+        # 🎯 [BOTTOM ROW] 통화 결과 (미러링 화면 바로 아래에만 배치)
         # ==========================================
         monitor_bottom = ctk.CTkFrame(
             self.right_panel,
@@ -704,8 +725,8 @@ class App(ctk.CTk):
             border_width=1,
             border_color=self.border_color,
         )
-        # 🔥 columnspan=2 를 주어서 Column 1(미러링)과 Column 2(로그)를 모두 덮어버림
-        monitor_bottom.grid(row=1, column=1, columnspan=2, sticky="nsew", pady=(12, 0))
+        # 🔥 Column 1(미러링) 아래에만 배치 (Column 2는 SIP Flow가 세로로 넓게 차지)
+        monitor_bottom.grid(row=1, column=1, sticky="nsew", pady=(12, 0))
 
         result_header = ctk.CTkFrame(monitor_bottom, height=40, fg_color="transparent")
         result_header.pack(fill="x", padx=12, pady=(12, 0))
@@ -1243,13 +1264,11 @@ class App(ctk.CTk):
                 else:
                     card.seg_msg.pack(side="left", expand=True, fill="x", padx=(0, 10))
 
-    def on_call_button(self):
-        self.current_mode = "call"
+    def on_mode_toggle_changed(self, selected_value):
+        self.current_mode = "call" if "통화" in selected_value else "msg"
         self.update_group_visibility()
-
-    def on_msg_button(self):
-        self.current_mode = "msg"
-        self.update_group_visibility()
+        if hasattr(self, "user_ui_registry"):
+            self.update_user_action_frame()
 
     def on_main_call_button_clicked(self):
         if not self.current_uuid:
