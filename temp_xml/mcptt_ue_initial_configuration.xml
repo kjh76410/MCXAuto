@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8' standalone='no' ?>
 <mcptt-UE-initial-configuration xmlns="urn:3gpp:mcptt:mcpttUEinitConfig:1.0" domain="ims.mnc030.mcc450.3gppnetwork.org">
   <name xml:lang="en">mcptt ue init config</name>
-  <Default-user-profile User-ID="mcptt" user-profile-index="191bd012-02e5-41b4-9326-1d884ed22e75" index="1" />
+  <Default-user-profile User-ID="mcptt" user-profile-index="1" index="191bd012-02e5-41b4-9326-1d884ed22e75" />
   <on-network>
     <Timers>
       <T4>0</T4>

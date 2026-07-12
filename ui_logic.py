@@ -1160,6 +1160,33 @@ class App(ctk.CTk):
                 )
                 chk.pack(side="left", padx=(0, 6))
 
+                repeat_var = ctk.StringVar(value="1")
+                repeat_frame = ctk.CTkFrame(top_row, fg_color="transparent")
+                repeat_frame.pack(side="right", padx=(6, 0))
+                ctk.CTkLabel(
+                    repeat_frame,
+                    text="반복",
+                    font=("Noto Sans KR", 10),
+                    text_color=self.text_sub,
+                ).pack(side="left", padx=(0, 4))
+                vcmd_repeat = (self.register(lambda s: s == "" or s.isdigit()), "%P")
+                entry_repeat = ctk.CTkEntry(
+                    repeat_frame,
+                    textvariable=repeat_var,
+                    width=40,
+                    height=24,
+                    justify="center",
+                    validate="key",
+                    validatecommand=vcmd_repeat,
+                )
+                entry_repeat.pack(side="left")
+
+                def on_repeat_focus_out(event, var=repeat_var):
+                    if not var.get() or var.get() == "0":
+                        var.set("1")
+
+                entry_repeat.bind("<FocusOut>", on_repeat_focus_out)
+
                 text_frame = ctk.CTkFrame(top_row, fg_color="transparent")
                 text_frame.pack(side="left", fill="both", expand=True)
 
@@ -1229,6 +1256,7 @@ class App(ctk.CTk):
                     "check_var": var_check,
                     "call_var": seg_call,
                     "msg_var": seg_msg,
+                    "repeat_var": repeat_var,
                     "name": g_info["name"],
                 }
 
@@ -1288,8 +1316,18 @@ class App(ctk.CTk):
                     continue
 
                 clean_mode = raw_mode.split(" ")[-1]
+                try:
+                    repeat_count = int(data["repeat_var"].get())
+                except (KeyError, ValueError):
+                    repeat_count = 1
+                repeat_count = max(1, repeat_count)
                 selected_targets.append(
-                    {"id": group_id, "name": data["name"], "mode": clean_mode}
+                    {
+                        "id": group_id,
+                        "name": data["name"],
+                        "mode": clean_mode,
+                        "repeat": repeat_count,
+                    }
                 )
 
         if not selected_targets:
@@ -1340,18 +1378,20 @@ class App(ctk.CTk):
                 t_id = target["id"]
                 t_name = target["name"]
                 t_mode = target["mode"]
+                t_repeat = target.get("repeat", 1)
 
-                self.safe_log_insert(
-                    f"\n▶️ [{idx}/{len(selected_targets)}] '{t_name}' ({t_mode}) 발신 진행 중...\n"
-                )
+                for rep in range(1, t_repeat + 1):
+                    self.safe_log_insert(
+                        f"\n▶️ [{idx}/{len(selected_targets)}] '{t_name}' ({t_mode}) 발신 진행 중... ({rep}/{t_repeat}회)\n"
+                    )
 
-                # 주의: handler_instance 내부에서 log_console.insert()를 쓴다면 여전히 UI 충돌 가능성이 있습니다.
-                # 완벽히 하려면 handler 내에서도 after를 쓰거나 콜백을 던져주는 형태로 수정하시는 것이 좋습니다.
-                handler_instance.make_call(
-                    d, target_info=t_id, call_mode=t_mode, log_console=self.txt_log
-                )
+                    # 주의: handler_instance 내부에서 log_console.insert()를 쓴다면 여전히 UI 충돌 가능성이 있습니다.
+                    # 완벽히 하려면 handler 내에서도 after를 쓰거나 콜백을 던져주는 형태로 수정하시는 것이 좋습니다.
+                    handler_instance.make_call(
+                        d, target_info=t_id, call_mode=t_mode, log_console=self.txt_log
+                    )
 
-                time.sleep(3)
+                    time.sleep(3)
 
             self.safe_log_insert("\n✅ 모든 순차 발신 테스트가 완료되었습니다!\n")
 
@@ -1886,7 +1926,35 @@ class App(ctk.CTk):
             )
             chk.pack(side="left", padx=(0, 6))
 
-            # 2. 텍스트 프레임 (이름 & ID 상하 밀착 배치)
+            # 2-1. 반복 횟수 입력란 (오른쪽 정렬)
+            repeat_var = ctk.StringVar(value="1")
+            repeat_frame = ctk.CTkFrame(top_row, fg_color="transparent")
+            repeat_frame.pack(side="right", padx=(6, 0))
+            ctk.CTkLabel(
+                repeat_frame,
+                text="반복",
+                font=("Noto Sans KR", 10),
+                text_color=self.text_sub,
+            ).pack(side="left", padx=(0, 4))
+            vcmd_repeat = (self.register(lambda s: s == "" or s.isdigit()), "%P")
+            entry_repeat = ctk.CTkEntry(
+                repeat_frame,
+                textvariable=repeat_var,
+                width=40,
+                height=24,
+                justify="center",
+                validate="key",
+                validatecommand=vcmd_repeat,
+            )
+            entry_repeat.pack(side="left")
+
+            def on_repeat_focus_out(event, var=repeat_var):
+                if not var.get() or var.get() == "0":
+                    var.set("1")
+
+            entry_repeat.bind("<FocusOut>", on_repeat_focus_out)
+
+            # 2-2. 텍스트 프레임 (이름 & ID 상하 밀착 배치)
             text_frame = ctk.CTkFrame(top_row, fg_color="transparent")
             text_frame.pack(side="left", fill="both", expand=True)
 
@@ -1940,6 +2008,7 @@ class App(ctk.CTk):
                 "action_row": action_row,
                 "seg_call": seg_call,
                 "seg_msg": seg_msg,
+                "repeat_var": repeat_var,
             }
 
     def update_user_action_frame(self):
