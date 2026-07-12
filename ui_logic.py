@@ -116,17 +116,24 @@ class App(ctk.CTk):
         # ==========================================
         ctk.CTkLabel(
             self.left_panel,
-            text="Device Setup",
+            text="기기 설정",
             font=("Noto Sans KR", 14, "bold"),
             text_color=self.text_main,
         ).pack(pady=(20, 4), padx=15, anchor="w")
         self.lbl_project = ctk.CTkLabel(
             self.left_panel,
             text="프로젝트: 대기 중",
-            font=("Noto Sans KR", 12, "bold"),
+            font=("Noto Sans KR", 18, "bold"),
             text_color=self.point_blue,
         )
         self.lbl_project.pack(padx=15, anchor="w")
+        self.lbl_project_version = ctk.CTkLabel(
+            self.left_panel,
+            text="버전: -",
+            font=("Noto Sans KR", 11),
+            text_color=self.text_sub,
+        )
+        self.lbl_project_version.pack(padx=15, anchor="w")
         self.label = ctk.CTkLabel(
             self.left_panel,
             text="단말을 연결해주세요.",
@@ -203,7 +210,7 @@ class App(ctk.CTk):
 
         ctk.CTkLabel(
             self.left_panel,
-            text="Configuration",
+            text="환경 구성",
             font=("Noto Sans KR", 12, "bold"),
             text_color=self.text_main,
         ).pack(pady=(8, 6), padx=15, anchor="w")
@@ -242,7 +249,7 @@ class App(ctk.CTk):
 
         ctk.CTkLabel(
             self.left_panel,
-            text="App Management",
+            text="앱 관리",
             font=("Noto Sans KR", 12, "bold"),
             text_color=self.text_main,
         ).pack(pady=(12, 6), padx=15, anchor="w")
@@ -427,8 +434,8 @@ class App(ctk.CTk):
             scenario_ctrl_frame,
             text="▶ 전체 시나리오 실행",
             font=("Noto Sans KR", 13, "bold"),
-            fg_color=self.point_blue,
-            hover_color="#0047B3",
+            fg_color="#333333",
+            hover_color="#1A1A1A",
             height=42,
             corner_radius=self.radius,
             command=self.run_automation,
@@ -802,6 +809,7 @@ class App(ctk.CTk):
 
             # ✅ [수정된 부분] 저장된 self.project_name을 UI에 표시합니다.
             self.lbl_project.configure(text=f"프로젝트: {self.project_name}")
+            self.lbl_project_version.configure(text=f"버전: {version_name}")
 
             self.update_project_features(self.project_name)
 
@@ -829,6 +837,7 @@ class App(ctk.CTk):
             self.lbl_project.configure(
                 text="프로젝트: 대기 중", text_color=self.text_main
             )
+            self.lbl_project_version.configure(text="버전: -")
 
             for widget in self.feature_tag_frame.winfo_children():
                 widget.destroy()
@@ -938,7 +947,9 @@ class App(ctk.CTk):
         self.pulse_active = active
 
         if active:
-            self.lbl_pulse_status.configure(text="🔴 송신 중", text_color=self.danger_color)
+            self.lbl_pulse_status.configure(
+                text="🔴 송신 중", text_color=self.danger_color
+            )
             if not was_active:
                 self.update_wave_pulse()
         else:
@@ -965,7 +976,9 @@ class App(ctk.CTk):
         else:
             # 알 수 없는 상태값: 활동이 있었다는 것만 짧게 표시하고 자동으로 대기 상태로 복귀
             self.set_ptt_active(True)
-            self._pulse_idle_timer = self.after(2000, lambda: self.set_ptt_active(False))
+            self._pulse_idle_timer = self.after(
+                2000, lambda: self.set_ptt_active(False)
+            )
 
     def _draw_idle_pulse(self):
         self.pulse_canvas.delete("all")
@@ -2153,11 +2166,15 @@ class App(ctk.CTk):
                     self._emit_flow("call_state", "PROC", "Call Requested", "발신 요청")
                     self.safe_log_insert(line)
                 elif "uiEventType = TYPE_MEDIA_PREPARE_COMPLETE" in line:
-                    self._emit_flow("call_state", "PROC", "Media Ready", "미디어 준비 완료")
+                    self._emit_flow(
+                        "call_state", "PROC", "Media Ready", "미디어 준비 완료"
+                    )
                     self.safe_log_insert(line)
                 elif "uiEventType = TYPE_CALL_CONNECT_OK" in line:
                     self._pending_dnd_reason = False
-                    self._emit_flow("call_state", "RX", "Call Connected", "통화 연결 성공")
+                    self._emit_flow(
+                        "call_state", "RX", "Call Connected", "통화 연결 성공"
+                    )
                     self.safe_log_insert(line)
 
                 # 2. 통화 실패/DND (uiEventType 줄 다음에 오는 extra=사유 줄과 짝을 맞춥니다)
@@ -2183,7 +2200,9 @@ class App(ctk.CTk):
                 # 4. PTT 발언권 상태 변경 - 펄스 애니메이션도 이 상태에 연동
                 elif "mMBCPKeyEvent =" in line:
                     state = line.split("mMBCPKeyEvent =")[1].strip()
-                    changed = self._emit_flow("mbcp", "RX", "Floor State", f"상태: {state}")
+                    changed = self._emit_flow(
+                        "mbcp", "RX", "Floor State", f"상태: {state}"
+                    )
                     if changed:
                         self.after(0, lambda s=state: self._on_floor_state(s))
                     self.safe_log_insert(line)
@@ -2194,9 +2213,15 @@ class App(ctk.CTk):
                 elif ("Exception" in line or " E " in line) and (
                     "MCPTT" in line or "EveryTalk" in line
                 ):
-                    error_msg = line.split(":")[-1].strip()  # 로그의 맨 뒷부분 내용만 추출
+                    error_msg = line.split(":")[
+                        -1
+                    ].strip()  # 로그의 맨 뒷부분 내용만 추출
                     self._emit_flow(
-                        "error", "ERR", "System Error", f"원인: {error_msg}", is_error=True
+                        "error",
+                        "ERR",
+                        "System Error",
+                        f"원인: {error_msg}",
+                        is_error=True,
                     )
                     # "Exception"이 포함된 줄은 위에서 이미 원본을 System Log에 남겼으므로 중복 방지
                     if "Exception" not in line:
