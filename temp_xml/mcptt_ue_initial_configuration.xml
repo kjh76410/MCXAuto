@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8' standalone='no' ?>
 <mcptt-UE-initial-configuration xmlns="urn:3gpp:mcptt:mcpttUEinitConfig:1.0" domain="ims.mnc030.mcc450.3gppnetwork.org">
   <name xml:lang="en">mcptt ue init config</name>
-  <Default-user-profile User-ID="mcptt" user-profile-index="191bd012-02e5-41b4-9326-1d884ed22e75" index="1" />
+  <Default-user-profile User-ID="mcptt" user-profile-index="1" index="191bd012-02e5-41b4-9326-1d884ed22e75" />
   <on-network>
     <Timers>
       <T4>0</T4>
@@ -30,7 +30,7 @@
       <csctlsport>4420</csctlsport>
       <usedcsctls>true</usedcsctls>
       <pcscf1>2001:4200:110:1000:721::11</pcscf1>
-      <pcscf2>2001:4200:210:1000:721::11</pcscf2>
+      <pcscf2></pcscf2>
       <pcscfport>5080</pcscfport>
       <usedpcopcscf>true</usedpcopcscf>
       <registerexpire>600000</registerexpire>
@@ -39,11 +39,11 @@
       <ipsecenabled>false</ipsecenabled>
       <sleepmodeenabled>true</sleepmodeenabled>
       <reg-retry-after>0</reg-retry-after>
-      <useragent>PS-LTE/1.2.3 VM65PS/KG06 Device_Type/Android_Phone PS-LTE</useragent>
-      <idmsid>450300010096801</idmsid>
-      <idmspw>aGo2nT8h4QeLUSYW5hIA9VZTp67XDJS5DzlrIUjExds</idmspw>
-      <public-user-identity>sip:+821352030431@ims.mnc030.mcc450.3gppnetwork.org</public-user-identity>
-      <private-user-identity>450300010096801@ims.mnc030.mcc450.3gppnetwork.org</private-user-identity>
+      <useragent>PS-LTE/1.2.3 VM65PS/JH01 Device_Type/Android_Phone PS-LTE</useragent>
+      <idmsid>450300010096872</idmsid>
+      <idmspw>PHKZ61AtfU96T-gWkgVUjBDRJXLjHsu5MRvvZ2NSkgk</idmspw>
+      <public-user-identity>sip:+821352030502@ims.mnc030.mcc450.3gppnetwork.org</public-user-identity>
+      <private-user-identity>450300010096872@ims.mnc030.mcc450.3gppnetwork.org</private-user-identity>
       <domain>ims.mnc030.mcc450.3gppnetwork.org</domain>
       <gms>csc1.PTT.mnc030.mcc450.3gppnetwork.org</gms>
       <cms>csc1.PTT.mnc030.mcc450.3gppnetwork.org</cms>
