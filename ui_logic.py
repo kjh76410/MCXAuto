@@ -41,26 +41,38 @@ class App(ctk.CTk):
         self.geometry("1600x900")
 
         # ==========================================
-        # 🎨 [Jira & Modern SaaS Palette]
+        # 🎨 [iOS System Palette]
         # ==========================================
-        self.bg_color = "#F4F5F7"  # Jira 차분한 쿨그레이 배경
-        self.panel_bg = "#FFFFFF"  # 깔끔한 화이트 카드 패널
-        self.border_color = "#DFE1E6"  # 은은하고 세련된 테두리선
+        self.bg_color = "#F2F2F7"  # iOS Grouped Background
+        self.panel_bg = "#FFFFFF"  # 카드 화이트
+        self.border_color = "#E5E5EA"  # iOS 헤어라인 구분선
 
-        self.text_main = "#172B4D"  # Atlassian 딥 네이비
-        self.text_sub = "#5E6C84"  # 슬레이트 그레이 (서브 텍스트)
+        self.text_main = "#1C1C1E"  # iOS Label
+        self.text_sub = "#8E8E93"  # iOS Secondary Label
 
-        self.point_blue = "#0052CC"  # Jira 상징 메인 블루
-        self.point_pink = "#DE350B"  # 경고/중지 레드
-        self.point_green = "#00875A"  # 성공/연결 다크 그린
-        self.danger_color = "#DE350B"
+        self.point_blue = "#0B4192"  # 딥 네이비 (메인 액션)
+        self.point_blue_hover = "#093475"
+        self.point_green = "#0B4192"  # 딥 네이비 (연결 액션)
+        self.point_green_hover = "#093475"
+        self.point_orange = "#FF9500"  # iOS systemOrange (주의)
+        self.point_orange_hover = "#DB7F00"
+        self.point_pink = "#FF3B30"  # iOS systemRed (경고/중지)
+        self.danger_color = "#FF3B30"
+        self.danger_bg_light = "#FFE5E4"
+        self.danger_bg_hover = "#FFD2D0"
 
-        self.btn_bg_light = "#EBECF0"  # 은은한 라이트 그레이 버튼
-        self.btn_hover_light = "#C1C7D0"
+        # 세컨더리 버튼용 "Tinted" 스타일 (아이콘 색 옅은 배경 + 진한 텍스트)
+        self.tint_blue_bg = "#E4E9F3"
+        self.tint_blue_hover = "#D2DAE9"
+        self.tint_orange_bg = "#FFF1DC"
+        self.tint_orange_hover = "#FFE6BF"
+
+        self.btn_bg_light = "#E9E9EB"  # iOS systemGray5 (중립 버튼)
+        self.btn_hover_light = "#DCDCE1"
 
         self.configure(fg_color=self.bg_color)
         self.current_uuid = None
-        self.radius = 6  # SaaS 스타일에 맞게 라운딩을 살짝 줄여 sharp하게 변경
+        self.radius = 14  # iOS 카드/버튼 특유의 넉넉한 라운딩
         self.is_log_on = False
         self.is_pcap_on = False
         self.is_device_pcap_on = False
@@ -147,7 +159,7 @@ class App(ctk.CTk):
             text="🟢 기기 연결 및 로드",
             font=("Noto Sans KR", 12, "bold"),
             fg_color=self.point_green,
-            hover_color="#006644",
+            hover_color="#093475",
             height=38,
             corner_radius=self.radius,
             command=self.check_device,
@@ -156,7 +168,7 @@ class App(ctk.CTk):
 
         self.info_frame = ctk.CTkFrame(
             self.left_panel,
-            fg_color="#F4F5F7",
+            fg_color="#F2F2F7",
             corner_radius=self.radius,
             border_width=1,
             border_color=self.border_color,
@@ -221,12 +233,10 @@ class App(ctk.CTk):
         self.btn_env = ctk.CTkButton(
             row_config,
             text="⚙️ 환경 설정",
-            font=("Noto Sans KR", 11),
-            fg_color=self.panel_bg,
-            border_width=1,
-            border_color=self.border_color,
-            text_color=self.text_main,
-            hover_color=self.btn_hover_light,
+            font=("Noto Sans KR", 11, "bold"),
+            fg_color=self.tint_blue_bg,
+            text_color=self.point_blue,
+            hover_color=self.tint_blue_hover,
             height=32,
             corner_radius=self.radius,
             command=self.open_env_setup,
@@ -235,12 +245,10 @@ class App(ctk.CTk):
         self.btn_wifi = ctk.CTkButton(
             row_config,
             text="📶 WiFi 설정",
-            font=("Noto Sans KR", 11),
-            fg_color=self.panel_bg,
-            border_width=1,
-            border_color=self.border_color,
-            text_color=self.text_main,
-            hover_color=self.btn_hover_light,
+            font=("Noto Sans KR", 11, "bold"),
+            fg_color=self.tint_blue_bg,
+            text_color=self.point_blue,
+            hover_color=self.tint_blue_hover,
             height=32,
             corner_radius=self.radius,
             command=self.open_wifi_setup,
@@ -256,12 +264,10 @@ class App(ctk.CTk):
         self.btn_install = ctk.CTkButton(
             self.left_panel,
             text="📦 앱 설치 (.apk)",
-            font=("Noto Sans KR", 11),
-            fg_color=self.btn_bg_light,
-            border_width=1,
-            border_color=self.border_color,
-            text_color=self.text_main,
-            hover_color=self.btn_hover_light,
+            font=("Noto Sans KR", 11, "bold"),
+            fg_color=self.tint_blue_bg,
+            text_color=self.point_blue,
+            hover_color=self.tint_blue_hover,
             height=32,
             corner_radius=self.radius,
             command=self.run_install_app,
@@ -275,12 +281,10 @@ class App(ctk.CTk):
         self.btn_clear_data = ctk.CTkButton(
             row_app,
             text="🧹 데이터 삭제",
-            font=("Noto Sans KR", 11),
-            fg_color=self.btn_bg_light,
-            border_width=1,
-            border_color=self.border_color,
-            text_color=self.text_main,
-            hover_color=self.btn_hover_light,
+            font=("Noto Sans KR", 11, "bold"),
+            fg_color=self.tint_orange_bg,
+            text_color=self.point_orange,
+            hover_color=self.tint_orange_hover,
             height=32,
             corner_radius=self.radius,
             command=self.run_clear_data,
@@ -290,14 +294,68 @@ class App(ctk.CTk):
             row_app,
             text="🗑️ 앱 삭제",
             font=("Noto Sans KR", 11),
-            fg_color="#FFEBE6",
+            fg_color="#FFE5E4",
             text_color=self.danger_color,
-            hover_color="#FFBDAD",
+            hover_color="#FFD2D0",
             height=32,
             corner_radius=self.radius,
             command=self.run_uninstall_app,
         )
         self.btn_uninstall.grid(row=0, column=1, padx=(3, 0), sticky="ew")
+
+        ctk.CTkFrame(self.left_panel, height=1, fg_color=self.border_color).pack(
+            fill="x", padx=15, pady=(16, 4)
+        )
+
+        ctk.CTkLabel(
+            self.left_panel,
+            text="자동화 실행",
+            font=("Noto Sans KR", 12, "bold"),
+            text_color=self.text_main,
+        ).pack(pady=(8, 6), padx=15, anchor="w")
+
+        self.btn_run_scenario = ctk.CTkButton(
+            self.left_panel,
+            text="▶ 전체 시나리오 실행",
+            font=("Noto Sans KR", 13, "bold"),
+            fg_color="#1C1C1E",
+            hover_color="#2C2C2E",
+            height=42,
+            corner_radius=self.radius,
+            command=self.run_automation,
+        )
+        self.btn_run_scenario.pack(fill="x", padx=15, pady=(0, 6))
+
+        row_ctrl = ctk.CTkFrame(self.left_panel, fg_color="transparent")
+        row_ctrl.pack(fill="x", padx=15, pady=(0, 15))
+        row_ctrl.grid_columnconfigure(0, weight=1)
+        row_ctrl.grid_columnconfigure(1, weight=1)
+
+        self.btn_stop_scenario = ctk.CTkButton(
+            row_ctrl,
+            text="⏹ 중지",
+            font=("Noto Sans KR", 12, "bold"),
+            fg_color="#FFE5E4",
+            text_color=self.danger_color,
+            hover_color="#FFD2D0",
+            height=36,
+            corner_radius=self.radius,
+            command=self.stop_automation,
+        )
+        self.btn_stop_scenario.grid(row=0, column=0, padx=(0, 3), sticky="ew")
+
+        self.btn_unit_test = ctk.CTkButton(
+            row_ctrl,
+            text="단위 테스트",
+            font=("Noto Sans KR", 12, "bold"),
+            fg_color=self.btn_bg_light,
+            text_color=self.text_main,
+            hover_color=self.btn_hover_light,
+            height=36,
+            corner_radius=self.radius,
+            command=self.open_unit_test_popup,
+        )
+        self.btn_unit_test.grid(row=0, column=1, padx=(3, 0), sticky="ew")
 
         # Top Banner Features
         self.feature_card = ctk.CTkFrame(self.center_panel, fg_color="transparent")
@@ -328,7 +386,7 @@ class App(ctk.CTk):
             text="🔄",
             width=34,
             height=34,
-            corner_radius=6,
+            corner_radius=17,
             fg_color=self.btn_bg_light,
             text_color=self.text_main,
             hover_color=self.btn_hover_light,
@@ -341,7 +399,7 @@ class App(ctk.CTk):
             text="Group List",
             font=("Noto Sans KR", 11, "bold"),
             height=34,
-            corner_radius=6,
+            corner_radius=17,
             fg_color=self.point_blue,
             text_color="white",
             command=lambda: self.switch_tab("group"),
@@ -353,7 +411,7 @@ class App(ctk.CTk):
             text="User List",
             font=("Noto Sans KR", 11, "bold"),
             height=34,
-            corner_radius=6,
+            corner_radius=17,
             fg_color=self.btn_bg_light,
             text_color=self.text_sub,
             hover_color=self.btn_hover_light,
@@ -407,7 +465,7 @@ class App(ctk.CTk):
             text="📞 통화 발신",
             font=("Noto Sans KR", 12, "bold"),
             fg_color=self.point_green,
-            hover_color="#006644",
+            hover_color="#093475",
             height=40,
             corner_radius=self.radius,
             command=self.on_main_call_button_clicked,
@@ -419,59 +477,12 @@ class App(ctk.CTk):
             text="💬 메시지 전송",
             font=("Noto Sans KR", 12, "bold"),
             fg_color=self.point_blue,
-            hover_color="#0047B3",
+            hover_color="#093475",
             height=40,
             corner_radius=self.radius,
             command=self.send_group_message,
         )
         self.btn_group_msg.pack(side="left", expand=True, fill="x", padx=(4, 0))
-
-        # 📋 Group List 카드 하단: 시나리오 실행 제어 버튼
-        scenario_ctrl_frame = ctk.CTkFrame(col_list, fg_color="transparent")
-        scenario_ctrl_frame.pack(side="bottom", fill="x", pady=(12, 0))
-
-        self.btn_run_scenario = ctk.CTkButton(
-            scenario_ctrl_frame,
-            text="▶ 전체 시나리오 실행",
-            font=("Noto Sans KR", 13, "bold"),
-            fg_color="#333333",
-            hover_color="#1A1A1A",
-            height=42,
-            corner_radius=self.radius,
-            command=self.run_automation,
-        )
-        self.btn_run_scenario.pack(fill="x", pady=(0, 6))
-
-        row_ctrl = ctk.CTkFrame(scenario_ctrl_frame, fg_color="transparent")
-        row_ctrl.pack(fill="x")
-        row_ctrl.grid_columnconfigure(0, weight=1)
-        row_ctrl.grid_columnconfigure(1, weight=1)
-
-        self.btn_stop_scenario = ctk.CTkButton(
-            row_ctrl,
-            text="⏹ 중지",
-            font=("Noto Sans KR", 12, "bold"),
-            fg_color="#FFEBE6",
-            text_color=self.danger_color,
-            hover_color="#FFBDAD",
-            height=36,
-            corner_radius=self.radius,
-            command=self.stop_automation,
-        )
-        self.btn_stop_scenario.grid(row=0, column=0, padx=(0, 3), sticky="ew")
-
-        self.btn_unit_test = ctk.CTkButton(
-            row_ctrl,
-            text="단위 테스트",
-            font=("Noto Sans KR", 12, "bold"),
-            fg_color=self.btn_bg_light,
-            text_color=self.text_main,
-            hover_color=self.btn_hover_light,
-            height=36,
-            corner_radius=self.radius,
-            command=self.open_unit_test_popup,
-        )
-        self.btn_unit_test.grid(row=0, column=1, padx=(3, 0), sticky="ew")
 
         # ==========================================
         # 📱 [COLUMN 2 (30%)] Mirroring 존 (버튼 튀어나감 완벽 방어)
@@ -502,7 +513,7 @@ class App(ctk.CTk):
         btn_kwargs = {
             "width": 10,
             "height": 30,
-            "corner_radius": 4,
+            "corner_radius": 15,
             "fg_color": self.btn_bg_light,
             "text_color": self.text_main,
             "hover_color": self.btn_hover_light,
@@ -526,7 +537,7 @@ class App(ctk.CTk):
 
         # 📱 2. 미러링 화면 컨테이너 (고정)
         self.mirror_container = tk.Frame(
-            phone_box, bg="#091E42", width=phone_width, height=phone_height
+            phone_box, bg="#1C1C1E", width=phone_width, height=phone_height
         )
         self.mirror_container.pack(pady=(0, 5))
         self.mirror_container.pack_propagate(False)
@@ -534,7 +545,7 @@ class App(ctk.CTk):
             self.mirror_container,
             text="대기 중",
             font=("Noto Sans KR", 11),
-            text_color="#7A869A",
+            text_color="#8E8E93",
         )
         self.lbl_placeholder.place(relx=0.5, rely=0.5, anchor="center")
 
@@ -570,7 +581,7 @@ class App(ctk.CTk):
         monitor_container.grid(row=0, column=2, rowspan=2, sticky="nsew")
 
         self.pulse_frame = ctk.CTkFrame(
-            monitor_container, height=120, fg_color="#091E42", corner_radius=self.radius
+            monitor_container, height=120, fg_color="#1C1C1E", corner_radius=self.radius
         )
         self.pulse_frame.pack(side="top", fill="x", pady=(0, 12))
         self.pulse_frame.pack_propagate(False)
@@ -581,18 +592,18 @@ class App(ctk.CTk):
             pulse_header,
             text="🎙️ PTT Floor State",
             font=("Noto Sans KR", 12, "bold"),
-            text_color="#8993A4",
+            text_color="#8E8E93",
         ).pack(side="left")
         self.lbl_pulse_status = ctk.CTkLabel(
             pulse_header,
             text="대기",
             font=("Noto Sans KR", 11, "bold"),
-            text_color="#5E6C84",
+            text_color="#8E8E93",
         )
         self.lbl_pulse_status.pack(side="right")
 
         self.pulse_canvas = tk.Canvas(
-            self.pulse_frame, bg="#091E42", highlightthickness=0
+            self.pulse_frame, bg="#1C1C1E", highlightthickness=0
         )
         self.pulse_canvas.pack(expand=True, fill="both", padx=15, pady=(0, 8))
 
@@ -618,12 +629,12 @@ class App(ctk.CTk):
             monitor_header,
             text="🔴 PCAP ON",
             font=("Noto Sans KR", 11, "bold"),
-            fg_color="#FFEBE6",
+            fg_color="#FFE5E4",
             text_color=self.danger_color,
-            hover_color="#FFBDAD",
+            hover_color="#FFD2D0",
             width=90,
             height=30,
-            corner_radius=6,
+            corner_radius=15,
             command=self.toggle_pcap,
         )
         self.btn_toggle_pcap.pack(side="right", padx=(8, 0))
@@ -636,7 +647,7 @@ class App(ctk.CTk):
             hover_color=self.btn_hover_light,
             width=90,
             height=30,
-            corner_radius=6,
+            corner_radius=15,
             command=self.toggle_log,
         )
         self.btn_toggle_log.pack(side="right")
@@ -645,7 +656,7 @@ class App(ctk.CTk):
             monitor_top,
             fg_color="transparent",
             segmented_button_selected_color=self.point_blue,
-            segmented_button_selected_hover_color="#0047B3",
+            segmented_button_selected_hover_color="#093475",
             segmented_button_unselected_color=self.btn_bg_light,
             segmented_button_unselected_hover_color=self.btn_hover_light,
             text_color=self.text_main,
@@ -662,16 +673,16 @@ class App(ctk.CTk):
         def add_flow_card(event_type, title, detail, is_error=False):
             def update_ui():
                 if is_error:
-                    b_color, bg_col, icon = self.danger_color, "#FFEBE6", "🚨 ERROR"
+                    b_color, bg_col, icon = self.danger_color, "#FFE5E4", "🚨 ERROR"
                 elif event_type == "RX":
-                    b_color, bg_col, icon = self.point_green, "#E6F4EA", "📥 RECV "
+                    b_color, bg_col, icon = self.point_green, "#E5EBF5", "📥 RECV "
                 else:
                     b_color, bg_col, icon = self.point_blue, self.panel_bg, "⚙️ PROC "
 
                 card = ctk.CTkFrame(
                     self.flow_scroll,
                     fg_color=bg_col,
-                    corner_radius=6,
+                    corner_radius=10,
                     border_width=1,
                     border_color=b_color,
                 )
@@ -705,7 +716,7 @@ class App(ctk.CTk):
             self.tab_view.tab("System Log"),
             placeholder_text="🔍 터미널 로그 실시간 검색",
             height=36,
-            corner_radius=6,
+            corner_radius=10,
             fg_color="#FFFFFF",
             border_color=self.border_color,
         )
@@ -717,7 +728,7 @@ class App(ctk.CTk):
             text_color=self.text_main,
             border_width=1,
             border_color=self.border_color,
-            corner_radius=6,
+            corner_radius=10,
         )
         self.txt_log.pack(expand=True, fill="both")
         self.txt_log.insert("1.0", "[Terminal] 시스템 로그 출력을 대기 중입니다...\n")
@@ -752,7 +763,7 @@ class App(ctk.CTk):
             text_color=self.text_main,
             border_width=1,
             border_color=self.border_color,
-            corner_radius=6,
+            corner_radius=10,
         )
         self.txt_result.pack(expand=True, fill="both", padx=15, pady=(8, 15))
         self.txt_result.insert("1.0", "대기 중...\n")
@@ -953,7 +964,7 @@ class App(ctk.CTk):
             if not was_active:
                 self.update_wave_pulse()
         else:
-            self.lbl_pulse_status.configure(text="대기", text_color="#5E6C84")
+            self.lbl_pulse_status.configure(text="대기", text_color="#8E8E93")
             self._draw_idle_pulse()
 
     def _on_floor_state(self, state_text):
@@ -1027,7 +1038,10 @@ class App(ctk.CTk):
 
         group_map = {"regroup": "ReGroup", "prearranged": "PreArranged", "chat": "Chat"}
         private_map = {
-            "normal": "Normal",
+            "emergency_ptt": "E-PTT",
+            "emergency_ptv": "E-PTV",
+            "ptt": "PTT",
+            "ptv": "PTV",
             "without_floor_control": "W/O Floor",
             "mcvideo_push": "Video Push",
             "mcvideo_pull": "Video Pull",
@@ -1045,9 +1059,9 @@ class App(ctk.CTk):
         self.has_private_call = any(val == 1 for val in private_call_data.values())
 
         if self.has_private_call:
-            self.btn_tab_user.configure(state="normal", text_color="#475569")
+            self.btn_tab_user.configure(state="normal", text_color="#8E8E93")
         else:
-            self.btn_tab_user.configure(state="disabled", text_color="#CBD5E1")
+            self.btn_tab_user.configure(state="disabled", text_color="#D1D1D6")
             if getattr(self, "current_mode", "group") == "user":
                 self.switch_tab("group")
 
@@ -1146,7 +1160,7 @@ class App(ctk.CTk):
                 card = ctk.CTkFrame(
                     self.group_list_frame,
                     fg_color=self.panel_bg,
-                    corner_radius=4,
+                    corner_radius=12,
                     border_width=1,
                     border_color=self.border_color,
                 )
@@ -1167,7 +1181,7 @@ class App(ctk.CTk):
                     onvalue="on",
                     offvalue="off",
                     border_width=2,
-                    border_color="#94A3B8",
+                    border_color="#C7C7CC",
                     fg_color=self.point_blue,
                     command=self.update_group_visibility,
                 )
@@ -1240,7 +1254,7 @@ class App(ctk.CTk):
                         card,
                         text=codec_str,
                         font=("Noto Sans KR", 9),
-                        text_color="#94A3B8",
+                        text_color="#C7C7CC",
                     ).pack(anchor="w", padx=(34, 8), pady=(0, 4))
 
                 action_row = ctk.CTkFrame(card, fg_color="transparent")
@@ -1524,7 +1538,7 @@ class App(ctk.CTk):
             fg_color=self.btn_bg_light,
             text_color=self.text_main,
             button_color=self.point_blue,
-            button_hover_color="#2563EB",
+            button_hover_color="#093475",
             dropdown_font=("Noto Sans KR", 12),
             height=36,
             corner_radius=self.radius,
@@ -1536,7 +1550,7 @@ class App(ctk.CTk):
             text="✅ 설정 적용",
             font=("Noto Sans KR", 13, "bold"),
             fg_color=self.point_green,
-            hover_color="#059669",
+            hover_color="#093475",
             text_color="#FFFFFF",
             height=36,
             corner_radius=self.radius,
@@ -1629,7 +1643,7 @@ class App(ctk.CTk):
             fg_color=self.btn_bg_light,
             text_color=self.text_main,
             button_color=self.point_blue,
-            button_hover_color="#2563EB",
+            button_hover_color="#093475",
             dropdown_font=("Noto Sans KR", 12),
             height=36,
             corner_radius=self.radius,
@@ -1641,7 +1655,7 @@ class App(ctk.CTk):
             text="✅ WiFi 연결",
             font=("Noto Sans KR", 13, "bold"),
             fg_color=self.point_green,
-            hover_color="#059669",
+            hover_color="#093475",
             text_color="#FFFFFF",
             height=36,
             corner_radius=self.radius,
@@ -1771,29 +1785,101 @@ class App(ctk.CTk):
 
     def send_group_message(self):
         if not self.current_uuid:
+            self.txt_log.insert("end", "⚠️ 단말기가 연결되지 않았습니다!\n")
             return
 
         selected_groups = []
         for g_id, data in self.group_check_vars.items():
             if data["check_var"].get() == "on":
+                raw_type = data["msg_var"].get()
+                if not raw_type:
+                    self.txt_log.insert(
+                        "end",
+                        f"⚠️ '{data['name']}' 그룹의 메시지 방식이 선택되지 않아 제외됩니다.\n",
+                    )
+                    self.txt_log.see("end")
+                    continue
+
+                clean_type = raw_type.split(" ")[-1]
+                try:
+                    repeat_count = int(data["repeat_var"].get())
+                except (KeyError, ValueError):
+                    repeat_count = 1
+                repeat_count = max(1, repeat_count)
                 selected_groups.append(
                     {
                         "name": data["name"],
-                        "id": g_id,
-                        "msg_type": data["msg_var"].get(),
+                        "msg_type": clean_type,
+                        "repeat": repeat_count,
                     }
                 )
 
         if not selected_groups:
-            print("⚠️ 메시지를 보낼 그룹을 먼저 선택해 주세요!")
+            self.txt_log.insert(
+                "end",
+                "⚠️ 메시지를 보낼 그룹이 없습니다. 체크박스와 메시지 방식을 확인해주세요.\n",
+            )
+            self.txt_log.see("end")
             return
 
-        print("=" * 40)
-        print("💬 다음 그룹으로 IM 메시지 전송을 시도합니다:")
-        for g in selected_groups:
-            print(f" - {g['name']} (ID: {g['id']})")
-        print("=" * 40)
-        # adb_logic.send_message(self.current_uuid, selected_groups) 호출
+        proj_name = getattr(self, "project_name", "알 수 없는 프로젝트")
+
+        threading.Thread(
+            target=self._process_sequential_messages,
+            args=(proj_name, selected_groups),
+            daemon=True,
+        ).start()
+
+    def _process_sequential_messages(self, proj_name, selected_groups):
+        self.safe_log_insert(
+            f"\n[System] 총 {len(selected_groups)}개 그룹에 순차 메시지 전송을 시작합니다...\n"
+        )
+
+        try:
+            import uiautomator2 as u2
+
+            d = u2.connect(self.current_uuid)
+
+            if proj_name == "재난망":
+                module_name = "config_handlers.ps_lte_handler"
+                class_name = "PsLteHandler"
+            elif proj_name == "재난망_LM75":
+                module_name = "config_handlers.ps_lte_lm75_handler"
+                class_name = "PsLteLm75Handler"
+            else:
+                self.safe_log_insert(
+                    f"⚠️ '{proj_name}'에 대한 메시지 전송 기능이 아직 없습니다.\n"
+                )
+                return
+
+            module = importlib.import_module(module_name)
+            handler_class = getattr(module, class_name)
+            handler_instance = handler_class()
+
+            for idx, target in enumerate(selected_groups, 1):
+                t_name = target["name"]
+                t_type = target["msg_type"]
+                t_repeat = target.get("repeat", 1)
+
+                if t_type != "Text":
+                    self.safe_log_insert(
+                        f"⚠️ '{t_name}' ({t_type}) 메시지 방식은 아직 지원하지 않아 건너뜁니다.\n"
+                    )
+                    continue
+
+                for rep in range(1, t_repeat + 1):
+                    self.safe_log_insert(
+                        f"\n▶️ [{idx}/{len(selected_groups)}] '{t_name}' 메시지 전송 진행 중... ({rep}/{t_repeat}회)\n"
+                    )
+                    handler_instance.send_message(
+                        d, target_info=t_name, log_console=self.txt_log
+                    )
+                    time.sleep(2)
+
+            self.safe_log_insert("\n✅ 모든 순차 메시지 전송이 완료되었습니다!\n")
+
+        except Exception as e:
+            self.safe_log_insert(f"❌ 메시지 전송 프로세스 중 오류 발생: {e}\n")
 
     def open_unit_test_popup(self):
         popup = ctk.CTkToplevel(self)
@@ -1828,7 +1914,7 @@ class App(ctk.CTk):
                     hover_color=self.btn_hover_light,
                     anchor="w",
                     height=34,
-                    corner_radius=6,
+                    corner_radius=10,
                     command=lambda c=category, i=item: self.execute_action(c, i),
                 )
                 btn.pack(fill="x", pady=3)
@@ -1836,12 +1922,12 @@ class App(ctk.CTk):
     def switch_tab(self, tab_name):
         if tab_name == "group":
             self.btn_tab_group.configure(fg_color=self.point_blue, text_color="white")
-            self.btn_tab_user.configure(fg_color="#E2E8F0", text_color="#475569")
+            self.btn_tab_user.configure(fg_color="#E9E9EB", text_color="#8E8E93")
             self.user_list_frame.pack_forget()
             self.group_list_frame.pack(expand=True, fill="both", padx=5, pady=5)
         else:
             self.btn_tab_user.configure(fg_color=self.point_blue, text_color="white")
-            self.btn_tab_group.configure(fg_color="#E2E8F0", text_color="#475569")
+            self.btn_tab_group.configure(fg_color="#E9E9EB", text_color="#8E8E93")
             self.group_list_frame.pack_forget()
             self.user_list_frame.pack(expand=True, fill="both", padx=5, pady=5)
 
@@ -1886,7 +1972,12 @@ class App(ctk.CTk):
 
         xml_folder_path = os.path.dirname(os.path.abspath(path))
         users = FileManager.get_all_users_from_xml(xml_folder_path)
-        my_group_code = "006"
+
+        # 💡 [자동 판별] 프로젝트마다 번호 체계가 달라서(006, 0618...) 하드코딩 대신
+        # 내 단말 자신의 서비스 번호 앞자리를 그룹코드로 사용합니다.
+        GROUP_CODE_LEN = 3
+        my_own_number = FileManager.get_my_own_number(path)
+        my_group_code = my_own_number[:GROUP_CODE_LEN] if my_own_number else "006"
 
         # 💡 [정렬 추가] Service ID (u.get("name")) 기준으로 오름차순 정렬
         filtered_users = sorted(
@@ -1894,9 +1985,18 @@ class App(ctk.CTk):
             key=lambda x: str(x.get("name", "")),
         )
 
-        print(
-            f"👥 [유저 목록 갱신] 총 {len(filtered_users)}명의 006 유저를 찾았습니다."
-        )
+        total_found = len(filtered_users)
+        MAX_USER_LIST = 30
+        if total_found > MAX_USER_LIST:
+            filtered_users = filtered_users[:MAX_USER_LIST]
+            print(
+                f"👥 [유저 목록 갱신] 총 {total_found}명의 {my_group_code} 유저 중 "
+                f"과부하 방지를 위해 {MAX_USER_LIST}명만 불러옵니다."
+            )
+        else:
+            print(
+                f"👥 [유저 목록 갱신] 총 {total_found}명의 {my_group_code} 유저를 찾았습니다."
+            )
 
         for widget in self.user_list_frame.winfo_children():
             widget.destroy()
@@ -1912,7 +2012,7 @@ class App(ctk.CTk):
             user_card = ctk.CTkFrame(
                 self.user_list_frame,
                 fg_color=self.panel_bg,
-                corner_radius=4,
+                corner_radius=12,
                 border_width=1,
                 border_color=self.border_color,
             )
@@ -1933,7 +2033,7 @@ class App(ctk.CTk):
                 onvalue="on",
                 offvalue="off",
                 border_width=2,
-                border_color="#94A3B8",
+                border_color="#C7C7CC",
                 fg_color=self.point_blue,
                 command=self.update_user_action_frame,
             )
@@ -2002,7 +2102,7 @@ class App(ctk.CTk):
 
             seg_call = ctk.CTkSegmentedButton(
                 action_row,
-                values=["🔊 PTT", "📹 PTV", "🚨 E-PTT", "🚨 E-PTV"],
+                values=["🔊 PTT", "📹 PTV", "W/O Floor", "🚨 E-PTT", "🚨 E-PTV"],
                 height=26,
                 font=("Noto Sans KR", 10),
                 selected_color=self.point_blue,

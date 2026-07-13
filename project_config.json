@@ -10,8 +10,11 @@
                     "chat": 0
                 },
                 "private_call": {
-                    "normal": 0,
-                    "without_floor_control": 0,
+                    "emergency_ptt": "0",
+                    "emergency_ptv": "0",
+                    "ptt": 1,
+                    "ptv": 1,
+                    "without_floor_control": 1,
                     "mcvideo_push": 0,
                     "mcvideo_pull": 0,
                     "first_answer": 0
@@ -35,7 +38,8 @@
                     "chat": 1
                 },
                 "private_call": {
-                    "normal": 1,
+                    "PTT": 1,
+                    "PTV": 1,
                     "without_floor_control": 1,
                     "mcvideo_push": 0,
                     "mcvideo_pull": 0,

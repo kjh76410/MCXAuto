@@ -30,7 +30,7 @@
       <csctlsport>4420</csctlsport>
       <usedcsctls>true</usedcsctls>
       <pcscf1>2001:4200:110:1000:721::11</pcscf1>
-      <pcscf2></pcscf2>
+      <pcscf2>2001:4200:210:1000:721::11</pcscf2>
       <pcscfport>5080</pcscfport>
       <usedpcopcscf>true</usedpcopcscf>
       <registerexpire>600000</registerexpire>
@@ -40,10 +40,10 @@
       <sleepmodeenabled>true</sleepmodeenabled>
       <reg-retry-after>0</reg-retry-after>
       <useragent>PS-LTE/1.2.3 VM65PS/JH01 Device_Type/Android_Phone PS-LTE</useragent>
-      <idmsid>450300010096872</idmsid>
-      <idmspw>PHKZ61AtfU96T-gWkgVUjBDRJXLjHsu5MRvvZ2NSkgk</idmspw>
-      <public-user-identity>sip:+821352030502@ims.mnc030.mcc450.3gppnetwork.org</public-user-identity>
-      <private-user-identity>450300010096872@ims.mnc030.mcc450.3gppnetwork.org</private-user-identity>
+      <idmsid>450300010018667</idmsid>
+      <idmspw>eDh5TwFdLUVp8_JLB5VHVq48opIjQsiNaTWn7867wKI</idmspw>
+      <public-user-identity>sip:+821352001413@ims.mnc030.mcc450.3gppnetwork.org</public-user-identity>
+      <private-user-identity>450300010018667@ims.mnc030.mcc450.3gppnetwork.org</private-user-identity>
       <domain>ims.mnc030.mcc450.3gppnetwork.org</domain>
       <gms>csc1.PTT.mnc030.mcc450.3gppnetwork.org</gms>
       <cms>csc1.PTT.mnc030.mcc450.3gppnetwork.org</cms>

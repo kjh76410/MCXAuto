@@ -137,6 +137,37 @@ class FileManager:
             print(f"[FileManager] ⚠️ 내 정보 파싱 에러: {e}")
             return "파싱 실패"
 
+    @staticmethod
+    def get_my_own_number(file_path):
+        """XML에서 내 자신의 MCPTT 서비스 번호(숫자)만 추출합니다. (프로젝트별 그룹코드 자동 판별용)"""
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                xml_string = re.sub(r' xmlns=".*?"', "", f.read())
+            root = ET.fromstring(xml_string)
+
+            user_id_tag = root.find(".//MCPTTUserID")
+            if user_id_tag is None:
+                return ""
+
+            uri_tag = user_id_tag.find("uri-entry")
+            if uri_tag is None or not uri_tag.text:
+                return ""
+
+            uri_text = uri_tag.text.strip()
+            if uri_text.startswith("sip:"):
+                match = re.search(r"sip:([^@]+)@", uri_text)
+                if match:
+                    return match.group(1)
+            elif uri_text.startswith("tel:"):
+                match = re.search(r"tel:\+?(.+)", uri_text)
+                if match:
+                    return match.group(1).strip()
+
+            return ""
+        except Exception as e:
+            print(f"[FileManager] ⚠️ 내 번호 파싱 에러: {e}")
+            return ""
+
     # --- 💡 여기서부터 중복을 제거하고 코덱 로직을 합친 완성본입니다 ---
 
     @staticmethod
