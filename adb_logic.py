@@ -21,6 +21,21 @@ def get_devices():
         return []
 
 
+def get_screen_resolution(uuid):
+    """기기의 실제 화면 해상도를 (width, height) 튜플로 반환합니다.
+    회전(orientation)에 따라 wm size의 override/physical 표기가 달라질 수 있어
+    가장 마지막에 등장하는 해상도(override가 있으면 override)를 사용합니다."""
+    try:
+        output = subprocess.check_output(["adb", "-s", uuid, "shell", "wm", "size"]).decode()
+        matches = re.findall(r"(\d+)x(\d+)", output)
+        if matches:
+            w, h = matches[-1]
+            return int(w), int(h)
+    except Exception:
+        pass
+    return None
+
+
 def get_model_name(uuid):
     try:
         return (
@@ -796,6 +811,129 @@ def parse_sip_flow_from_pcap(pcap_path):
     return events
 
 
+def _dismiss_pcapdroid_onboarding(d, timeout=5):
+    """PCAPdroid 최초 실행 시 뜨는 OnBoardingActivity 튜토리얼 화면을 스킵합니다.
+    resourceId(com.emanuelef.remote_capture:id/skip)로 우선 탐지하고,
+    구버전/텍스트만 있는 경우를 대비해 텍스트 매칭도 백업으로 시도합니다."""
+    skip_btn = d(resourceId="com.emanuelef.remote_capture:id/skip")
+    if skip_btn.wait(timeout=timeout):
+        print("- 최초 실행 튜토리얼(OnBoarding) 감지! [skip] 버튼을 클릭합니다.")
+        skip_btn.click()
+        time.sleep(1)
+        return True
+
+    for skip_text in ("SKIP", "Skip"):
+        if d(text=skip_text).exists:
+            print(f"- 최초 실행 튜토리얼 감지! [{skip_text}] 버튼을 클릭합니다.")
+            d(text=skip_text).click()
+            time.sleep(1)
+            return True
+
+    return False
+
+
+def _grant_pcapdroid_permission_popups(d, timeout=5, max_attempts=3):
+    """OnBoarding 직후 뜨는 시스템 권한 요청(GrantPermissionsActivity) 팝업을 허용합니다.
+    알림/VPN 등 여러 개가 연달아 뜰 수 있어 최대 max_attempts번 반복 처리합니다."""
+    allow_btn = d(resourceId="com.android.packageinstaller:id/permission_allow_button")
+    granted = False
+    for _ in range(max_attempts):
+        if not allow_btn.wait(timeout=timeout):
+            break
+        print("- 시스템 권한 요청 팝업 감지! [허용] 버튼을 클릭합니다.")
+        allow_btn.click()
+        time.sleep(1)
+        granted = True
+    return granted
+
+
+def _ensure_pcapdroid_target_apps(d):
+    """Target apps에 EveryTalk이 켜져 있는지 점검하고, 아니면 켭니다.
+    메인 화면만으로 이미 설정 완료 상태(스위치 ON + EveryTalk 선택됨)면 화면 이동 없이 바로 통과합니다."""
+    app_filter_switch = d(
+        resourceId="com.emanuelef.remote_capture:id/app_filter_switch"
+    )
+
+    # [0] 메인 화면만으로 이미 설정 완료 상태인지 판단 (스위치 ON + EveryTalk 선택됨)
+    already_configured = app_filter_switch.exists and app_filter_switch.info.get(
+        "checked"
+    ) and d(
+        resourceId="com.emanuelef.remote_capture:id/description",
+        textContains="com.EveryTalk.Global",
+    ).exists
+
+    if already_configured:
+        print("- ✅ 메인 화면에서 [EveryTalk] 타겟 앱 설정을 이미 확인했습니다. (화면 이동 패스!)")
+        return
+
+    # [1] app_filter_switch가 꺼져있으면 켠다
+    if app_filter_switch.exists and not app_filter_switch.info.get("checked"):
+        print("- Target apps 필터 스위치가 OFF 상태입니다. ON으로 켭니다.")
+        app_filter_switch.click()
+        time.sleep(1)
+
+    # [2] Target apps 상세 화면(AppFilterActivity)으로 진입
+    print("- Target apps 상세 화면으로 진입합니다.")
+    d(text="Target apps").click()
+    time.sleep(2)
+
+    # [3] 3닷 메뉴 → 시스템 앱 표시 점검
+    if d(description="More options").exists:
+        d(description="More options").click()
+        time.sleep(1)
+
+        sys_menu = d(text="Show system apps")
+        if sys_menu.exists:
+            checkbox = d(className="android.widget.CheckBox")
+            is_checked = (
+                checkbox.info.get("checked")
+                if checkbox.exists
+                else sys_menu.info.get("checked")
+            )
+
+            if not is_checked:
+                print("- [Show system apps] 활성화합니다.")
+                sys_menu.click()
+                time.sleep(1.5)
+            else:
+                print("- [Show system apps] 이미 체크되어 있습니다! (유지)")
+                d.press("back")
+                time.sleep(1)
+
+    # [4] 검색 버튼 클릭 및 앱 검색 (소문자 everytalk)
+    search_btn = d(resourceId="com.emanuelef.remote_capture:id/search_button")
+    if search_btn.exists:
+        search_btn.click()
+        time.sleep(1.5)
+
+        search_box = d(className="android.widget.EditText")
+        if search_box.exists:
+            search_box.set_text("everytalk")
+        else:
+            d.send_keys("everytalk")
+
+        time.sleep(2)
+
+    # [5] 검색된 앱 토글 켜기
+    toggle_btn = d(resourceId="com.emanuelef.remote_capture:id/toggle_btn")
+    if toggle_btn.exists:
+        is_on = toggle_btn.info.get("checked")
+        if not is_on:
+            print("- [EveryTalk] 토글을 ON으로 변경합니다!")
+            toggle_btn.click()
+            time.sleep(1)
+        else:
+            print("- [EveryTalk] 토글이 이미 ON 상태입니다.")
+    else:
+        print("- ❌ [EveryTalk] 토글 버튼을 찾지 못했습니다.")
+
+    # [6] 메인 화면 복귀 루프
+    print("- 셋팅 완료! 메인 화면으로 돌아갑니다.")
+    while not d(resourceId="com.emanuelef.remote_capture:id/action_start").exists:
+        d.press("back")
+        time.sleep(1)
+
+
 def setup_pcapdroid_settings(uuid):
     d = u2.connect(uuid)
 
@@ -804,15 +942,10 @@ def setup_pcapdroid_settings(uuid):
         d.app_start("com.emanuelef.remote_capture")
         time.sleep(2)
 
-        # 🌟 [0] 최초 설치 시 뜨는 튜토리얼(Welcome) 화면 스킵
-        if d(text="SKIP").exists:
-            print("- 최초 실행 튜토리얼 감지! [SKIP] 버튼을 클릭합니다.")
-            d(text="SKIP").click()
-            time.sleep(1)
-        elif d(text="Skip").exists:
-            print("- 최초 실행 튜토리얼 감지! [Skip] 버튼을 클릭합니다.")
-            d(text="Skip").click()
-            time.sleep(1)
+        # 🌟 [0] 최초 설치 시 뜨는 튜토리얼(OnBoarding) 화면 스킵
+        _dismiss_pcapdroid_onboarding(d)
+        # 🌟 [0-1] 온보딩 직후 뜨는 시스템 권한 요청 팝업 허용
+        _grant_pcapdroid_permission_popups(d)
 
         # 메인 화면 로딩 대기
         if not d(text="Ready").wait(timeout=10):
@@ -830,91 +963,9 @@ def setup_pcapdroid_settings(uuid):
                 time.sleep(1)
 
         # ----------------------------------------------------
-        # 2. Target apps 스마트 점검 (메인 화면에서 바로 확인!)
+        # 2. Target apps 스마트 점검
         # ----------------------------------------------------
-        # 스크린샷처럼 메인 화면에 "com.EveryTalk.Global" 글씨가 이미 있다면?
-        if (
-            d(textContains="com.EveryTalk.Global").exists
-            or d(textContains="MCX Client").exists
-        ):
-            print("- ✅ 메인 화면에서 [EveryTalk] 타겟 앱 설정을 확인했습니다.")
-
-            # 메인 화면에 있는 토글 스위치가 켜져 있는지 확인
-            main_toggle = d(
-                resourceId="com.emanuelef.remote_capture:id/app_filter_switch"
-            )
-            if main_toggle.exists:
-                is_main_on = main_toggle.info.get("checked")
-                if not is_main_on:  # 만약 꺼져있다면
-                    print("- 메인 화면 토글이 OFF 상태입니다. ON으로 켭니다.")
-                    main_toggle.click()
-                    time.sleep(1)
-                else:
-                    print(
-                        "- 메인 화면 토글도 이미 ON 상태입니다. (상세 셋팅 완벽 패스!)"
-                    )
-
-        else:
-            # 메인 화면에 앱 이름이 없다면 상세 설정으로 딥-다이브 진입!
-            print("- 타겟 앱이 지정되지 않았습니다. 상세 설정 화면으로 진입합니다.")
-            d(text="Target apps").click()
-            time.sleep(2)
-
-            # [1] 우측 상단 3닷 메뉴 클릭 & 시스템 앱 활성화 점검
-            if d(description="More options").exists:
-                d(description="More options").click()
-                time.sleep(1)
-
-                sys_menu = d(text="Show system apps")
-                if sys_menu.exists:
-                    checkbox = d(className="android.widget.CheckBox")
-                    is_checked = (
-                        checkbox.info.get("checked")
-                        if checkbox.exists
-                        else sys_menu.info.get("checked")
-                    )
-
-                    if not is_checked:
-                        print("- [Show system apps] 활성화합니다.")
-                        sys_menu.click()
-                        time.sleep(1.5)
-                    else:
-                        print("- [Show system apps] 이미 체크되어 있습니다! (유지)")
-                        d.press("back")
-                        time.sleep(1)
-
-            # [2] 검색 버튼 클릭 및 앱 검색 (소문자 everytalk)
-            search_btn = d(resourceId="com.emanuelef.remote_capture:id/search_button")
-            if search_btn.exists:
-                search_btn.click()
-                time.sleep(1.5)
-
-                search_box = d(className="android.widget.EditText")
-                if search_box.exists:
-                    search_box.set_text("everytalk")
-                else:
-                    d.send_keys("everytalk")
-
-                time.sleep(2)
-
-            # [3] 검색된 앱 토글 켜기
-            toggle_btn = d(resourceId="com.emanuelef.remote_capture:id/toggle_btn")
-            if toggle_btn.exists:
-                is_on = toggle_btn.info.get("checked")
-                if not is_on:
-                    print("- [EveryTalk] 토글을 ON으로 변경합니다!")
-                    toggle_btn.click()
-                    time.sleep(1)
-                else:
-                    print("- [EveryTalk] 토글이 이미 ON 상태입니다.")
-
-            # [4] 메인 화면 복귀 루프
-            print("- 셋팅 완료! 메인 화면으로 돌아갑니다.")
-            while not d(
-                resourceId="com.emanuelef.remote_capture:id/action_start"
-            ).exists:
-                d.press("back")
-                time.sleep(1)
+        _ensure_pcapdroid_target_apps(d)
 
         # ----------------------------------------------------
         # 3. 캡처 시작 (상단 Play 버튼 클릭)
@@ -940,6 +991,13 @@ def setup_pcapdroid_settings(uuid):
                     break
 
             print("✅ PCAPdroid 캡처가 정상적으로 실행되었습니다!")
+
+            # ----------------------------------------------------
+            # 4. EveryTalk 앱 실행
+            # ----------------------------------------------------
+            print("- 📱 EveryTalk 앱을 실행합니다...")
+            d.app_start("com.EveryTalk.Global")
+            time.sleep(2)
         else:
             print("❌ Play 버튼을 찾지 못했습니다.")
 
@@ -1018,14 +1076,20 @@ def _wait_pcapdroid_main_screen(d, timeout=10):
     d.app_start("com.emanuelef.remote_capture")
     time.sleep(2)
 
-    if d(text="SKIP").exists:
-        d(text="SKIP").click()
-        time.sleep(1)
-    elif d(text="Skip").exists:
-        d(text="Skip").click()
-        time.sleep(1)
+    _dismiss_pcapdroid_onboarding(d)
+    _grant_pcapdroid_permission_popups(d)
 
     return d(text="Ready").wait(timeout=timeout)
+
+
+def _confirm_pcapdroid_dialog(d, timeout=5):
+    """PCAPdroid 설정 다이얼로그(SettingsActivity)의 확인 버튼(android:id/button1)을 클릭합니다."""
+    btn = d(resourceId="android:id/button1")
+    if btn.wait(timeout=timeout):
+        btn.click()
+        time.sleep(1)
+        return True
+    return False
 
 
 def configure_pcapdroid_tcp_exporter(uuid, host="127.0.0.1", port=15123):
@@ -1050,26 +1114,69 @@ def configure_pcapdroid_tcp_exporter(uuid, host="127.0.0.1", port=15123):
             d.press("back")
             return False
 
-        d(text="Collector IP address").click()
-        time.sleep(1)
-        d(className="android.widget.EditText").set_text(host)
-        d(text="OK").click()
-        time.sleep(1)
+        # Collector IP address: 이미 host와 같으면 눌러서 재설정하지 않고 스킵
+        ip_summary = d(text="Collector IP address").sibling(
+            resourceId="android:id/summary"
+        )
+        if ip_summary.exists and ip_summary.get_text() == host:
+            print(f"- Collector IP address가 이미 {host}로 설정되어 있습니다. (스킵)")
+        else:
+            d(text="Collector IP address").click()
+            time.sleep(1)
+            ip_field = d(className="android.widget.EditText")
+            ip_field.wait(timeout=5)
+            if ip_field.get_text() != host:
+                ip_field.set_text(host)
+            if not _confirm_pcapdroid_dialog(d):
+                print("❌ Collector IP address 확인 버튼을 찾지 못했습니다.")
+                d.press("back")
+                return False
 
-        d(text="Collector port").click()
-        time.sleep(1)
-        d(className="android.widget.EditText").set_text(str(port))
-        d(text="OK").click()
-        time.sleep(1)
+        # Collector port: 이미 port와 같으면 눌러서 재설정하지 않고 스킵
+        port_summary = d(text="Collector port").sibling(
+            resourceId="android:id/summary"
+        )
+        if port_summary.exists and port_summary.get_text() == str(port):
+            print(f"- Collector port가 이미 {port}로 설정되어 있습니다. (스킵)")
+        else:
+            d(text="Collector port").click()
+            time.sleep(1)
+            port_field = d(className="android.widget.EditText")
+            port_field.wait(timeout=5)
+            if port_field.get_text() != str(port):
+                port_field.set_text(str(port))
+            if not _confirm_pcapdroid_dialog(d):
+                print("❌ Collector port 확인 버튼을 찾지 못했습니다.")
+                d.press("back")
+                return False
 
         d.press("back")
         time.sleep(1)
 
-        if not _select_pcapdroid_dump_mode(d, "TCP exporter"):
-            print("❌ TCP exporter 모드로 전환하지 못했습니다.")
-            return False
+        # 메인 화면 dump_mode_spinner가 이미 TCP exporter면 드롭다운 전환은 스킵
+        spinner_title = d(
+            resourceId="com.emanuelef.remote_capture:id/dump_mode_spinner"
+        ).child(resourceId="com.emanuelef.remote_capture:id/title")
+        if spinner_title.exists and spinner_title.get_text() == "TCP exporter":
+            print("- Dump mode가 이미 TCP exporter입니다. (스킵)")
+        else:
+            if not _select_pcapdroid_dump_mode(d, "TCP exporter"):
+                print("❌ TCP exporter 모드로 전환하지 못했습니다.")
+                return False
 
         print(f"✅ PCAPdroid를 TCP exporter 모드로 전환했습니다 (수신지: {host}:{port})")
+
+        # Target apps 점검 (EveryTalk 켜져 있는지 확인)
+        _ensure_pcapdroid_target_apps(d)
+
+        # 상단 Play 버튼 클릭 (일반 click()이 종종 씹혀서 좌표 탭 방식 사용)
+        if not _tap_pcapdroid_play_button(uuid):
+            print("❌ PCAPdroid Play 버튼을 누르지 못했습니다.")
+            return False
+
+        print("- 📱 EveryTalk 앱을 실행합니다...")
+        d.app_start("com.EveryTalk.Global")
+
         return True
     except Exception as e:
         print(f"❌ TCP exporter 모드 설정 중 오류: {e}")
@@ -1110,8 +1217,6 @@ def run_realtime_sip_stream(uuid, on_event, stop_event, state, host="127.0.0.1",
 
     if not ensure_pcapdroid_installed(uuid):
         return
-    if not configure_pcapdroid_tcp_exporter(uuid, host, port):
-        return
 
     subprocess.run(["adb", "-s", uuid, "reverse", f"tcp:{port}", f"tcp:{port}"])
 
@@ -1127,7 +1232,9 @@ def run_realtime_sip_stream(uuid, on_event, stop_event, state, host="127.0.0.1",
         subprocess.run(["adb", "-s", uuid, "reverse", "--remove", f"tcp:{port}"])
         return
 
-    if not _tap_pcapdroid_play_button(uuid):
+    # 리스너를 먼저 띄운 뒤 PCAPdroid 설정+Play+EveryTalk 실행까지 진행
+    # (Play를 먼저 누르면 수신 대기 중인 소켓이 없어 TCP exporter 연결이 즉시 실패함)
+    if not configure_pcapdroid_tcp_exporter(uuid, host, port):
         server.close()
         subprocess.run(["adb", "-s", uuid, "reverse", "--remove", f"tcp:{port}"])
         return
