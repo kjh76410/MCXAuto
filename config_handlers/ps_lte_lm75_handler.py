@@ -16,10 +16,10 @@ VOICE_FILE = os.path.join(
 TEST_MESSAGE_POOL = [
     "테스트 중입니다.",
     "테스트 메시지입니다.",
-    "메시지 발신 테스트입니다.",
-    "정상 수신 확인 테스트입니다.",
-    "통신 품질 테스트 중입니다.",
-    "QA 자동화 테스트 메시지입니다.",
+    "메시지 전송,",
+    "123 테스트",
+    "테스트 중입니다.",
+    "메시지입니다.",
 ]
 
 class PsLteLm75Handler:
@@ -262,6 +262,17 @@ class PsLteLm75Handler:
             if log_console:
                 log_console.insert("end", f"{msg}\n")
                 log_console.see("end")
+
+        serial = d.serial
+
+        def run_adb(cmd):
+            full_cmd = f"adb -s {serial} shell {cmd}"
+            print_log(f"💻 ADB 실행: {cmd}")
+            result = subprocess.run(
+                full_cmd, shell=True, capture_output=True, text=True
+            )
+            if result.returncode != 0:
+                print_log(f"⚠️ ADB 실행 에러: {result.stderr}")
 
         def go_home():
             # 💡 [핵심] SmsMainActivity/ContactActivity는 not exported라서 am start -n으로

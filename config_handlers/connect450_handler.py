@@ -94,3 +94,65 @@ class Connect450Handler:
 
         except Exception as e:
             print(f"❌ 450connect 자동화 중 오류 발생: {e}")
+
+    # ==========================================
+    # 🚨 비상통화(Emergency/Imminent Peril) 발신용 함수
+    # ==========================================
+    def make_emergency_call(self, d, imminent=False, log_console=None):
+        """
+        메인 화면(com.cybertel.mcptt.ui.main.EveryTalkMain)의 main_menu_em_key를 눌러
+        비상통화를 발신합니다. EmergencyAlert 팝업이 뜨면 imminent 여부에 따라
+        btnEmgYes 또는 btnEmgImminent를 눌러 확정합니다. (대상은 WAS에 사전설정된
+        고정 그룹이라 그룹명을 화면에서 찾을 필요가 없습니다.)
+        """
+
+        def print_log(msg):
+            print(msg)
+            if log_console:
+                log_console.insert("end", f"{msg}\n")
+                log_console.see("end")
+
+        def go_home():
+            # 💡 [핵심] EveryTalkMain 메인 화면의 채널명 표시(enter_ch_name)가 보일 때까지
+            # 뒤로가기를 반복해서, 다른 화면에 있어도 항상 메인 화면부터 시나리오를 시작합니다.
+            home_marker = d(resourceId="com.EveryTalk.Global:id/enter_ch_name")
+            for i in range(5):
+                if home_marker.exists:
+                    return True
+                print_log(f"🔙 메인 화면(EveryTalkMain)을 찾기 위해 뒤로가기를 누릅니다. ({i + 1}/5)")
+                d.press("back")
+                time.sleep(1.0)
+            return home_marker.exists
+
+        mode_label = "Imminent Peril" if imminent else "Emergency"
+        print_log(f"\n[Call] 🚨 {mode_label} 발신을 시작합니다.")
+
+        try:
+            d.app_start("com.EveryTalk.Global", stop=False)
+            time.sleep(1.5)
+
+            if not go_home():
+                print_log("❌ 메인 화면(EveryTalkMain)을 찾지 못해 발신을 진행할 수 없습니다.")
+                return
+
+            em_key = d(resourceId="com.EveryTalk.Global:id/main_menu_em_key")
+            if not em_key.wait(timeout=5.0):
+                print_log("❌ main_menu_em_key 버튼을 찾을 수 없습니다.")
+                return
+            em_key.click()
+
+            confirm_id = (
+                "com.EveryTalk.Global:id/btnEmgImminent"
+                if imminent
+                else "com.EveryTalk.Global:id/btnEmgYes"
+            )
+            confirm_btn = d(resourceId=confirm_id)
+            if not confirm_btn.wait(timeout=5.0):
+                print_log("❌ EmergencyAlert 확인 버튼을 찾을 수 없습니다.")
+                return
+            confirm_btn.click()
+
+            print_log(f"✅ {mode_label} 발신 시나리오 완료!")
+
+        except Exception as e:
+            print_log(f"❌ {mode_label} 발신 중 오류 발생: {e}")

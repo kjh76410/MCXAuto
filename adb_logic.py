@@ -5,6 +5,7 @@ import threading
 import re
 import subprocess
 import platform
+import shutil
 import uiautomator2 as u2
 
 
@@ -669,6 +670,132 @@ def stop_pcapdroid(uuid):
         return False
 
 
+def pull_latest_pcapdroid_file(uuid, local_dir):
+    """폰의 Download 폴더에서 가장 최근에 생성된 PCAPdroid 캡처 파일을 local_dir로 pull합니다.
+    PCAPdroid는 "PCAPdroid_14_Jul_18_23_23"처럼 확장자 없이 저장하므로 .pcap 확장자로
+    필터링하지 않고 파일명 접두사(PCAPdroid_)로 찾습니다.
+    """
+    try:
+        # 캡처 종료 직후엔 파일이 아직 flush 중일 수 있어 살짝 대기합니다.
+        time.sleep(1.5)
+
+        result = subprocess.run(
+            [
+                "adb",
+                "-s",
+                uuid,
+                "shell",
+                # 최신 PCAPdroid는 Download/PCAPdroid/ 하위 폴더에 저장하고,
+                # 구버전은 Download/ 바로 밑에 저장하므로 둘 다 뒤져서 최신 파일을 찾습니다.
+                "ls -t /sdcard/Download/PCAPdroid_* /sdcard/Download/PCAPdroid/PCAPdroid_* 2>/dev/null | head -n 1",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        remote_path = result.stdout.strip()
+        if not remote_path:
+            print("❌ 폰의 Download 폴더에서 pcap 파일을 찾지 못했습니다.")
+            return None
+
+        os.makedirs(local_dir, exist_ok=True)
+        remote_name = os.path.basename(remote_path)
+        # 확장자가 없는 파일명(PCAPdroid 기본 형식)이면 로컬에는 .pcap을 붙여서 저장합니다
+        # (tshark는 확장자와 무관하게 동작하지만, 나중에 수동으로 Wireshark로 열기 편하도록).
+        if "." not in remote_name:
+            remote_name += ".pcap"
+        local_path = os.path.join(local_dir, remote_name)
+        subprocess.run(
+            ["adb", "-s", uuid, "pull", remote_path, local_path],
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+        print(f"✅ pcap 파일을 가져왔습니다: {local_path}")
+        return local_path
+    except Exception as e:
+        print(f"❌ pcap pull 중 오류 발생: {e}")
+        return None
+
+
+def find_tshark():
+    """tshark 실행 파일 경로를 찾습니다 (PATH -> Wireshark 기본 설치 경로 순)."""
+    exe = shutil.which("tshark")
+    if exe:
+        return exe
+
+    default_path = r"C:\Program Files\Wireshark\tshark.exe"
+    if os.path.exists(default_path):
+        return default_path
+
+    return None
+
+
+SIP_TSHARK_FIELDS = [
+    "frame.time_relative",
+    "ip.src",
+    "ip.dst",
+    "sip.Request-Line",
+    "sip.Status-Line",
+    "sip.Call-ID",
+]
+
+
+def _sip_event_from_fields(parts, fields=SIP_TSHARK_FIELDS):
+    """tshark -T fields 한 줄(탭 구분)을 SIP 이벤트 dict로 변환합니다.
+    오프라인 pcap 분석과 실시간 스트리밍 분석이 이 로직을 함께 사용합니다.
+    이벤트가 아니면(SIP 요청/응답 라인이 아니면) None을 반환합니다.
+    """
+    while len(parts) < len(fields):
+        parts.append("")
+    _time_rel, src, dst, request_line, status_line, call_id = parts[:6]
+    request_line = request_line.strip()
+    status_line = status_line.strip()
+
+    if request_line:
+        method = request_line.split(" ")[0]
+        return {
+            "is_response": False,
+            "title": method,
+            "detail": f"{src} → {dst} | {request_line} (Call-ID: {call_id})",
+        }
+    elif status_line:
+        return {
+            "is_response": True,
+            "title": status_line,
+            "detail": f"{src} → {dst} | Call-ID: {call_id}",
+        }
+    return None
+
+
+def parse_sip_flow_from_pcap(pcap_path):
+    """pcap 파일에서 tshark로 SIP 메시지만 뽑아 순서대로 이벤트 리스트를 반환합니다.
+    각 이벤트: {"is_response": bool, "title": str, "detail": str}
+    """
+    tshark_path = find_tshark()
+    if not tshark_path:
+        print("❌ tshark를 찾을 수 없습니다. Wireshark(tshark)가 설치되어 있는지 확인해주세요.")
+        return []
+
+    cmd = [tshark_path, "-r", pcap_path, "-Y", "sip", "-T", "fields"]
+    for f in SIP_TSHARK_FIELDS:
+        cmd += ["-e", f]
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    except Exception as e:
+        print(f"❌ tshark 실행 중 오류 발생: {e}")
+        return []
+
+    events = []
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+        ev = _sip_event_from_fields(line.split("\t"))
+        if ev:
+            events.append(ev)
+
+    return events
+
+
 def setup_pcapdroid_settings(uuid):
     d = u2.connect(uuid)
 
@@ -818,6 +945,277 @@ def setup_pcapdroid_settings(uuid):
 
     except Exception as e:
         print(f"❌ 설정 점검 및 실행 중 오류 발생: {e}")
+
+
+def _send_pcapdroid_action(uuid, action):
+    """PCAPdroid의 CaptureCtrl 액티비티에 START/STOP 인텐트를 보냅니다.
+    실측 결과 이 원격 제어 인텐트는 매번 'PCAPdroid control request' 승인 팝업이 뜨고
+    이전 액티비티 인스턴스를 재사용해 무시되는 경우가 있어 신뢰도가 낮았습니다.
+    그래서 실제 캡처 시작은 _tap_pcapdroid_play_button()을 쓰고, 이 함수는 STOP을
+    보수적으로 한 번 더 시도해보는 best-effort 용도로만 남겨둡니다."""
+    try:
+        cmd = f"adb -s {uuid} shell am start -n com.emanuelef.remote_capture/.activities.CaptureCtrl -a com.emanuelef.remote_capture.action.{action}"
+        subprocess.run(cmd, shell=True, check=True)
+        return True
+    except Exception as e:
+        print(f"❌ PCAPdroid {action} 인텐트 실패: {e}")
+        return False
+
+
+def _tap_pcapdroid_play_button(uuid):
+    """PCAPdroid 메인 화면의 Play 버튼을 눌러 캡처를 시작합니다.
+    uiautomator2 객체의 click()이 이 앱에서는 종종 씹혀서(클릭이 실제로 전달 안 됨),
+    실측으로 확인된 '버튼 중심 좌표를 직접 탭'하는 방식만 안정적으로 캡처를 시작시켰습니다."""
+    try:
+        d = u2.connect(uuid)
+        if not _wait_pcapdroid_main_screen(d):
+            print("❌ PCAPdroid 메인 화면 로딩 실패")
+            return False
+
+        btn = d(resourceId="com.emanuelef.remote_capture:id/action_start")
+        if not btn.exists:
+            print("❌ PCAPdroid Play 버튼을 찾지 못했습니다.")
+            return False
+
+        info = btn.info
+        cx = (info["bounds"]["left"] + info["bounds"]["right"]) // 2
+        cy = (info["bounds"]["top"] + info["bounds"]["bottom"]) // 2
+        d.click(cx, cy)
+
+        # VPN 권한 재확인 팝업이 뜨는 기종을 대비한 방어 코드
+        for _ in range(3):
+            time.sleep(1)
+            if d(resourceId="com.emanuelef.remote_capture:id/allow_btn").exists:
+                d(resourceId="com.emanuelef.remote_capture:id/allow_btn").click()
+            elif d(text="OK").exists:
+                d(text="OK").click()
+            elif d(text="확인").exists:
+                d(text="확인").click()
+
+        return True
+    except Exception as e:
+        print(f"❌ PCAPdroid Play 버튼 탭 실패: {e}")
+        return False
+
+
+def _select_pcapdroid_dump_mode(d, mode_text, timeout=8):
+    """메인 화면의 덤프 모드 스피너를 열어 지정한 모드로 전환합니다.
+    스피너를 직접 클릭하기 때문에 현재 모드가 무엇이든 상관없이 동작합니다."""
+    spinner = d(resourceId="com.emanuelef.remote_capture:id/dump_mode_spinner")
+    if not spinner.wait(timeout=timeout):
+        return False
+    spinner.click()
+    time.sleep(1)
+    target = d(text=mode_text)
+    if not target.wait(timeout=timeout):
+        return False
+    target.click()
+    time.sleep(1)
+    return True
+
+
+def _wait_pcapdroid_main_screen(d, timeout=10):
+    d.app_start("com.emanuelef.remote_capture")
+    time.sleep(2)
+
+    if d(text="SKIP").exists:
+        d(text="SKIP").click()
+        time.sleep(1)
+    elif d(text="Skip").exists:
+        d(text="Skip").click()
+        time.sleep(1)
+
+    return d(text="Ready").wait(timeout=timeout)
+
+
+def configure_pcapdroid_tcp_exporter(uuid, host="127.0.0.1", port=15123):
+    """PCAPdroid의 덤프 모드를 'TCP exporter'로 바꾸고 Collector IP/Port를 설정합니다.
+    이 모드는 pcap-over-ip로 캡처 내용을 실시간 스트리밍해주는 PCAPdroid 공식 기능입니다."""
+    try:
+        d = u2.connect(uuid)
+
+        if not _wait_pcapdroid_main_screen(d):
+            print("❌ PCAPdroid 메인 화면 로딩 실패")
+            return False
+
+        settings_btn = d(resourceId="com.emanuelef.remote_capture:id/action_settings")
+        if not settings_btn.exists:
+            print("❌ PCAPdroid 설정 버튼을 찾지 못했습니다.")
+            return False
+        settings_btn.click()
+        time.sleep(1)
+
+        if not d(text="Collector IP address").wait(timeout=5):
+            print("❌ Collector IP address 설정 항목을 찾지 못했습니다.")
+            d.press("back")
+            return False
+
+        d(text="Collector IP address").click()
+        time.sleep(1)
+        d(className="android.widget.EditText").set_text(host)
+        d(text="OK").click()
+        time.sleep(1)
+
+        d(text="Collector port").click()
+        time.sleep(1)
+        d(className="android.widget.EditText").set_text(str(port))
+        d(text="OK").click()
+        time.sleep(1)
+
+        d.press("back")
+        time.sleep(1)
+
+        if not _select_pcapdroid_dump_mode(d, "TCP exporter"):
+            print("❌ TCP exporter 모드로 전환하지 못했습니다.")
+            return False
+
+        print(f"✅ PCAPdroid를 TCP exporter 모드로 전환했습니다 (수신지: {host}:{port})")
+        return True
+    except Exception as e:
+        print(f"❌ TCP exporter 모드 설정 중 오류: {e}")
+        return False
+
+
+def switch_pcapdroid_to_pcap_file_mode(uuid):
+    """실시간 스트리밍(TCP exporter)에서 수동 파일 캡처(PCAP file) 모드로 되돌립니다."""
+    try:
+        d = u2.connect(uuid)
+        if not _wait_pcapdroid_main_screen(d):
+            print("❌ PCAPdroid 메인 화면 로딩 실패")
+            return False
+        if not _select_pcapdroid_dump_mode(d, "PCAP file"):
+            print("❌ PCAP file 모드로 복원하지 못했습니다.")
+            return False
+        print("✅ PCAPdroid를 PCAP file 모드로 복원했습니다.")
+        return True
+    except Exception as e:
+        print(f"❌ PCAP file 모드 복원 중 오류: {e}")
+        return False
+
+
+def run_realtime_sip_stream(uuid, on_event, stop_event, state, host="127.0.0.1", port=15123):
+    """PCAPdroid를 TCP exporter 모드로 캡처를 시작해 pcap-over-ip 스트림을 실시간으로
+    tshark에 흘려보내고, SIP 메시지가 나올 때마다 on_event(dict)를 호출합니다.
+
+    stop_event가 set되면(또는 스트림이 끊기면) 캡처를 멈추고 정리한 뒤 반환합니다.
+    state 딕셔너리에 소켓/프로세스 핸들을 채워두므로, 호출 측에서 stop_event를 set한
+    직후 state 안의 객체들을 닫아버리면 블로킹 중인 accept/readline을 즉시 풀 수 있습니다.
+    """
+    import socket
+
+    tshark_path = find_tshark()
+    if not tshark_path:
+        print("❌ tshark를 찾을 수 없어 실시간 SIP Flow를 시작할 수 없습니다.")
+        return
+
+    if not ensure_pcapdroid_installed(uuid):
+        return
+    if not configure_pcapdroid_tcp_exporter(uuid, host, port):
+        return
+
+    subprocess.run(["adb", "-s", uuid, "reverse", f"tcp:{port}", f"tcp:{port}"])
+
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind((host, port))
+    server.listen(1)
+    server.settimeout(1.0)
+    state["server"] = server
+
+    if stop_event.is_set():
+        server.close()
+        subprocess.run(["adb", "-s", uuid, "reverse", "--remove", f"tcp:{port}"])
+        return
+
+    if not _tap_pcapdroid_play_button(uuid):
+        server.close()
+        subprocess.run(["adb", "-s", uuid, "reverse", "--remove", f"tcp:{port}"])
+        return
+    print("📡 실시간 SIP Flow 스트리밍 대기 중 (PCAPdroid → TCP exporter)...")
+
+    conn = None
+    tshark_proc = None
+    try:
+        while not stop_event.is_set() and conn is None:
+            try:
+                conn, _ = server.accept()
+                state["conn"] = conn
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+
+        if conn is None:
+            return
+
+        cmd = [tshark_path, "-r", "-", "-l", "-Y", "sip", "-T", "fields"]
+        for f in SIP_TSHARK_FIELDS:
+            cmd += ["-e", f]
+
+        tshark_proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            bufsize=0,
+        )
+        state["proc"] = tshark_proc
+
+        def feeder():
+            try:
+                conn.settimeout(1.0)
+                while not stop_event.is_set():
+                    try:
+                        data = conn.recv(65536)
+                    except socket.timeout:
+                        continue
+                    except OSError:
+                        break
+                    if not data:
+                        break
+                    tshark_proc.stdin.write(data)
+                    tshark_proc.stdin.flush()
+            except Exception:
+                pass
+            finally:
+                try:
+                    tshark_proc.stdin.close()
+                except Exception:
+                    pass
+
+        threading.Thread(target=feeder, daemon=True).start()
+        print("✅ 실시간 SIP Flow 스트리밍 시작!")
+
+        while not stop_event.is_set():
+            raw = tshark_proc.stdout.readline()
+            if not raw:
+                break
+            line = raw.decode("utf-8", errors="replace")
+            if not line.strip():
+                continue
+            ev = _sip_event_from_fields(line.split("\t"))
+            if ev:
+                on_event(ev)
+    finally:
+        try:
+            if tshark_proc:
+                tshark_proc.terminate()
+        except Exception:
+            pass
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+        # 익스포터 연결이 끊기면 PCAPdroid가 캡처를 자체적으로 멈추는 걸 실측으로 확인했지만,
+        # 혹시 안 멈추는 경우를 대비해 원격 제어 인텐트로 STOP을 한 번 더 시도해봅니다 (best-effort).
+        _send_pcapdroid_action(uuid, "STOP")
+        try:
+            server.close()
+        except Exception:
+            pass
+        subprocess.run(["adb", "-s", uuid, "reverse", "--remove", f"tcp:{port}"])
+        print("🛑 실시간 SIP Flow 스트리밍 종료.")
 
 
 def start_device_pcap(uuid):

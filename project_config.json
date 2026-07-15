@@ -3,6 +3,7 @@
         {
             "keyword": "PTA",
             "project_name": "PTA",
+            "per_group_emergency_call": true,
             "features": {
                 "group_call": {
                     "regroup": 0,
@@ -31,6 +32,7 @@
         {
             "keyword": "CTB.R",
             "project_name": "CTB_POC",
+            "per_group_emergency_call": false,
             "features": {
                 "group_call": {
                     "regroup": 1,
@@ -57,6 +59,7 @@
         {
             "keyword": "Con.R",
             "project_name": "450connect",
+            "per_group_emergency_call": false,
             "db_config": {
                 "host": "192.168.11.113",
                 "user": "cybertel",
@@ -67,6 +70,7 @@
         {
             "keyword": "PSP.R",
             "project_name": "재난망",
+            "per_group_emergency_call": true,
             "features": {
                 "group_call": {
                     "regroup": 0,

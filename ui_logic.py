@@ -76,7 +76,12 @@ class App(ctk.CTk):
         self.is_log_on = False
         self.is_pcap_on = False
         self.is_device_pcap_on = False
+        self._realtime_sip_port = 15123
+        self._realtime_sip_stop_event = None
+        self._realtime_sip_state = None
+        self._realtime_sip_thread = None
         self.project_name = "알 수 없는 프로젝트"
+        self.stop_event = threading.Event()
 
         self._build_ui()
 
@@ -731,6 +736,7 @@ class App(ctk.CTk):
             corner_radius=10,
         )
         self.txt_log.pack(expand=True, fill="both")
+        self.txt_log.tag_config("error", foreground=self.danger_color)
         self.txt_log.insert("1.0", "[Terminal] 시스템 로그 출력을 대기 중입니다...\n")
 
         # ==========================================
@@ -773,11 +779,15 @@ class App(ctk.CTk):
     # ==========================================
     # 유틸리티: 스레드 안전하게 UI 업데이트 (신규 추가)
     # ==========================================
-    def safe_log_insert(self, text):
-        """백그라운드 스레드에서 안전하게 UI 로그를 업데이트합니다."""
+    def safe_log_insert(self, text, is_error=False):
+        """백그라운드 스레드에서 안전하게 UI 로그를 업데이트합니다.
+        is_error=True면 System Log 탭에 빨간색으로 표시합니다."""
 
         def update_ui():
-            self.txt_log.insert("end", text)
+            if is_error:
+                self.txt_log.insert("end", text, "error")
+            else:
+                self.txt_log.insert("end", text)
             self.txt_log.see("end")
 
         self.after(0, update_ui)
@@ -833,6 +843,7 @@ class App(ctk.CTk):
             # 4. 실시간 네트워크 상태 폴링 + SIP/Call Flow 로그 분석 시작
             self.start_network_monitor()
             self.start_realtime_log_analyzer()
+            self.start_realtime_sip_stream()
 
         else:
             # 단말기 연결이 끊겼을 때 UI 초기화
@@ -863,6 +874,9 @@ class App(ctk.CTk):
             # PTT 펄스 애니메이션 정지
             if hasattr(self, "pulse_active"):
                 self.set_ptt_active(False)
+
+            # 실시간 SIP Flow 스트리밍(PCAPdroid TCP exporter) 중단
+            self.stop_realtime_sip_stream()
 
             # SIP/Call Flow 분석기 중단 및 카드 초기화
             self._sip_analyzer_gen = getattr(self, "_sip_analyzer_gen", 0) + 1
@@ -1024,6 +1038,7 @@ class App(ctk.CTk):
                 points, fill=self.point_green, width=2.5, smooth=True
             )
 
+
         self.pulse_offset += 8  # 파동이 옆으로 흐르는 속도
         self.after(50, self.update_wave_pulse)
 
@@ -1141,8 +1156,17 @@ class App(ctk.CTk):
         for widget in self.group_list_frame.winfo_children():
             widget.destroy()
 
-        def create_section(title, group_list):
-            if not group_list:
+        # CTB_POC처럼 비상통화가 그룹별이 아니라 WAS 고정 대상으로만 나가는
+        # 프로젝트는 그룹 카드에서 E-PTT/E-PTV 선택지를 아예 빼야 합니다.
+        group_emergency_ok = FileManager.supports_group_emergency_call(
+            getattr(self, "project_name", "")
+        )
+        call_values = ["🔊 PTT", "📹 PTV"]
+        if group_emergency_ok:
+            call_values += ["🚨 E-PTT", "🚨 E-PTV"]
+
+        def create_section(title, group_list, empty_message=None):
+            if not group_list and not empty_message:
                 return
             header_frame = ctk.CTkFrame(self.group_list_frame, fg_color="transparent")
             header_frame.pack(fill="x", padx=4, pady=(10, 4))
@@ -1155,6 +1179,15 @@ class App(ctk.CTk):
             ctk.CTkFrame(header_frame, height=1, fg_color=self.border_color).pack(
                 side="left", fill="x", expand=True, padx=(8, 0)
             )
+
+            if not group_list:
+                ctk.CTkLabel(
+                    self.group_list_frame,
+                    text=empty_message,
+                    font=("Noto Sans KR", 11),
+                    text_color=self.text_sub,
+                ).pack(anchor="w", padx=8, pady=(0, 8))
+                return
 
             for g_info in group_list:
                 card = ctk.CTkFrame(
@@ -1231,9 +1264,13 @@ class App(ctk.CTk):
                 )
                 lbl_name.pack(anchor="w", pady=(4, 0))  # 위쪽만 4px 여백, 아래는 0
 
+                id_text = f"ID: {g_info['id']}"
+                if codec_str:
+                    id_text += f"  {codec_str}"
+
                 lbl_id = ctk.CTkLabel(
                     text_frame,
-                    text=f"ID: {g_info['id']}",
+                    text=id_text,
                     font=("Noto Sans KR", 11),
                     text_color=self.text_sub,
                     height=14,  # 핵심 포인트: 투명 여백 제거
@@ -1249,18 +1286,18 @@ class App(ctk.CTk):
                 lbl_name.bind("<Button-1>", toggle_checkbox)
                 lbl_id.bind("<Button-1>", toggle_checkbox)
 
-                if codec_str:
-                    ctk.CTkLabel(
-                        card,
-                        text=codec_str,
-                        font=("Noto Sans KR", 9),
-                        text_color="#C7C7CC",
-                    ).pack(anchor="w", padx=(34, 8), pady=(0, 4))
+                is_emergency = g_info.get("type") == "Emergency"
+                if is_emergency:
+                    seg_values = ["🚨 Emergency"]
+                    if g_info.get("target_type") == "PreArranged Group":
+                        seg_values.append("⚠️ Imminent Peril")
+                else:
+                    seg_values = call_values
 
                 action_row = ctk.CTkFrame(card, fg_color="transparent")
                 seg_call = ctk.CTkSegmentedButton(
                     action_row,
-                    values=["🔊 PTT", "📹 PTV", "🚨 E-PTT", "🚨 E-PTV"],
+                    values=seg_values,
                     height=26,
                     font=("Noto Sans KR", 10),
                     selected_color=self.point_blue,
@@ -1278,8 +1315,14 @@ class App(ctk.CTk):
                     seg_call,
                     seg_msg,
                 )
+                card.is_emergency = is_emergency
                 self.all_cards.append(card)
-                self.group_check_vars[g_info["id"]] = {
+                # 💡 [핵심] Emergency 카드는 대상 그룹과 id가 같아서, 단순히 id만 키로 쓰면
+                # 뒤에 만들어지는 PreArranged 등 섹션 카드가 같은 키를 덮어써버립니다.
+                # (type, id) 조합으로 키를 만들어 섹션별 카드가 서로 충돌하지 않게 합니다.
+                check_key = (g_info.get("type"), g_info["id"])
+                self.group_check_vars[check_key] = {
+                    "id": g_info["id"],
                     "check_var": var_check,
                     "call_var": seg_call,
                     "msg_var": seg_msg,
@@ -1287,6 +1330,10 @@ class App(ctk.CTk):
                     "name": g_info["name"],
                 }
 
+        groups_emergency = sorted(
+            (g for g in groups if g.get("type") == "Emergency"),
+            key=lambda x: x.get("name", "").lower(),
+        )
         groups_reg = sorted(
             (g for g in groups if g.get("type") == "ReGroup"),
             key=lambda x: x.get("name", "").lower(),
@@ -1295,8 +1342,23 @@ class App(ctk.CTk):
             (g for g in groups if g.get("type") == "PreArranged Group"),
             key=lambda x: x.get("name", "").lower(),
         )
+        groups_chat = sorted(
+            (g for g in groups if g.get("type") == "Chat Group"),
+            key=lambda x: x.get("name", "").lower(),
+        )
+        groups_chatting = sorted(
+            (g for g in groups if g.get("type") == "Chatting"),
+            key=lambda x: x.get("name", "").lower(),
+        )
+        create_section(
+            "🚨 Emergency",
+            groups_emergency,
+            empty_message="설정된 그룹이 없습니다.",
+        )
         create_section("📁 ReGroup", groups_reg)
         create_section("📁 PreArranged", groups_pre)
+        create_section("💬 Chat", groups_chat)
+        create_section("💭 Chatting Room", groups_chatting)
         self.update_group_visibility()
 
     def update_group_visibility(self):
@@ -1314,7 +1376,7 @@ class App(ctk.CTk):
 
             if card.check_var.get() == "on":
                 card.action_row.pack(fill="x", padx=10, pady=(0, 10))
-                if self.current_mode == "call":
+                if getattr(card, "is_emergency", False) or self.current_mode == "call":
                     card.seg_call.pack(side="left", expand=True, fill="x", padx=(0, 10))
                 else:
                     card.seg_msg.pack(side="left", expand=True, fill="x", padx=(0, 10))
@@ -1330,8 +1392,9 @@ class App(ctk.CTk):
             self.txt_log.insert("end", "⚠️ 단말기가 연결되지 않았습니다!\n")
             return
 
+        self.stop_event.clear()
         selected_targets = []
-        for group_id, data in self.group_check_vars.items():
+        for check_key, data in self.group_check_vars.items():
             if data["check_var"].get() == "on":
                 raw_mode = data["call_var"].get()
                 if not raw_mode:
@@ -1342,7 +1405,7 @@ class App(ctk.CTk):
                     self.txt_log.see("end")
                     continue
 
-                clean_mode = raw_mode.split(" ")[-1]
+                clean_mode = raw_mode.split(" ", 1)[-1]
                 try:
                     repeat_count = int(data["repeat_var"].get())
                 except (KeyError, ValueError):
@@ -1350,7 +1413,7 @@ class App(ctk.CTk):
                 repeat_count = max(1, repeat_count)
                 selected_targets.append(
                     {
-                        "id": group_id,
+                        "id": data["id"],
                         "name": data["name"],
                         "mode": clean_mode,
                         "repeat": repeat_count,
@@ -1391,6 +1454,12 @@ class App(ctk.CTk):
             elif proj_name == "재난망_LM75":
                 module_name = "config_handlers.ps_lte_lm75_handler"
                 class_name = "PsLteLm75Handler"
+            elif proj_name == "CTB_POC":
+                module_name = "config_handlers.ctb_poc_handler"
+                class_name = "CTB_POCHandler"
+            elif proj_name == "450connect":
+                module_name = "config_handlers.connect450_handler"
+                class_name = "Connect450Handler"
             else:
                 self.safe_log_insert(
                     f"⚠️ '{proj_name}'에 대한 발신 기능이 아직 없습니다.\n"
@@ -1401,26 +1470,66 @@ class App(ctk.CTk):
             handler_class = getattr(module, class_name)
             handler_instance = handler_class()
 
+            stopped = False
             for idx, target in enumerate(selected_targets, 1):
+                if self.stop_event.is_set():
+                    stopped = True
+                    break
+
                 t_id = target["id"]
                 t_name = target["name"]
                 t_mode = target["mode"]
                 t_repeat = target.get("repeat", 1)
+                # CTB_POC/450connect는 브로드캐스트가 아니라 화면 UI 텍스트(그룹명)로
+                # 대상을 찾으므로 ID 대신 이름을 넘겨줘야 합니다.
+                call_target = (
+                    t_name if proj_name in ("CTB_POC", "450connect") else t_id
+                )
 
                 for rep in range(1, t_repeat + 1):
+                    if self.stop_event.is_set():
+                        stopped = True
+                        break
+
                     self.safe_log_insert(
                         f"\n▶️ [{idx}/{len(selected_targets)}] '{t_name}' ({t_mode}) 발신 진행 중... ({rep}/{t_repeat}회)\n"
                     )
 
                     # 주의: handler_instance 내부에서 log_console.insert()를 쓴다면 여전히 UI 충돌 가능성이 있습니다.
                     # 완벽히 하려면 handler 내에서도 after를 쓰거나 콜백을 던져주는 형태로 수정하시는 것이 좋습니다.
-                    handler_instance.make_call(
-                        d, target_info=t_id, call_mode=t_mode, log_console=self.txt_log
-                    )
+                    if t_mode in ("Emergency", "Imminent Peril"):
+                        if not hasattr(handler_instance, "make_emergency_call"):
+                            self.safe_log_insert(
+                                f"⚠️ '{proj_name}'에는 비상통화 발신 기능이 아직 없습니다.\n"
+                            )
+                            continue
+                        handler_instance.make_emergency_call(
+                            d,
+                            imminent=(t_mode == "Imminent Peril"),
+                            log_console=self.txt_log,
+                        )
+                    else:
+                        if not hasattr(handler_instance, "make_call"):
+                            self.safe_log_insert(
+                                f"⚠️ '{proj_name}'에는 일반 발신 기능이 아직 없습니다.\n"
+                            )
+                            continue
+                        handler_instance.make_call(
+                            d,
+                            target_info=call_target,
+                            call_mode=t_mode,
+                            log_console=self.txt_log,
+                        )
 
                     time.sleep(3)
 
-            self.safe_log_insert("\n✅ 모든 순차 발신 테스트가 완료되었습니다!\n")
+                if stopped:
+                    break
+
+            if stopped:
+                self.safe_log_insert("\n⏹ [System] 중지 요청으로 발신을 중단했습니다.\n")
+            else:
+                self.safe_log_insert("\n✅ 모든 순차 발신 테스트가 완료되었습니다!\n")
 
         except Exception as e:
             self.safe_log_insert(f"❌ 발신 프로세스 중 오류 발생: {e}\n")
@@ -1742,6 +1851,11 @@ class App(ctk.CTk):
             self.txt_pcap.insert("end", "[System] PCAPdroid 상태 점검 및 실행 중...\n")
             self.txt_pcap.see("end")
 
+            # 상시 돌고 있던 실시간 SIP Flow 스트리밍(TCP exporter)을 멈추고
+            # 수동 파일 캡처(PCAP file) 모드로 되돌려야 PCAPdroid 캡처 세션이 충돌하지 않습니다.
+            self.stop_realtime_sip_stream()
+            adb_logic.switch_pcapdroid_to_pcap_file_mode(self.current_uuid)
+
             success = adb_logic.start_pcapdroid(self.current_uuid)
 
             if success:
@@ -1775,6 +1889,49 @@ class App(ctk.CTk):
             self.txt_pcap.insert("end", "[System] 🛑 캡처가 중지되었습니다.\n")
             self.txt_pcap.see("end")
 
+            # 캡처 종료 후 pcap을 PC로 가져와 tshark로 SIP 메시지를 뽑아 SIP Flow 탭에 표시
+            threading.Thread(
+                target=self._analyze_pcap_sip_flow,
+                args=(self.current_uuid,),
+                daemon=True,
+            ).start()
+
+            # 파일 캡처가 끝났으니 실시간 SIP Flow 스트리밍(TCP exporter)을 재개합니다.
+            self.start_realtime_sip_stream()
+
+    def _analyze_pcap_sip_flow(self, uuid):
+        local_dir = os.path.join(os.getcwd(), "pcap_captures")
+        self.safe_log_insert("\n[System] 📥 pcap 파일을 폰에서 가져오는 중...\n")
+
+        pcap_path = adb_logic.pull_latest_pcapdroid_file(uuid, local_dir)
+        if not pcap_path:
+            self.safe_log_insert(
+                "[System] ❌ pcap 파일을 가져오지 못해 SIP Flow 분석을 건너뜁니다.\n"
+            )
+            return
+
+        self.safe_log_insert(
+            f"[System] 🔍 tshark로 SIP 메시지를 분석 중입니다: {os.path.basename(pcap_path)}\n"
+        )
+        events = adb_logic.parse_sip_flow_from_pcap(pcap_path)
+
+        if not events:
+            self.safe_log_insert(
+                "[System] ⚠️ pcap에서 SIP 메시지를 찾지 못했습니다 (tshark 설치 여부를 확인해주세요).\n"
+            )
+            return
+
+        self.add_flow_card(
+            "PROC",
+            "PCAP 분석 완료",
+            f"'{os.path.basename(pcap_path)}'에서 SIP 메시지 {len(events)}건을 찾았습니다.",
+        )
+        for ev in events:
+            event_type = "RX" if ev["is_response"] else "PROC"
+            self.add_flow_card(event_type, ev["title"], ev["detail"])
+
+        self.safe_log_insert("[System] ✅ SIP Flow(패킷 기반) 분석 완료!\n")
+
     def run_automation(self):
         if not self.current_uuid:
             return
@@ -1782,12 +1939,15 @@ class App(ctk.CTk):
 
     def stop_automation(self):
         print("⏹ [자동화 중지] 시나리오를 강제 중지합니다.")
+        self.stop_event.set()
+        self.safe_log_insert("\n⏹ [System] 중지 요청됨. 진행 중인 항목을 마치는 대로 멈춥니다.\n")
 
     def send_group_message(self):
         if not self.current_uuid:
             self.txt_log.insert("end", "⚠️ 단말기가 연결되지 않았습니다!\n")
             return
 
+        self.stop_event.clear()
         selected_groups = []
         for g_id, data in self.group_check_vars.items():
             if data["check_var"].get() == "on":
@@ -1846,6 +2006,9 @@ class App(ctk.CTk):
             elif proj_name == "재난망_LM75":
                 module_name = "config_handlers.ps_lte_lm75_handler"
                 class_name = "PsLteLm75Handler"
+            elif proj_name == "CTB_POC":
+                module_name = "config_handlers.ctb_poc_handler"
+                class_name = "CTB_POCHandler"
             else:
                 self.safe_log_insert(
                     f"⚠️ '{proj_name}'에 대한 메시지 전송 기능이 아직 없습니다.\n"
@@ -1856,7 +2019,12 @@ class App(ctk.CTk):
             handler_class = getattr(module, class_name)
             handler_instance = handler_class()
 
+            stopped = False
             for idx, target in enumerate(selected_groups, 1):
+                if self.stop_event.is_set():
+                    stopped = True
+                    break
+
                 t_name = target["name"]
                 t_type = target["msg_type"]
                 t_repeat = target.get("repeat", 1)
@@ -1867,16 +2035,36 @@ class App(ctk.CTk):
                     )
                     continue
 
-                for rep in range(1, t_repeat + 1):
+                if proj_name == "CTB_POC":
+                    # CTB_POC은 대화창을 한 번만 열고 그 안에서 반복 횟수만큼 전송합니다.
                     self.safe_log_insert(
-                        f"\n▶️ [{idx}/{len(selected_groups)}] '{t_name}' 메시지 전송 진행 중... ({rep}/{t_repeat}회)\n"
+                        f"\n▶️ [{idx}/{len(selected_groups)}] '{t_name}' 메시지 전송 진행 중... (총 {t_repeat}회)\n"
                     )
                     handler_instance.send_message(
-                        d, target_info=t_name, log_console=self.txt_log
+                        d, target_info=t_name, repeat=t_repeat, log_console=self.txt_log
                     )
                     time.sleep(2)
+                else:
+                    for rep in range(1, t_repeat + 1):
+                        if self.stop_event.is_set():
+                            stopped = True
+                            break
 
-            self.safe_log_insert("\n✅ 모든 순차 메시지 전송이 완료되었습니다!\n")
+                        self.safe_log_insert(
+                            f"\n▶️ [{idx}/{len(selected_groups)}] '{t_name}' 메시지 전송 진행 중... ({rep}/{t_repeat}회)\n"
+                        )
+                        handler_instance.send_message(
+                            d, target_info=t_name, log_console=self.txt_log
+                        )
+                        time.sleep(2)
+
+                    if stopped:
+                        break
+
+            if stopped:
+                self.safe_log_insert("\n⏹ [System] 중지 요청으로 메시지 전송을 중단했습니다.\n")
+            else:
+                self.safe_log_insert("\n✅ 모든 순차 메시지 전송이 완료되었습니다!\n")
 
         except Exception as e:
             self.safe_log_insert(f"❌ 메시지 전송 프로세스 중 오류 발생: {e}\n")
@@ -2181,6 +2369,56 @@ class App(ctk.CTk):
         ]
 
     # ==========================================
+    # 📡 실시간 SIP Flow (PCAPdroid TCP exporter 스트리밍)
+    # ==========================================
+    def start_realtime_sip_stream(self):
+        """기기 연결 중에는 PCAPdroid를 TCP exporter 모드로 상시 스트리밍하여
+        그룹/서비스 SIP 동기화(REGISTER/SUBSCRIBE/NOTIFY 등)가 언제 일어나든
+        SIP Flow 탭에 실시간으로 표시합니다. 수동 PCAPdroid 파일 캡처 중에는 켜지 않습니다."""
+        if not self.current_uuid:
+            return
+        if self.is_pcap_on:
+            return
+        if self._realtime_sip_thread and self._realtime_sip_thread.is_alive():
+            return
+
+        uuid = self.current_uuid
+        stop_event = threading.Event()
+        state = {}
+        self._realtime_sip_stop_event = stop_event
+        self._realtime_sip_state = state
+
+        def on_event(ev):
+            event_type = "RX" if ev["is_response"] else "PROC"
+            self.add_flow_card(event_type, ev["title"], ev["detail"])
+
+        def worker():
+            adb_logic.run_realtime_sip_stream(
+                uuid, on_event, stop_event, state, port=self._realtime_sip_port
+            )
+
+        self._realtime_sip_thread = threading.Thread(target=worker, daemon=True)
+        self._realtime_sip_thread.start()
+
+    def stop_realtime_sip_stream(self):
+        """실시간 SIP Flow 스트리밍을 즉시 중단합니다 (블로킹 중인 accept/readline도 강제로 풉니다)."""
+        stop_event = self._realtime_sip_stop_event
+        state = self._realtime_sip_state
+        if stop_event:
+            stop_event.set()
+        if state:
+            for key in ("proc", "conn", "server"):
+                obj = state.get(key)
+                if not obj:
+                    continue
+                try:
+                    obj.terminate() if key == "proc" else obj.close()
+                except Exception:
+                    pass
+        self._realtime_sip_stop_event = None
+        self._realtime_sip_state = None
+
+    # ==========================================
     # 📡 실시간 SIP/Call Flow 로그 분석
     # ==========================================
     def _emit_flow(self, key, event_type, title, detail, is_error=False, window=1.5):
@@ -2250,10 +2488,13 @@ class App(ctk.CTk):
                 #  컴포넌트에서 중복 로깅되므로 _emit_flow로 짧은 시간 내 중복은 묶습니다.)
                 # ==========================================
 
-                # 어떤 프로세스에서 난 것이든, Exception은 원본 그대로 System Log 탭에 남깁니다.
-                # (SIP Flow 카드는 아래에서 EveryTalk/MCPTT 관련된 것만 별도로 띄웁니다)
+                # 어떤 프로세스에서 난 것이든, Exception은 원본 그대로 System Log 탭에만 남깁니다.
+                # MCPTT/EveryTalk 관련 에러는 빨간색으로 표시하고, SIP Flow 탭에는 띄우지 않습니다.
+                is_relevant_error = ("Exception" in line or " E " in line) and (
+                    "MCPTT" in line or "EveryTalk" in line
+                )
                 if "Exception" in line:
-                    self.safe_log_insert(line)
+                    self.safe_log_insert(line, is_error=is_relevant_error)
 
                 # 0. 발신 대상 (누구에게 걸었는지)
                 if "getCalleeUri: calleeUri =" in line:
@@ -2307,25 +2548,11 @@ class App(ctk.CTk):
                         self.after(0, lambda s=state: self._on_floor_state(s))
                     self.safe_log_insert(line)
 
-                # 5. 🚨 [가장 중요] 통화 실패나 에러 상황 감지!
-                # (앱/MCPTT와 무관한 다른 프로세스의 Exception까지 전부 잡히는 것을
-                #  막기 위해 EveryTalk/MCPTT 관련 라인으로 한정합니다.)
-                elif ("Exception" in line or " E " in line) and (
-                    "MCPTT" in line or "EveryTalk" in line
-                ):
-                    error_msg = line.split(":")[
-                        -1
-                    ].strip()  # 로그의 맨 뒷부분 내용만 추출
-                    self._emit_flow(
-                        "error",
-                        "ERR",
-                        "System Error",
-                        f"원인: {error_msg}",
-                        is_error=True,
-                    )
-                    # "Exception"이 포함된 줄은 위에서 이미 원본을 System Log에 남겼으므로 중복 방지
-                    if "Exception" not in line:
-                        self.safe_log_insert(line)
+                # 5. 🚨 MCPTT/EveryTalk 관련 에러 감지.
+                # SIP Flow 탭에는 띄우지 않고, System Log 탭에만 빨간색으로 남깁니다.
+                # ("Exception"이 포함된 줄은 위에서 이미 남겼으므로 " E " 로그레벨만 남은 경우만 처리)
+                elif is_relevant_error and "Exception" not in line:
+                    self.safe_log_insert(line, is_error=True)
 
             if self.current_uuid == uuid:
                 process.terminate()

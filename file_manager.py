@@ -26,6 +26,27 @@ class FileManager:
         return {}  # 실패하거나 없으면 빈 딕셔너리 반환
 
     @staticmethod
+    def supports_group_emergency_call(project_name):
+        """그룹별로 비상통화(E-PTT/E-PTV)를 걸 수 있는 프로젝트인지 반환합니다.
+        CTB_POC처럼 비상통화가 WAS에 설정된 고정 대상으로만 나가는 프로젝트는
+        project_config.json에 "per_group_emergency_call": false로 표시합니다.
+        설정이 없으면 기본값 True(기존 동작 유지)입니다.
+        """
+        try:
+            config_path = os.path.join(os.getcwd(), "project_config.json")
+            if os.path.exists(config_path):
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config_data = json.load(f)
+
+                for proj in config_data.get("projects", []):
+                    if proj.get("project_name") == project_name:
+                        return proj.get("per_group_emergency_call", True)
+        except Exception as e:
+            print(f"[FileManager] ⚠️ 비상통화 설정 로드 에러: {e}")
+
+        return True
+
+    @staticmethod
     def pull_profile_xml(uuid, local_folder="temp_xml"):
         """단말기에서 XML 폴더 전체를 PC로 가져온 뒤, 메인 프로필 파일 경로를 반환합니다."""
         import os
@@ -213,7 +234,14 @@ class FileManager:
 
                 priority_tag = entry.find(".//anyExt/group-priority")
                 priority = priority_tag.text if priority_tag is not None else "0"
-                group_type = "Chat Group" if priority == "31" else "PreArranged Group"
+                # 사전구성(PreArranged)/채팅그룹 ID는 "...g"로 끝나는 짧은 형식이고,
+                # 통화 안 되는 순수 채팅(Chatting)은 "g" 접미사 없이 훨씬 긴 숫자 ID를 씁니다.
+                if not call_id.endswith("g"):
+                    group_type = "Chatting"
+                elif priority == "31":
+                    group_type = "Chat Group"
+                else:
+                    group_type = "PreArranged Group"
 
                 voice, video = FileManager.get_group_codecs(xml_folder_path, call_id)
 
@@ -227,6 +255,45 @@ class FileManager:
                     }
                 )
             # --- [일반 그룹 반복문 끝] ---
+
+            # --- [Emergency Call 사전구성 그룹 추출] ---
+            emergency_uri_tag = root.find(
+                ".//EmergencyCall/MCPTTGroupInitiation/entry/uri-entry"
+            )
+            if emergency_uri_tag is not None and emergency_uri_tag.text:
+                uri_text = emergency_uri_tag.text.strip()
+                emergency_id = ""
+
+                if uri_text.startswith("sip:"):
+                    match = re.search(r"sip:([^@]+)@", uri_text)
+                    if match:
+                        emergency_id = match.group(1)
+                elif uri_text.startswith("tel:"):
+                    match = re.search(r"tel:\+?(.+)", uri_text)
+                    if match:
+                        emergency_id = match.group(1).strip()
+
+                if emergency_id:
+                    # 이미 파싱된 그룹 목록에 같은 ID가 있으면 그 이름/타입을 그대로 사용
+                    emergency_name = emergency_id
+                    target_type = None
+                    for g in group_data:
+                        if g["id"] == emergency_id:
+                            emergency_name = g["name"]
+                            target_type = g["type"]
+                            break
+
+                    group_data.append(
+                        {
+                            "name": emergency_name,
+                            "id": emergency_id,
+                            "type": "Emergency",
+                            "target_type": target_type,
+                            "voice_codec": "",
+                            "video_codec": "",
+                        }
+                    )
+            # --- [Emergency Call 사전구성 그룹 추출 끝] ---
 
         except Exception as e:
             print(f"[FileManager] ⚠️ XML 파싱 에러: {e}")

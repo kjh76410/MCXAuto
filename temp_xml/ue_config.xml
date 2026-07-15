@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mcptt-UE-configuration xmlns="urn:3gpp:mcptt:mcpttUEConfig:1.0" XUI-URI="sip:00600112302@ims.mnc001.mcc001.3gppnetwork.org" domain="ims.mnc001.mcc001.3gppnetwork.org">
+    <name xml:lang="en">mcptt ue config</name>
+    <common index="0">
+        <private-call>
+            <Max-Simul-Call-N10>4</Max-Simul-Call-N10>
+        </private-call>
+        <MCPTT-Group-Call>
+            <Max-Simul-Call-N4>4</Max-Simul-Call-N4>
+            <Max-Simul-Trans-N5>1</Max-Simul-Trans-N5>
+        </MCPTT-Group-Call>
+        <anyExt>
+            <Version-Info>
+                <UE-App>CTB.R-3.4.2.6-260714</UE-App>
+            </Version-Info>
+        </anyExt>
+    </common>
+    <on-network index="0">
+        <IPv6Preferred>false</IPv6Preferred>
+        <Relay-Service>false</Relay-Service>
+    </on-network>
+</mcptt-UE-configuration>
