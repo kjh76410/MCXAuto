@@ -23,6 +23,7 @@ from PySide6.QtGui import (
     QTextCharFormat,
 )
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QApplication,
     QButtonGroup,
     QComboBox,
@@ -31,12 +32,16 @@ from PySide6.QtWidgets import (
     QFrame,
     QGraphicsDropShadowEffect,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QMainWindow,
     QPushButton,
     QScrollArea,
+    QSplitter,
     QStackedWidget,
+    QTableWidget,
+    QTableWidgetItem,
     QTabWidget,
     QTextEdit,
     QVBoxLayout,
@@ -606,28 +611,10 @@ class App(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
 
-        pulse_frame = styled(QFrame(), f"background-color:#1C1C1E; border-radius:{Palette.radius}px;")
-        pulse_frame.setFixedHeight(120)
-        pulse_layout = QVBoxLayout(pulse_frame)
-        pulse_layout.setContentsMargins(15, 8, 15, 8)
-        pulse_header = QHBoxLayout()
-        pulse_header.setSpacing(6)
-        icon_ptt = QLabel()
-        icon_ptt.setPixmap(qta.icon("fa5s.microphone", color="#8E8E93").pixmap(13, 13))
-        pulse_header.addWidget(icon_ptt)
-        lbl_ptt = QLabel("PTT Floor State")
-        lbl_ptt.setFont(kfont(12, True))
-        lbl_ptt.setStyleSheet("color:#8E8E93;")
+        # PTT Floor State 패널은 제거되고 로그 화면이 그 자리를 채웁니다.
+        # 발언권 상태를 추적하던 위젯들은 화면에는 그리지 않고 내부 상태 갱신용으로만 유지합니다.
         self.lbl_pulse_status = QLabel("대기")
-        self.lbl_pulse_status.setFont(kfont(11, True))
-        self.lbl_pulse_status.setStyleSheet("color:#8E8E93;")
-        pulse_header.addWidget(lbl_ptt)
-        pulse_header.addStretch(1)
-        pulse_header.addWidget(self.lbl_pulse_status)
-        pulse_layout.addLayout(pulse_header)
         self.pulse_canvas = PulseCanvas(color=Palette.blue)
-        pulse_layout.addWidget(self.pulse_canvas, 1)
-        layout.addWidget(add_shadow(pulse_frame))
 
         monitor = styled(QFrame(), card_css())
         monitor_layout = QVBoxLayout(monitor)
@@ -688,11 +675,148 @@ class App(QMainWindow):
         log_layout.addWidget(self.txt_log, 1)
         self.tab_view.addTab(log_tab, "System Log")
 
-        monitor_layout.addWidget(self.tab_view, 1)
+        # 탭(SIP Flow / System Log)을 전환해도 결과 카드는 그대로 하단에 고정되도록
+        # 탭 위젯과 결과 패널을 같은 스플리터에 담아 공유합니다.
+        result_bottom = self._build_result_panel()
+
+        content_splitter = QSplitter(Qt.Vertical)
+        content_splitter.setChildrenCollapsible(False)
+        content_splitter.setStyleSheet(
+            f"QSplitter::handle {{ background-color:{Palette.border}; height:1px; margin:6px 0; }}"
+        )
+        content_splitter.addWidget(self.tab_view)
+        content_splitter.addWidget(result_bottom)
+        content_splitter.setStretchFactor(0, 6)
+        content_splitter.setStretchFactor(1, 4)
+        content_splitter.setSizes([600, 400])
+
+        monitor_layout.addWidget(content_splitter, 1)
         layout.addWidget(add_shadow(monitor), 1)
 
         self.txt_log.append("[Terminal] 시스템 로그 출력을 대기 중입니다...")
         return col
+
+    # ---------- 로그 화면 하단: 테스트 결과 카드 (엑셀 형식) ----------
+    def _build_result_panel(self):
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        header = QHBoxLayout()
+        lbl_title = QLabel("Test Results")
+        lbl_title.setFont(kfont(12, True))
+        lbl_title.setStyleSheet(f"color:{Palette.text_main};")
+        header.addWidget(lbl_title)
+        header.addStretch(1)
+        self.btn_download_results = self._make_button(
+            "다운로드", Palette.blue, "white", Palette.blue_hover,
+            height=30, radius=15, icon_name="fa5s.download",
+        )
+        self.btn_download_results.setFixedWidth(110)
+        self.btn_download_results.clicked.connect(self.export_results_to_excel)
+        header.addWidget(self.btn_download_results)
+        layout.addLayout(header)
+
+        self.table_results = QTableWidget(0, 3)
+        self.table_results.setHorizontalHeaderLabels(["TC-ID", "요약", "결과"])
+        self.table_results.verticalHeader().setVisible(False)
+        self.table_results.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table_results.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table_results.setAlternatingRowColors(False)
+        self.table_results.setShowGrid(True)
+        excel_grid_color = "#D4D4D4"
+        # 엑셀 기본 행 높이 15.75pt -> px (96dpi 기준: pt * 96/72)
+        excel_row_height = round(15.75 * 96 / 72)
+        header_view = self.table_results.horizontalHeader()
+        header_view.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        header_view.setSectionResizeMode(1, QHeaderView.Stretch)
+        header_view.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        v_header = self.table_results.verticalHeader()
+        v_header.setDefaultSectionSize(excel_row_height)
+        v_header.setMinimumSectionSize(excel_row_height)
+        v_header.setSectionResizeMode(QHeaderView.Fixed)
+        self.table_results.setStyleSheet(
+            "QTableWidget {"
+            f"  background-color:white; border:1px solid {excel_grid_color}; border-radius:0px;"
+            f"  gridline-color:{excel_grid_color}; color:{Palette.text_main};"
+            "}"
+            "QTableWidget::item {"
+            "  padding:2px 8px; background-color:white;"
+            f"  border-right:1px solid {excel_grid_color}; border-bottom:1px solid {excel_grid_color};"
+            "}"
+            f"QTableWidget::item:selected {{ background-color:{Palette.tint_blue_bg}; color:{Palette.text_main}; }}"
+            "QHeaderView::section {"
+            f"  background-color:{Palette.neutral_bg}; color:{Palette.text_main}; font-weight:600;"
+            "  border:none;"
+            "  padding:2px 8px;"
+            "}"
+        )
+        layout.addWidget(self.table_results, 1)
+
+        # 데이터가 없어도 엑셀 시트처럼 기본 격자선이 보이도록 빈 행을 미리 채워둡니다.
+        self._add_blank_result_rows(20)
+
+        return panel
+
+    def _add_blank_result_rows(self, count):
+        start = self.table_results.rowCount()
+        self.table_results.setRowCount(start + count)
+        for row in range(start, start + count):
+            for col in range(3):
+                self.table_results.setItem(row, col, QTableWidgetItem(""))
+
+    def _next_blank_result_row(self):
+        for row in range(self.table_results.rowCount()):
+            item = self.table_results.item(row, 0)
+            if item is None or not item.text():
+                return row
+        return None
+
+    def add_result_row(self, tc_id, summary, result):
+        """TC-ID / 요약 / 결과 한 줄을 결과 테이블에 추가합니다."""
+        row = self._next_blank_result_row()
+        if row is None:
+            row = self.table_results.rowCount()
+            self._add_blank_result_rows(1)
+        self.table_results.setItem(row, 0, QTableWidgetItem(str(tc_id)))
+        self.table_results.setItem(row, 1, QTableWidgetItem(str(summary)))
+
+        result_item = QTableWidgetItem(str(result))
+        if "실패" in str(result) or "FAIL" in str(result).upper():
+            result_item.setForeground(QColor(Palette.danger))
+        elif "성공" in str(result) or "PASS" in str(result).upper():
+            result_item.setForeground(QColor(Palette.blue))
+        self.table_results.setItem(row, 2, result_item)
+
+    def export_results_to_excel(self):
+        """결과 테이블을 엑셀(csv) 파일로 내보냅니다."""
+        rows = []
+        for row in range(self.table_results.rowCount()):
+            tc_item = self.table_results.item(row, 0)
+            if tc_item is None or not tc_item.text():
+                continue
+            rows.append([
+                self.table_results.item(row, col).text() if self.table_results.item(row, col) else ""
+                for col in range(3)
+            ])
+
+        if not rows:
+            self.safe_log_insert("[System] 내보낼 테스트 결과가 없습니다.")
+            return
+
+        path, _ = QFileDialog.getSaveFileName(
+            self, "테스트 결과 저장", "test_results.csv", "CSV Files (*.csv)"
+        )
+        if not path:
+            return
+
+        import csv
+        with open(path, "w", newline="", encoding="utf-8-sig") as f:
+            writer = csv.writer(f)
+            writer.writerow(["TC-ID", "요약", "결과"])
+            writer.writerows(rows)
+        self.safe_log_insert(f"[System] 테스트 결과를 저장했습니다: {path}")
 
     # ==========================================
     # 🎨 전역 스타일 (스크롤바 / 콤보박스 / 다이얼로그 등 기본 위젯 다듬기)
