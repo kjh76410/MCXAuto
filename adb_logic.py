@@ -8,6 +8,12 @@ import platform
 import shutil
 import uiautomator2 as u2
 
+# PATH에 여러 adb.exe(SDK platform-tools, scrcpy 번들 등)가 섞여 있으면 서로 다른 버전이
+# adb 서버(5037 포트) 소유권을 두고 계속 재시작 전쟁을 벌여 기기 인식이 멈춥니다.
+# shutil.which("adb")로 PATH가 실제로 고르는 것과 동일한 adb.exe를 골라 앱 전체(scrcpy 포함)가
+# 항상 같은 바이너리만 쓰도록 고정합니다.
+ADB_PATH = shutil.which("adb") or "adb"
+
 
 def get_devices():
     try:
@@ -19,6 +25,18 @@ def get_devices():
         ]
     except:
         return []
+
+
+def kill_adb_server():
+    """프로그램 종료 시 adb 서버를 내려서, 다음 실행 때 깨끗한 서버로 새로 시작하게 합니다.
+    응답을 기다리면(subprocess.run) adb가 멈춰있을 때 창 닫기 자체가 멎어버리므로,
+    Popen으로 요청만 던지고 완료를 기다리지 않습니다(fire-and-forget)."""
+    try:
+        subprocess.Popen(
+            ["adb", "kill-server"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+    except Exception as e:
+        print(f"⚠️ adb 서버 종료 요청 실패: {e}")
 
 
 def get_screen_resolution(uuid):
@@ -70,7 +88,14 @@ def start_mirroring_embedded(uuid, parent_hwnd, width, height):
         ]
 
         # 1. scrcpy 실행
-        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # 🌟 scrcpy는 PATH와 무관하게 자기 폴더의 adb.exe(버전이 다를 수 있음)를 먼저 씁니다.
+        # 이 앱의 나머지 코드는 PATH상의 adb(ADB_PATH)를 쓰기 때문에, 서로 다른 두 adb가
+        # 같은 서버(5037 포트) 소유권을 두고 계속 재시작시키면서 기기 인식이 멈추는 문제가
+        # 있었습니다. scrcpy는 --adb 같은 CLI 옵션이 아니라 ADB 환경변수로 경로를 받으므로
+        # 이 프로세스에만 환경변수를 얹어서 항상 같은 adb.exe/서버를 쓰도록 고정합니다.
+        env = os.environ.copy()
+        env["ADB"] = ADB_PATH
+        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
 
         # 2. 창 낚아채기 스레드 실행 (크기 정보 width, height도 같이 넘겨줍니다!)
         thread = threading.Thread(
@@ -623,7 +648,7 @@ def automate_pta_login_u2(uuid, env):
         print(f"❌ 자동화 실패: {e}")
 
 
-def ensure_pcapdroid_installed(uuid, apk_path="PCAPdroid.apk"):
+def ensure_pcapdroid_installed(uuid, apk_path="PCAPdroid.apk", log=print):
     """PCAPdroid 설치 여부를 확인하고, 없으면 자동 설치합니다."""
     package_name = "com.emanuelef.remote_capture"
 
@@ -631,10 +656,10 @@ def ensure_pcapdroid_installed(uuid, apk_path="PCAPdroid.apk"):
     result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True)
 
     if package_name in result.stdout:
-        print("✅ PCAPdroid가 이미 설치되어 있습니다. (설치 패스!)")
+        log("✅ PCAPdroid가 이미 설치되어 있습니다. (설치 패스!)")
         return True
     else:
-        print("⚠️ PCAPdroid 미설치 상태입니다. 폰에 자동 설치를 진행합니다...")
+        log("⚠️ PCAPdroid 미설치 상태입니다. 폰에 자동 설치를 진행합니다...")
 
         install_cmd = f"adb -s {uuid} install -r {apk_path}"
         install_result = subprocess.run(
@@ -642,46 +667,86 @@ def ensure_pcapdroid_installed(uuid, apk_path="PCAPdroid.apk"):
         )
 
         if "Success" in install_result.stdout:
-            print("✅ PCAPdroid 설치 완료!")
-            # 🚨 원흉이었던 setup_pcapdroid_settings(...) 코드 삭제 완료!
+            log("✅ PCAPdroid 설치 완료!")
             return True
         else:
-            print(f"❌ 설치 실패: {install_result.stderr}")
+            log(f"❌ 설치 실패: {install_result.stderr}")
             return False
 
 
-def start_pcapdroid(uuid):
+def launch_pcapdroid(uuid, log=print):
+    """PCAPdroid 앱을 실행해서 메인 화면까지 띄웁니다 (온보딩/권한 팝업 자동 처리).
+    설정 변경이나 캡처 시작 없이 앱을 실행 상태로만 만들어 둡니다."""
+    try:
+        d = u2.connect(uuid)
+    except Exception as e:
+        log(f"❌ PCAPdroid 실행 중 기기 연결 실패: {e}")
+        return False
+
+    if _wait_pcapdroid_main_screen(d):
+        log("✅ PCAPdroid 실행 완료!")
+        return True
+
+    log("❌ PCAPdroid 메인 화면 로딩 실패")
+    return False
+
+
+def start_pcapdroid(uuid, log=print):
     """PCAPdroid를 실행하여 캡처를 시작합니다."""
     # 1. 앱이 깔려있는지 확인 (없으면 설치됨)
-    if not ensure_pcapdroid_installed(uuid):
-        print("❌ 앱 설치/확인 실패로 캡처를 시작할 수 없습니다.")
+    if not ensure_pcapdroid_installed(uuid, log=log):
+        log("❌ 앱 설치/확인 실패로 캡처를 시작할 수 없습니다.")
         return False
 
     # 🌟 2. 캡처 시작 전, 설정이 올바른지 무조건 1회 점검! (이미 되어있으면 바로 패스함)
-    setup_pcapdroid_settings(uuid)
+    if not setup_pcapdroid_settings(uuid, log=log):
+        log("❌ PCAPdroid 설정 점검 실패로 캡처를 시작할 수 없습니다.")
+        return False
 
     # 3. 백그라운드 캡처 시작
     try:
-        print("📡 PCAP 캡처 시작 (백그라운드)...")
+        log("📡 PCAP 캡처 시작 (백그라운드)...")
         cmd = f"adb -s {uuid} shell am start -n com.emanuelef.remote_capture/.activities.CaptureCtrl -a com.emanuelef.remote_capture.action.START"
         subprocess.run(cmd, shell=True, check=True)
         return True
     except Exception as e:
-        print(f"❌ PCAP 시작 실패: {e}")
+        log(f"❌ PCAP 시작 실패: {e}")
         return False
 
 
-def stop_pcapdroid(uuid):
-    """PCAPdroid 캡처를 종료합니다."""
+def stop_pcapdroid(uuid, log=print):
+    """PCAPdroid 캡처를 종료합니다.
+
+    예전엔 CaptureCtrl 액티비티에 action.STOP 인텐트만 보냈는데, 이 원격 제어 인텐트는
+    실측 결과 매번 'PCAPdroid control request' 승인 팝업을 띄우고(_send_pcapdroid_action
+    독스트링 참고) 아무도 눌러주지 않으면 그대로 무시됩니다. 그러면 캡처가 실제로는 계속
+    실행 중인 채로 남고, 캡처 중엔 설정(⚙️) 버튼이 비활성화되어 있어서 이후 덤프 모드를
+    PCAP file → TCP exporter로 바꾸려는 시도가 계속 실패하는 문제로 이어졌습니다.
+    그래서 Play 버튼 시작과 동일하게, 화면의 실제 Stop 버튼을 좌표 탭으로 눌러 확실하게
+    멈춥니다."""
     try:
-        print("🛑 PCAP 캡처 종료 중...")
-        # 캡처 종료 명령어
-        cmd = f"adb -s {uuid} shell am start -n com.emanuelef.remote_capture/.activities.CaptureCtrl -a com.emanuelef.remote_capture.action.STOP"
-        subprocess.run(cmd, shell=True, check=True)
-        print("✅ 캡처가 중지되었습니다. (파일은 폰의 Download 폴더에 저장됨)")
+        d = u2.connect(uuid)
+        log("🛑 PCAP 캡처 종료 중...")
+
+        if not _wait_pcapdroid_main_screen(d):
+            log("❌ PCAPdroid 메인 화면 로딩 실패")
+            return False
+
+        btn = d(resourceId="com.emanuelef.remote_capture:id/action_stop")
+        if not btn.exists:
+            log("- 이미 캡처가 중지된 상태입니다. (스킵)")
+            return True
+
+        info = btn.info
+        cx = (info["bounds"]["left"] + info["bounds"]["right"]) // 2
+        cy = (info["bounds"]["top"] + info["bounds"]["bottom"]) // 2
+        d.click(cx, cy)
+        time.sleep(1)
+
+        log("✅ 캡처가 중지되었습니다. (파일은 폰의 Download 폴더에 저장됨)")
         return True
     except Exception as e:
-        print(f"❌ PCAP 종료 실패: {e}")
+        log(f"❌ PCAP 종료 실패: {e}")
         return False
 
 
@@ -877,42 +942,53 @@ def _ensure_pcapdroid_target_apps(d):
     d(text="Target apps").click()
     time.sleep(2)
 
-    # [3] 3닷 메뉴 → 시스템 앱 표시 점검
-    if d(description="More options").exists:
-        d(description="More options").click()
-        time.sleep(1)
+    # [3] 리스트에 EveryTalk이 이미 보이면 검색 없이 바로 토글로 넘어간다
+    everytalk_visible = d(
+        resourceId="com.emanuelef.remote_capture:id/app_name",
+        textContains="EveryTalk",
+    ).exists
 
-        sys_menu = d(text="Show system apps")
-        if sys_menu.exists:
-            checkbox = d(className="android.widget.CheckBox")
-            is_checked = (
-                checkbox.info.get("checked")
-                if checkbox.exists
-                else sys_menu.info.get("checked")
-            )
+    if not everytalk_visible:
+        print("- 목록에서 [EveryTalk]을 찾지 못했습니다. 시스템 앱 표시 후 검색합니다.")
 
-            if not is_checked:
+        # [3-1] 3닷 메뉴(옵션 더보기) → 시스템 앱 표시 체크박스 켜기
+        more_options_btn = d(description="옵션 더보기")
+        if not more_options_btn.exists:
+            more_options_btn = d(description="More options")
+
+        if more_options_btn.exists:
+            more_options_btn.click()
+            time.sleep(1)
+
+            checkbox = d(resourceId="com.emanuelef.remote_capture:id/checkbox")
+            if not checkbox.exists:
+                checkbox = d(className="android.widget.CheckBox")
+
+            if checkbox.exists and not checkbox.info.get("checked"):
                 print("- [Show system apps] 활성화합니다.")
-                sys_menu.click()
+                checkbox.click()
                 time.sleep(1.5)
-            else:
+            elif checkbox.exists:
                 print("- [Show system apps] 이미 체크되어 있습니다! (유지)")
                 d.press("back")
                 time.sleep(1)
 
-    # [4] 검색 버튼 클릭 및 앱 검색 (소문자 everytalk)
-    search_btn = d(resourceId="com.emanuelef.remote_capture:id/search_button")
-    if search_btn.exists:
-        search_btn.click()
-        time.sleep(1.5)
+        # [3-2] 검색 버튼 클릭 및 앱 검색 (소문자 everytalk)
+        search_btn = d(resourceId="com.emanuelef.remote_capture:id/search")
+        if not search_btn.exists:
+            search_btn = d(resourceId="com.emanuelef.remote_capture:id/search_button")
 
-        search_box = d(className="android.widget.EditText")
-        if search_box.exists:
-            search_box.set_text("everytalk")
-        else:
-            d.send_keys("everytalk")
+        if search_btn.exists:
+            search_btn.click()
+            time.sleep(1.5)
 
-        time.sleep(2)
+            search_box = d(className="android.widget.EditText")
+            if search_box.exists:
+                search_box.set_text("everytalk")
+            else:
+                d.send_keys("everytalk")
+
+            time.sleep(2)
 
     # [5] 검색된 앱 토글 켜기
     toggle_btn = d(resourceId="com.emanuelef.remote_capture:id/toggle_btn")
@@ -934,23 +1010,19 @@ def _ensure_pcapdroid_target_apps(d):
         time.sleep(1)
 
 
-def setup_pcapdroid_settings(uuid):
-    d = u2.connect(uuid)
+def setup_pcapdroid_settings(uuid, log=print):
+    try:
+        d = u2.connect(uuid)
+    except Exception as e:
+        log(f"❌ PCAPdroid 설정 점검 중 기기 연결 실패: {e}")
+        return False
 
     try:
-        print("⚙️ PCAPdroid 설정 상태를 점검합니다...")
-        d.app_start("com.emanuelef.remote_capture")
-        time.sleep(2)
+        log("⚙️ PCAPdroid 설정 상태를 점검합니다...")
 
-        # 🌟 [0] 최초 설치 시 뜨는 튜토리얼(OnBoarding) 화면 스킵
-        _dismiss_pcapdroid_onboarding(d)
-        # 🌟 [0-1] 온보딩 직후 뜨는 시스템 권한 요청 팝업 허용
-        _grant_pcapdroid_permission_popups(d)
-
-        # 메인 화면 로딩 대기
-        if not d(text="Ready").wait(timeout=10):
-            print("❌ PCAPdroid 메인 화면 로딩 실패")
-            return
+        if not _wait_pcapdroid_main_screen(d):
+            log("❌ PCAPdroid 메인 화면 로딩 실패")
+            return False
 
         # ----------------------------------------------------
         # 1. 덤프 모드 세팅 (No dump -> PCAP file)
@@ -972,7 +1044,7 @@ def setup_pcapdroid_settings(uuid):
         # ----------------------------------------------------
         play_btn = d(resourceId="com.emanuelef.remote_capture:id/action_start")
         if play_btn.exists:
-            print("- ▶️ 상단 Play 버튼을 클릭하여 캡처를 시작합니다!")
+            log("- ▶️ 상단 Play 버튼을 클릭하여 캡처를 시작합니다!")
             play_btn.click()
 
             # 🌟 [업그레이드] 최대 2번 뜨는 팝업 스마트 처리
@@ -981,28 +1053,31 @@ def setup_pcapdroid_settings(uuid):
                 time.sleep(1.5)  # 팝업창 뜰 시간 살짝 대기
 
                 if d(text="OK").exists:
-                    print(f"- 권한/안내 팝업 감지 ({i+1}/2) : [OK] 클릭")
+                    log(f"- 권한/안내 팝업 감지 ({i+1}/2) : [OK] 클릭")
                     d(text="OK").click()
                 elif d(text="확인").exists:
-                    print(f"- 권한/안내 팝업 감지 ({i+1}/2) : [확인] 클릭")
+                    log(f"- 권한/안내 팝업 감지 ({i+1}/2) : [확인] 클릭")
                     d(text="확인").click()
                 else:
                     # 화면에 더 이상 OK나 확인 버튼이 없다면 반복문 즉시 탈출!
                     break
 
-            print("✅ PCAPdroid 캡처가 정상적으로 실행되었습니다!")
+            log("✅ PCAPdroid 캡처가 정상적으로 실행되었습니다!")
 
             # ----------------------------------------------------
             # 4. EveryTalk 앱 실행
             # ----------------------------------------------------
-            print("- 📱 EveryTalk 앱을 실행합니다...")
+            log("- 📱 EveryTalk 앱을 실행합니다...")
             d.app_start("com.EveryTalk.Global")
             time.sleep(2)
+            return True
         else:
-            print("❌ Play 버튼을 찾지 못했습니다.")
+            log("❌ Play 버튼을 찾지 못했습니다.")
+            return False
 
     except Exception as e:
-        print(f"❌ 설정 점검 및 실행 중 오류 발생: {e}")
+        log(f"❌ 설정 점검 및 실행 중 오류 발생: {e}")
+        return False
 
 
 def _send_pcapdroid_action(uuid, action):
@@ -1072,14 +1147,27 @@ def _select_pcapdroid_dump_mode(d, mode_text, timeout=8):
     return True
 
 
-def _wait_pcapdroid_main_screen(d, timeout=10):
+def _wait_pcapdroid_main_screen(d, timeout=20):
+    """PCAPdroid 메인 화면(EveryTalkMain 아님, PCAPdroid 자체 메인)이 떴는지 확인합니다.
+    'Ready' 텍스트는 캡처가 꺼져있을 때만 뜨므로, 직전 세션이 캡처를 켠 채로 남아있으면
+    영원히 못 찾고 타임아웃납니다. 캡처 상태와 무관하게 항상 존재하는 설정(⚙️) 버튼도
+    함께 확인해서 캡처 진행 중에도 메인 화면 로딩으로 인식하도록 합니다.
+
+    최초 설치 직후에는 OnBoarding 튜토리얼/권한 팝업이 렌더링되는 타이밍이 기기마다
+    들쭉날쭉해서, 시작할 때 딱 한 번만 스킵을 시도하면 늦게 뜬 튜토리얼을 놓치고 그대로
+    멈춰버립니다. 그래서 메인 화면이 보일 때까지 매 반복마다 스킵/허용을 계속 재시도합니다."""
     d.app_start("com.emanuelef.remote_capture")
     time.sleep(2)
 
-    _dismiss_pcapdroid_onboarding(d)
-    _grant_pcapdroid_permission_popups(d)
-
-    return d(text="Ready").wait(timeout=timeout)
+    settings_btn = d(resourceId="com.emanuelef.remote_capture:id/action_settings")
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if d(text="Ready").exists or settings_btn.exists:
+            return True
+        _dismiss_pcapdroid_onboarding(d, timeout=1)
+        _grant_pcapdroid_permission_popups(d, timeout=1)
+        time.sleep(0.3)
+    return False
 
 
 def _confirm_pcapdroid_dialog(d, timeout=5):
@@ -1092,25 +1180,25 @@ def _confirm_pcapdroid_dialog(d, timeout=5):
     return False
 
 
-def configure_pcapdroid_tcp_exporter(uuid, host="127.0.0.1", port=15123):
+def configure_pcapdroid_tcp_exporter(uuid, host="127.0.0.1", port=15123, log=print):
     """PCAPdroid의 덤프 모드를 'TCP exporter'로 바꾸고 Collector IP/Port를 설정합니다.
     이 모드는 pcap-over-ip로 캡처 내용을 실시간 스트리밍해주는 PCAPdroid 공식 기능입니다."""
     try:
         d = u2.connect(uuid)
 
         if not _wait_pcapdroid_main_screen(d):
-            print("❌ PCAPdroid 메인 화면 로딩 실패")
+            log("❌ PCAPdroid 메인 화면 로딩 실패 (기기 화면이 잠겨 있지 않은지 확인해 주세요)")
             return False
 
         settings_btn = d(resourceId="com.emanuelef.remote_capture:id/action_settings")
         if not settings_btn.exists:
-            print("❌ PCAPdroid 설정 버튼을 찾지 못했습니다.")
+            log("❌ PCAPdroid 설정 버튼을 찾지 못했습니다.")
             return False
         settings_btn.click()
         time.sleep(1)
 
         if not d(text="Collector IP address").wait(timeout=5):
-            print("❌ Collector IP address 설정 항목을 찾지 못했습니다.")
+            log("❌ Collector IP address 설정 항목을 찾지 못했습니다.")
             d.press("back")
             return False
 
@@ -1119,7 +1207,7 @@ def configure_pcapdroid_tcp_exporter(uuid, host="127.0.0.1", port=15123):
             resourceId="android:id/summary"
         )
         if ip_summary.exists and ip_summary.get_text() == host:
-            print(f"- Collector IP address가 이미 {host}로 설정되어 있습니다. (스킵)")
+            log(f"- Collector IP address가 이미 {host}로 설정되어 있습니다. (스킵)")
         else:
             d(text="Collector IP address").click()
             time.sleep(1)
@@ -1128,7 +1216,7 @@ def configure_pcapdroid_tcp_exporter(uuid, host="127.0.0.1", port=15123):
             if ip_field.get_text() != host:
                 ip_field.set_text(host)
             if not _confirm_pcapdroid_dialog(d):
-                print("❌ Collector IP address 확인 버튼을 찾지 못했습니다.")
+                log("❌ Collector IP address 확인 버튼을 찾지 못했습니다.")
                 d.press("back")
                 return False
 
@@ -1137,7 +1225,7 @@ def configure_pcapdroid_tcp_exporter(uuid, host="127.0.0.1", port=15123):
             resourceId="android:id/summary"
         )
         if port_summary.exists and port_summary.get_text() == str(port):
-            print(f"- Collector port가 이미 {port}로 설정되어 있습니다. (스킵)")
+            log(f"- Collector port가 이미 {port}로 설정되어 있습니다. (스킵)")
         else:
             d(text="Collector port").click()
             time.sleep(1)
@@ -1146,7 +1234,7 @@ def configure_pcapdroid_tcp_exporter(uuid, host="127.0.0.1", port=15123):
             if port_field.get_text() != str(port):
                 port_field.set_text(str(port))
             if not _confirm_pcapdroid_dialog(d):
-                print("❌ Collector port 확인 버튼을 찾지 못했습니다.")
+                log("❌ Collector port 확인 버튼을 찾지 못했습니다.")
                 d.press("back")
                 return False
 
@@ -1158,49 +1246,49 @@ def configure_pcapdroid_tcp_exporter(uuid, host="127.0.0.1", port=15123):
             resourceId="com.emanuelef.remote_capture:id/dump_mode_spinner"
         ).child(resourceId="com.emanuelef.remote_capture:id/title")
         if spinner_title.exists and spinner_title.get_text() == "TCP exporter":
-            print("- Dump mode가 이미 TCP exporter입니다. (스킵)")
+            log("- Dump mode가 이미 TCP exporter입니다. (스킵)")
         else:
             if not _select_pcapdroid_dump_mode(d, "TCP exporter"):
-                print("❌ TCP exporter 모드로 전환하지 못했습니다.")
+                log("❌ TCP exporter 모드로 전환하지 못했습니다.")
                 return False
 
-        print(f"✅ PCAPdroid를 TCP exporter 모드로 전환했습니다 (수신지: {host}:{port})")
+        log(f"✅ PCAPdroid를 TCP exporter 모드로 전환했습니다 (수신지: {host}:{port})")
 
         # Target apps 점검 (EveryTalk 켜져 있는지 확인)
         _ensure_pcapdroid_target_apps(d)
 
         # 상단 Play 버튼 클릭 (일반 click()이 종종 씹혀서 좌표 탭 방식 사용)
         if not _tap_pcapdroid_play_button(uuid):
-            print("❌ PCAPdroid Play 버튼을 누르지 못했습니다.")
+            log("❌ PCAPdroid Play 버튼을 누르지 못했습니다.")
             return False
 
-        print("- 📱 EveryTalk 앱을 실행합니다...")
+        log("- 📱 EveryTalk 앱을 실행합니다...")
         d.app_start("com.EveryTalk.Global")
 
         return True
     except Exception as e:
-        print(f"❌ TCP exporter 모드 설정 중 오류: {e}")
+        log(f"❌ TCP exporter 모드 설정 중 오류: {e}")
         return False
 
 
-def switch_pcapdroid_to_pcap_file_mode(uuid):
+def switch_pcapdroid_to_pcap_file_mode(uuid, log=print):
     """실시간 스트리밍(TCP exporter)에서 수동 파일 캡처(PCAP file) 모드로 되돌립니다."""
     try:
         d = u2.connect(uuid)
         if not _wait_pcapdroid_main_screen(d):
-            print("❌ PCAPdroid 메인 화면 로딩 실패")
+            log("❌ PCAPdroid 메인 화면 로딩 실패")
             return False
         if not _select_pcapdroid_dump_mode(d, "PCAP file"):
-            print("❌ PCAP file 모드로 복원하지 못했습니다.")
+            log("❌ PCAP file 모드로 복원하지 못했습니다.")
             return False
-        print("✅ PCAPdroid를 PCAP file 모드로 복원했습니다.")
+        log("✅ PCAPdroid를 PCAP file 모드로 복원했습니다.")
         return True
     except Exception as e:
-        print(f"❌ PCAP file 모드 복원 중 오류: {e}")
+        log(f"❌ PCAP file 모드 복원 중 오류: {e}")
         return False
 
 
-def run_realtime_sip_stream(uuid, on_event, stop_event, state, host="127.0.0.1", port=15123):
+def run_realtime_sip_stream(uuid, on_event, stop_event, state, host="127.0.0.1", port=15123, log=print):
     """PCAPdroid를 TCP exporter 모드로 캡처를 시작해 pcap-over-ip 스트림을 실시간으로
     tshark에 흘려보내고, SIP 메시지가 나올 때마다 on_event(dict)를 호출합니다.
 
@@ -1212,10 +1300,10 @@ def run_realtime_sip_stream(uuid, on_event, stop_event, state, host="127.0.0.1",
 
     tshark_path = find_tshark()
     if not tshark_path:
-        print("❌ tshark를 찾을 수 없어 실시간 SIP Flow를 시작할 수 없습니다.")
+        log("❌ tshark를 찾을 수 없어 실시간 SIP Flow를 시작할 수 없습니다.")
         return
 
-    if not ensure_pcapdroid_installed(uuid):
+    if not ensure_pcapdroid_installed(uuid, log=log):
         return
 
     subprocess.run(["adb", "-s", uuid, "reverse", f"tcp:{port}", f"tcp:{port}"])
@@ -1234,11 +1322,11 @@ def run_realtime_sip_stream(uuid, on_event, stop_event, state, host="127.0.0.1",
 
     # 리스너를 먼저 띄운 뒤 PCAPdroid 설정+Play+EveryTalk 실행까지 진행
     # (Play를 먼저 누르면 수신 대기 중인 소켓이 없어 TCP exporter 연결이 즉시 실패함)
-    if not configure_pcapdroid_tcp_exporter(uuid, host, port):
+    if not configure_pcapdroid_tcp_exporter(uuid, host, port, log=log):
         server.close()
         subprocess.run(["adb", "-s", uuid, "reverse", "--remove", f"tcp:{port}"])
         return
-    print("📡 실시간 SIP Flow 스트리밍 대기 중 (PCAPdroid → TCP exporter)...")
+    log("📡 실시간 SIP Flow 스트리밍 대기 중 (PCAPdroid → TCP exporter)...")
 
     conn = None
     tshark_proc = None
@@ -1253,6 +1341,7 @@ def run_realtime_sip_stream(uuid, on_event, stop_event, state, host="127.0.0.1",
                 break
 
         if conn is None:
+            log("⏹ 실시간 SIP Flow 스트리밍이 연결 없이 중단되었습니다 (PCAPdroid가 TCP exporter로 접속하지 않음).")
             return
 
         cmd = [tshark_path, "-r", "-", "-l", "-Y", "sip", "-T", "fields"]
@@ -1291,7 +1380,7 @@ def run_realtime_sip_stream(uuid, on_event, stop_event, state, host="127.0.0.1",
                     pass
 
         threading.Thread(target=feeder, daemon=True).start()
-        print("✅ 실시간 SIP Flow 스트리밍 시작!")
+        log("✅ 실시간 SIP Flow 스트리밍 시작!")
 
         while not stop_event.is_set():
             raw = tshark_proc.stdout.readline()

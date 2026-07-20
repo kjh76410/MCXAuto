@@ -14,6 +14,7 @@ from PySide6.QtGui import (
     QColor,
     QFont,
     QFontDatabase,
+    QFontMetrics,
     QIcon,
     QIntValidator,
     QPainter,
@@ -38,6 +39,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSplitter,
     QStackedWidget,
     QTableWidget,
@@ -73,9 +75,9 @@ class Palette:
     tint_blue_hover = "#D2DAE9"
     tint_orange_bg = "#FFF1DC"
     tint_orange_hover = "#FFE6BF"
-    neutral_bg = "#E9E9EB"
-    neutral_hover = "#DCDCE1"
-    radius = 14
+    neutral_bg = "#EDEDF0"
+    neutral_hover = "#E2E2E6"
+    radius = 4
 
 
 def load_custom_font():
@@ -112,16 +114,31 @@ def add_shadow(widget, blur=24, y_offset=3, alpha=25):
     return widget
 
 
-def card_css(bg=Palette.panel, border=Palette.border, radius=Palette.radius):
+def card_css(bg=Palette.panel, border="transparent", radius=Palette.radius):
     return f"background-color:{bg}; border:1px solid {border}; border-radius:{radius}px;"
 
 
+def _shade(hex_color, factor):
+    """hex_color를 factor(0~1)만큼 어둡게 만든 색을 돌려줍니다.
+    버튼마다 매번 테두리/눌림 색을 따로 지정하지 않고, bg/hover 색에서 자동으로
+    한 톤 어두운 테두리·pressed 색을 뽑아내 네이티브 버튼 느낌(입체감)을 내기 위함."""
+    hex_color = hex_color.lstrip("#")
+    if len(hex_color) != 6:
+        return hex_color
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+    r, g, b = (max(0, min(255, int(c * factor))) for c in (r, g, b))
+    return f"#{r:02X}{g:02X}{b:02X}"
+
+
 def btn_css(bg, fg, hover, radius=Palette.radius, disabled_bg="#F2F2F7", disabled_fg="#C7C7CC"):
+    border = _shade(bg, 0.85)
+    pressed = _shade(hover, 0.95)
     return (
-        f"QPushButton {{ background-color:{bg}; color:{fg}; border:none; "
+        f"QPushButton {{ background-color:{bg}; color:{fg}; border:1px solid {border}; "
         f"border-radius:{radius}px; font-weight:600; }}"
         f"QPushButton:hover {{ background-color:{hover}; }}"
-        f"QPushButton:disabled {{ background-color:{disabled_bg}; color:{disabled_fg}; }}"
+        f"QPushButton:pressed {{ background-color:{pressed}; border-color:{border}; }}"
+        f"QPushButton:disabled {{ background-color:{disabled_bg}; color:{disabled_fg}; border-color:{disabled_bg}; }}"
     )
 
 
@@ -141,6 +158,8 @@ class Signals(QObject):
     flow_card = Signal(str, str, str, bool)
     network_label = Signal(str)
     floor_state = Signal(str)
+    device_ready = Signal(object)
+    pcap_state = Signal(bool)
 
 
 class QtLogConsole:
@@ -171,7 +190,7 @@ class SegmentedButton(QWidget):
 
     changed = Signal(str)
 
-    def __init__(self, values, selected_color=Palette.blue, height=28, font=None, parent=None):
+    def __init__(self, values, selected_color=Palette.blue, height=23, font=None, parent=None):
         super().__init__(parent)
         self._selected_color = selected_color
         layout = QHBoxLayout(self)
@@ -201,12 +220,12 @@ class SegmentedButton(QWidget):
             if btn.isChecked():
                 btn.setStyleSheet(
                     f"QPushButton {{ background-color:{self._selected_color}; color:white; "
-                    f"border:none; border-radius:8px; font-weight:600; }}"
+                    f"border:none; border-radius:3px; font-weight:600; }}"
                 )
             else:
                 btn.setStyleSheet(
                     f"QPushButton {{ background-color:{Palette.neutral_bg}; color:{Palette.text_main}; "
-                    f"border:none; border-radius:8px; }}"
+                    f"border:none; border-radius:3px; }}"
                     f"QPushButton:hover {{ background-color:{Palette.neutral_hover}; }}"
                 )
 
@@ -319,6 +338,8 @@ class App(QMainWindow):
         self.signals.flow_card.connect(self._add_flow_card_ui)
         self.signals.network_label.connect(self._update_network_label)
         self.signals.floor_state.connect(self._on_floor_state)
+        self.signals.device_ready.connect(self._on_device_ready)
+        self.signals.pcap_state.connect(self._set_pcap_ui_state)
 
         self._build_ui()
         QTimer.singleShot(300, self.pulse_canvas.stop)
@@ -378,7 +399,7 @@ class App(QMainWindow):
         layout.addSpacing(8)
 
         self.btn_connect = self._make_button(
-            "기기 연결 및 로드", Palette.blue, "white", Palette.blue_hover, height=38, icon_name="fa5s.plug", icon_size=15
+            "기기 연결 및 로드", Palette.blue, "white", Palette.blue_hover, height=32, icon_name="fa5s.plug", icon_size=15
         )
         self.btn_connect.clicked.connect(self.check_device)
         layout.addWidget(self.btn_connect)
@@ -401,13 +422,13 @@ class App(QMainWindow):
 
         layout.addWidget(self._section_label("환경 구성"))
         row_config = QHBoxLayout()
-        row_config.setSpacing(6)
+        row_config.setSpacing(4)
         self.btn_env = self._make_button(
-            "환경 설정", Palette.tint_blue_bg, Palette.blue, Palette.tint_blue_hover, height=32, icon_name="fa5s.cog"
+            "환경 설정", Palette.tint_blue_bg, Palette.blue, Palette.tint_blue_hover, height=26, icon_name="fa5s.cog"
         )
         self.btn_env.clicked.connect(self.open_env_setup)
         self.btn_wifi = self._make_button(
-            "WiFi 설정", Palette.tint_blue_bg, Palette.blue, Palette.tint_blue_hover, height=32, icon_name="fa5s.wifi"
+            "WiFi 설정", Palette.tint_blue_bg, Palette.blue, Palette.tint_blue_hover, height=26, icon_name="fa5s.wifi"
         )
         self.btn_wifi.clicked.connect(self.open_wifi_setup)
         row_config.addWidget(self.btn_env)
@@ -417,19 +438,19 @@ class App(QMainWindow):
         layout.addSpacing(8)
         layout.addWidget(self._section_label("앱 관리"))
         self.btn_install = self._make_button(
-            "앱 설치 (.apk)", Palette.tint_blue_bg, Palette.blue, Palette.tint_blue_hover, height=32, icon_name="fa5s.download"
+            "앱 설치 (.apk)", Palette.tint_blue_bg, Palette.blue, Palette.tint_blue_hover, height=26, icon_name="fa5s.download"
         )
         self.btn_install.clicked.connect(self.run_install_app)
         layout.addWidget(self.btn_install)
 
         row_app = QHBoxLayout()
-        row_app.setSpacing(6)
+        row_app.setSpacing(4)
         self.btn_clear_data = self._make_button(
-            "데이터 삭제", Palette.tint_orange_bg, Palette.orange, Palette.tint_orange_hover, height=32, icon_name="fa5s.broom"
+            "데이터 삭제", Palette.tint_orange_bg, Palette.orange, Palette.tint_orange_hover, height=26, icon_name="fa5s.broom"
         )
         self.btn_clear_data.clicked.connect(self.run_clear_data)
         self.btn_uninstall = self._make_button(
-            "앱 삭제", Palette.danger_bg, Palette.danger, Palette.danger_bg_hover, height=32, icon_name="fa5s.trash-alt"
+            "앱 삭제", Palette.danger_bg, Palette.danger, Palette.danger_bg_hover, height=26, icon_name="fa5s.trash-alt"
         )
         self.btn_uninstall.clicked.connect(self.run_uninstall_app)
         row_app.addWidget(self.btn_clear_data)
@@ -440,19 +461,19 @@ class App(QMainWindow):
 
         layout.addWidget(self._section_label("자동화 실행"))
         self.btn_run_scenario = self._make_button(
-            "전체 시나리오 실행", "#1C1C1E", "white", "#2C2C2E", height=42, icon_name="fa5s.play"
+            "전체 시나리오 실행", "#1C1C1E", "white", "#2C2C2E", height=36, icon_name="fa5s.play"
         )
         self.btn_run_scenario.clicked.connect(self.run_automation)
         layout.addWidget(self.btn_run_scenario)
 
         row_ctrl = QHBoxLayout()
-        row_ctrl.setSpacing(6)
+        row_ctrl.setSpacing(4)
         self.btn_stop_scenario = self._make_button(
-            "중지", Palette.danger_bg, Palette.danger, Palette.danger_bg_hover, height=36, icon_name="fa5s.stop"
+            "중지", Palette.danger_bg, Palette.danger, Palette.danger_bg_hover, height=30, icon_name="fa5s.stop"
         )
         self.btn_stop_scenario.clicked.connect(self.stop_automation)
         self.btn_unit_test = self._make_button(
-            "단위 테스트", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=36, icon_name="fa5s.vial"
+            "단위 테스트", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=30, icon_name="fa5s.vial"
         )
         self.btn_unit_test.clicked.connect(self.open_unit_test_popup)
         row_ctrl.addWidget(self.btn_stop_scenario)
@@ -496,11 +517,11 @@ class App(QMainWindow):
     def _build_mirror_card(self):
         card = styled(QFrame(), card_css())
         outer = QVBoxLayout(card)
-        outer.setContentsMargins(20, 12, 20, 12)
-        outer.setSpacing(5)
+        outer.setContentsMargins(14, 8, 14, 8)
+        outer.setSpacing(4)
         outer.setAlignment(Qt.AlignHCenter)
 
-        btn_kwargs = dict(bg=Palette.neutral_bg, fg=Palette.text_main, hover=Palette.neutral_hover, height=30, radius=15)
+        btn_kwargs = dict(bg=Palette.neutral_bg, fg=Palette.text_main, hover=Palette.neutral_hover, height=25, radius=5)
 
         top_nav = QHBoxLayout()
         top_nav.setSpacing(2)
@@ -544,11 +565,11 @@ class App(QMainWindow):
         layout.setSpacing(8)
 
         header = QHBoxLayout()
-        self.btn_tab_group = self._make_button("Group List", Palette.blue, "white", Palette.blue_hover, height=34, radius=17)
+        self.btn_tab_group = self._make_button("Group List", Palette.blue, "white", Palette.blue_hover, height=28, radius=6)
         self.btn_tab_group.clicked.connect(lambda: self.switch_tab("group"))
-        self.btn_tab_user = self._make_button("User List", Palette.neutral_bg, Palette.text_sub, Palette.neutral_hover, height=34, radius=17)
+        self.btn_tab_user = self._make_button("User List", Palette.neutral_bg, Palette.text_sub, Palette.neutral_hover, height=28, radius=6)
         self.btn_tab_user.clicked.connect(lambda: self.switch_tab("user"))
-        self.btn_refresh = self._make_button("", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=34, radius=17, icon_name="fa5s.sync-alt")
+        self.btn_refresh = self._make_button("", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=28, radius=6, icon_name="fa5s.sync-alt")
         self.btn_refresh.setFixedWidth(34)
         self.btn_refresh.clicked.connect(self.refresh_all_lists)
         header.addWidget(self.btn_tab_group, 1)
@@ -560,7 +581,7 @@ class App(QMainWindow):
         lbl_mode = QLabel("테스트 모드:")
         lbl_mode.setFont(kfont(11))
         lbl_mode.setStyleSheet(f"color:{Palette.text_sub};")
-        self.seg_mode_toggle = SegmentedButton(["📞 통화", "💬 메시지"], selected_color=Palette.blue, height=30, font=kfont(11, True))
+        self.seg_mode_toggle = SegmentedButton(["📞 통화", "💬 메시지"], selected_color=Palette.blue, height=25, font=kfont(11, True))
         self.seg_mode_toggle.set("📞 통화")
         self.seg_mode_toggle.changed.connect(self.on_mode_toggle_changed)
         mode_row.addWidget(lbl_mode)
@@ -580,10 +601,10 @@ class App(QMainWindow):
         layout.addWidget(self.my_id_label)
 
         btn_row = QHBoxLayout()
-        btn_row.setSpacing(6)
-        self.btn_group_call = self._make_button("통화 발신", Palette.blue, "white", Palette.blue_hover, height=40, icon_name="fa5s.phone")
+        btn_row.setSpacing(4)
+        self.btn_group_call = self._make_button("통화 발신", Palette.blue, "white", Palette.blue_hover, height=34, icon_name="fa5s.phone")
         self.btn_group_call.clicked.connect(self.on_main_call_button_clicked)
-        self.btn_group_msg = self._make_button("메시지 전송", Palette.blue, "white", Palette.blue_hover, height=40, icon_name="fa5s.comment-dots")
+        self.btn_group_msg = self._make_button("메시지 전송", Palette.blue, "white", Palette.blue_hover, height=34, icon_name="fa5s.comment-dots")
         self.btn_group_msg.clicked.connect(self.send_group_message)
         btn_row.addWidget(self.btn_group_call)
         btn_row.addWidget(self.btn_group_msg)
@@ -628,10 +649,10 @@ class App(QMainWindow):
         monitor_header.addWidget(lbl_title)
         monitor_header.addStretch(1)
 
-        self.btn_toggle_log = self._make_button("Logcat ON", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=30, radius=15, icon_name="fa5s.file-alt")
+        self.btn_toggle_log = self._make_button("Logcat ON", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=25, radius=5, icon_name="fa5s.file-alt")
         self.btn_toggle_log.setFixedWidth(120)
         self.btn_toggle_log.clicked.connect(self.toggle_log)
-        self.btn_toggle_pcap = self._make_button("PCAP ON", Palette.danger_bg, Palette.danger, Palette.danger_bg_hover, height=30, radius=15, icon_name="fa5s.circle", icon_size=10)
+        self.btn_toggle_pcap = self._make_button("PCAP ON", Palette.danger_bg, Palette.danger, Palette.danger_bg_hover, height=25, radius=5, icon_name="fa5s.circle", icon_size=10)
         self.btn_toggle_pcap.setFixedWidth(110)
         self.btn_toggle_pcap.clicked.connect(self.toggle_pcap)
         monitor_header.addWidget(self.btn_toggle_log)
@@ -640,7 +661,7 @@ class App(QMainWindow):
 
         self.tab_view = QTabWidget()
         self.tab_view.setStyleSheet(
-            f"QTabBar::tab {{ background:{Palette.neutral_bg}; padding:6px 16px; border-radius:8px; margin:4px 2px; }}"
+            f"QTabBar::tab {{ background:{Palette.neutral_bg}; padding:6px 16px; border-radius:3px; margin:4px 2px; }}"
             f"QTabBar::tab:selected {{ background:{Palette.blue}; color:white; }}"
             f"QTabWidget::pane {{ border:none; }}"
         )
@@ -661,7 +682,7 @@ class App(QMainWindow):
         self.entry_search.setPlaceholderText("🔍 터미널 로그 실시간 검색")
         self.entry_search.setFixedHeight(36)
         self.entry_search.setStyleSheet(
-            f"QLineEdit {{ background-color:white; border:1px solid {Palette.border}; border-radius:10px; padding:0 10px; }}"
+            f"QLineEdit {{ background-color:white; border:1px solid {Palette.border}; border-radius:4px; padding:0 10px; }}"
         )
         self.entry_search.textChanged.connect(self._filter_log)
         self.txt_log = QTextEdit()
@@ -669,7 +690,7 @@ class App(QMainWindow):
         self.txt_log.setFont(kfont(11))
         self.txt_log.setStyleSheet(
             f"QTextEdit {{ background-color:{Palette.bg}; color:{Palette.text_main}; "
-            f"border:1px solid {Palette.border}; border-radius:10px; }}"
+            f"border:1px solid {Palette.border}; border-radius:4px; }}"
         )
         log_layout.addWidget(self.entry_search)
         log_layout.addWidget(self.txt_log, 1)
@@ -711,7 +732,7 @@ class App(QMainWindow):
         header.addStretch(1)
         self.btn_download_results = self._make_button(
             "다운로드", Palette.blue, "white", Palette.blue_hover,
-            height=30, radius=15, icon_name="fa5s.download",
+            height=25, radius=5, icon_name="fa5s.download",
         )
         self.btn_download_results.setFixedWidth(110)
         self.btn_download_results.clicked.connect(self.export_results_to_excel)
@@ -824,23 +845,23 @@ class App(QMainWindow):
     def _global_qss(self):
         return f"""
             QMainWindow {{ background-color:{Palette.bg}; }}
-            QToolTip {{ background-color:#1C1C1E; color:white; border:none; padding:4px 8px; border-radius:6px; }}
+            QToolTip {{ background-color:#1C1C1E; color:white; border:none; padding:4px 8px; border-radius:3px; }}
             QScrollBar:vertical {{ background:transparent; width:10px; margin:0; }}
-            QScrollBar::handle:vertical {{ background:#C7C7CC; border-radius:5px; min-height:24px; }}
+            QScrollBar::handle:vertical {{ background:#C7C7CC; border-radius:3px; min-height:24px; }}
             QScrollBar::handle:vertical:hover {{ background:#AEAEB2; }}
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height:0; }}
             QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background:none; }}
             QScrollBar:horizontal {{ background:transparent; height:10px; margin:0; }}
-            QScrollBar::handle:horizontal {{ background:#C7C7CC; border-radius:5px; min-width:24px; }}
+            QScrollBar::handle:horizontal {{ background:#C7C7CC; border-radius:3px; min-width:24px; }}
             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width:0; }}
             QComboBox {{
-                background-color:{Palette.bg}; border:1px solid {Palette.border}; border-radius:10px;
+                background-color:{Palette.bg}; border:1px solid {Palette.border}; border-radius:4px;
                 padding:4px 10px; color:{Palette.text_main};
             }}
             QComboBox:hover {{ border-color:{Palette.blue}; }}
             QComboBox::drop-down {{ border:none; width:22px; }}
             QComboBox QAbstractItemView {{
-                background-color:white; border:1px solid {Palette.border}; border-radius:8px;
+                background-color:white; border:1px solid {Palette.border}; border-radius:3px;
                 selection-background-color:{Palette.tint_blue_bg}; selection-color:{Palette.blue}; outline:none;
             }}
             QDialog {{ background-color:{Palette.panel}; }}
@@ -876,7 +897,7 @@ class App(QMainWindow):
             layout.addWidget(lbl)
         return lbl
 
-    def _make_button(self, text, bg, fg, hover, height=32, radius=Palette.radius, icon_name=None, icon_size=14):
+    def _make_button(self, text, bg, fg, hover, height=26, radius=Palette.radius, icon_name=None, icon_size=14):
         btn = QPushButton(text)
         btn.setFixedHeight(height)
         btn.setFont(kfont(11, True))
@@ -935,23 +956,40 @@ class App(QMainWindow):
 
     def _add_flow_card_ui(self, event_type, title, detail, is_error):
         if is_error:
-            b_color, bg_col, icon = Palette.danger, Palette.danger_bg, "🚨 ERROR"
+            b_color, bg_col, badge_text = Palette.danger, Palette.danger_bg, "ERROR"
         elif event_type == "RX":
-            b_color, bg_col, icon = "#0B4192", "#E5EBF5", "📥 RECV "
+            b_color, bg_col, badge_text = Palette.blue, Palette.tint_blue_bg, "RECV"
         else:
-            b_color, bg_col, icon = Palette.blue, Palette.panel, "⚙️ PROC "
+            b_color, bg_col, badge_text = Palette.blue, Palette.panel, "PROC"
 
-        card = styled(QFrame(), card_css(bg=bg_col, border=b_color, radius=10))
+        card = styled(QFrame(), f"background-color:{bg_col}; border:none; border-radius:4px;")
         row = QHBoxLayout(card)
-        row.setContentsMargins(12, 8, 12, 8)
-        lbl_title = QLabel(f"{icon} | {title}")
+        row.setContentsMargins(10, 6, 10, 6)
+        row.setSpacing(8)
+
+        badge = QLabel(badge_text)
+        badge.setFont(kfont(9, True))
+        badge.setFixedHeight(16)
+        badge.setAlignment(Qt.AlignCenter)
+        badge.setStyleSheet(f"background-color:{b_color}; color:white; border-radius:3px; padding:0 6px;")
+        lbl_title = QLabel(title)
         lbl_title.setFont(kfont(12, True))
-        lbl_title.setStyleSheet(f"color:{b_color};")
-        lbl_detail = QLabel(detail)
+        lbl_title.setStyleSheet(f"color:{Palette.text_main};")
+
+        lbl_detail = QLabel()
         lbl_detail.setFont(kfont(11))
         lbl_detail.setStyleSheet(f"color:{Palette.danger if is_error else Palette.text_sub};")
-        lbl_detail.setWordWrap(True)
-        row.addWidget(lbl_title)
+        lbl_detail.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        lbl_detail.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        # 상세 내용은 한 행에 다 보이도록 줄바꿈 대신, 폭에 맞춰 말줄임(...)으로 잘라냅니다.
+        # 실제 전체 내용은 툴팁으로 확인할 수 있습니다.
+        available_w = max(120, self.flow_scroll.viewport().width() - 220)
+        elided = QFontMetrics(lbl_detail.font()).elidedText(detail, Qt.ElideRight, available_w)
+        lbl_detail.setText(elided)
+        lbl_detail.setToolTip(detail)
+
+        row.addWidget(badge, 0, Qt.AlignVCenter)
+        row.addWidget(lbl_title, 0, Qt.AlignVCenter)
         row.addWidget(lbl_detail, 1)
 
         self.flow_layout.insertWidget(self.flow_layout.count() - 1, card)
@@ -959,23 +997,59 @@ class App(QMainWindow):
             self.flow_scroll.verticalScrollBar().maximum()
         ))
 
+    def closeEvent(self, event):
+        """프로그램 종료 시 adb 서버를 내려서, 다음 실행 때 깨끗한 서버로 새로 시작하게 합니다.
+        (SDK adb와 scrcpy 번들 adb 버전이 달라 서버 소유권 다툼으로 기기 인식이 멈추는 문제 방지)"""
+        adb_logic.kill_adb_server()
+        super().closeEvent(event)
+
     # ==========================================
     # 🔌 기기 연결 / 상태 조회
     # ==========================================
     def check_device(self):
-        devices = adb_logic.get_devices()
-        if devices:
-            self.current_uuid = devices[0]
+        """adb 조회가 여러 번(모델/버전/HW/잠금해제 등) 필요해서 메인 스레드에서 돌리면
+        그동안 Qt 이벤트 루프가 막혀 창 전체가 멈춘 것처럼 보입니다. 조회는 백그라운드
+        스레드에서 하고, 결과만 signals.device_ready로 메인 스레드에 돌려받습니다."""
+        self.btn_connect.setEnabled(False)
+        threading.Thread(target=self._check_device_worker, daemon=True).start()
 
-            model = adb_logic.get_model_name(self.current_uuid)
-            android_version = adb_logic.get_os_version(self.current_uuid)
-            try:
-                os_build = adb_logic.get_build_image_version(self.current_uuid)
-            except AttributeError:
-                os_build = "조회 불가"
-            version_name = adb_logic.get_everytalk_version(self.current_uuid)
+    def _check_device_worker(self):
+        devices = adb_logic.get_devices()
+        if not devices:
+            self.signals.device_ready.emit(None)
+            return
+
+        uuid = devices[0]
+        model = adb_logic.get_model_name(uuid)
+        android_version = adb_logic.get_os_version(uuid)
+        try:
+            os_build = adb_logic.get_build_image_version(uuid)
+        except AttributeError:
+            os_build = "조회 불가"
+        version_name = adb_logic.get_everytalk_version(uuid)
+        hw_version = getattr(adb_logic, "get_hw_version", lambda x: "조회 불가")(uuid)
+        adb_logic.unlock_screen(uuid)
+
+        self.signals.device_ready.emit({
+            "uuid": uuid,
+            "model": model,
+            "android_version": android_version,
+            "os_build": os_build,
+            "version_name": version_name,
+            "hw_version": hw_version,
+        })
+
+    def _on_device_ready(self, info):
+        self.btn_connect.setEnabled(True)
+
+        if info:
+            self.current_uuid = info["uuid"]
+            model = info["model"]
+            android_version = info["android_version"]
+            os_build = info["os_build"]
+            version_name = info["version_name"]
+            hw_version = info["hw_version"]
             self.project_name = FileManager.get_project_name(version_name)
-            hw_version = getattr(adb_logic, "get_hw_version", lambda x: "조회 불가")(self.current_uuid)
 
             self.label.setText(f"연결됨: {model}")
             self.label.setStyleSheet(f"color:{Palette.blue};")
@@ -988,12 +1062,12 @@ class App(QMainWindow):
             self.lbl_project_version.setText(f"버전: {version_name}")
 
             self.update_project_features(self.project_name)
-            adb_logic.unlock_screen(self.current_uuid)
+            self.refresh_all_lists()
 
             self.run_mirror()
             self.start_network_monitor()
             self.start_realtime_log_analyzer()
-            self.start_realtime_sip_stream()
+            self.start_pcapdroid_autosetup()
         else:
             self.current_uuid = None
             self.label.setText("연결된 단말 없음")
@@ -1154,7 +1228,7 @@ class App(QMainWindow):
                 badge = QLabel(f_name)
                 badge.setFont(kfont(11, True))
                 badge.setStyleSheet(
-                    f"background-color:{bg_color}; color:{txt_color}; border-radius:12px; padding:3px 10px;"
+                    f"background-color:{bg_color}; color:{txt_color}; border-radius:5px; padding:3px 10px;"
                 )
                 badge.setAttribute(Qt.WA_StyledBackground, True)
                 g_layout.addWidget(badge)
@@ -1175,7 +1249,7 @@ class App(QMainWindow):
         edit.setFixedSize(40, 24)
         edit.setAlignment(Qt.AlignCenter)
         edit.setValidator(QIntValidator(0, 999))
-        edit.setStyleSheet(f"border:1px solid {Palette.border}; border-radius:6px;")
+        edit.setStyleSheet(f"border:1px solid {Palette.border}; border-radius:3px;")
 
         def on_finish():
             if not edit.text() or edit.text() == "0":
@@ -1186,7 +1260,7 @@ class App(QMainWindow):
 
     def _make_list_card(self, parent_layout, name, id_text, seg_call_values, seg_msg_values):
         """Group/User List에서 공통으로 쓰는 카드(체크박스 + 반복 횟수 + 이름/ID + 통화·메시지 방식) 생성."""
-        card = styled(QFrame(), card_css(radius=12))
+        card = styled(QFrame(), card_css(radius=5))
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(0, 0, 0, 0)
         card_layout.setSpacing(0)
@@ -1227,9 +1301,9 @@ class App(QMainWindow):
 
         action_row = QWidget()
         action_layout = QHBoxLayout(action_row)
-        action_layout.setContentsMargins(10, 0, 10, 10)
-        seg_call = SegmentedButton(seg_call_values, selected_color=Palette.blue, height=26, font=kfont(10))
-        seg_msg = SegmentedButton(seg_msg_values, selected_color=Palette.blue, height=26, font=kfont(10))
+        action_layout.setContentsMargins(8, 0, 8, 6)
+        seg_call = SegmentedButton(seg_call_values, selected_color=Palette.blue, height=22, font=kfont(10))
+        seg_msg = SegmentedButton(seg_msg_values, selected_color=Palette.blue, height=22, font=kfont(10))
         action_layout.addWidget(seg_call)
         action_layout.addWidget(seg_msg)
         card_layout.addWidget(action_row)
@@ -1251,12 +1325,12 @@ class App(QMainWindow):
             checkbox.setIcon(qta.icon("fa5s.check", color="white"))
             checkbox.setIconSize(QSize(11, 11))
             checkbox.setStyleSheet(
-                f"QPushButton {{ background-color:{Palette.blue}; border:2px solid {Palette.blue}; border-radius:5px; }}"
+                f"QPushButton {{ background-color:{Palette.blue}; border:2px solid {Palette.blue}; border-radius:3px; }}"
             )
         else:
             checkbox.setIcon(QIcon())
             checkbox.setStyleSheet(
-                "QPushButton { background-color:white; border:2px solid #C7C7CC; border-radius:5px; }"
+                "QPushButton { background-color:white; border:2px solid #C7C7CC; border-radius:3px; }"
             )
 
     def refresh_group_list(self):
@@ -1762,7 +1836,7 @@ class App(QMainWindow):
         layout.addWidget(combo)
         layout.addSpacing(20)
 
-        btn_apply = self._make_button("✅ 설정 적용", Palette.blue, "white", Palette.blue_hover, height=36)
+        btn_apply = self._make_button("✅ 설정 적용", Palette.blue, "white", Palette.blue_hover, height=30)
         btn_apply.clicked.connect(lambda: self.apply_settings(dlg, config_data, combo.currentText()))
         layout.addWidget(btn_apply)
 
@@ -1833,7 +1907,7 @@ class App(QMainWindow):
         layout.addWidget(combo)
         layout.addSpacing(20)
 
-        btn_connect = self._make_button("✅ WiFi 연결", Palette.blue, "white", Palette.blue_hover, height=36)
+        btn_connect = self._make_button("✅ WiFi 연결", Palette.blue, "white", Palette.blue_hover, height=30)
         btn_connect.clicked.connect(lambda: self.apply_wifi_settings(dlg, wifi_data, combo.currentText()))
         layout.addWidget(btn_connect)
 
@@ -1868,6 +1942,18 @@ class App(QMainWindow):
             self.btn_toggle_log.setStyleSheet(btn_css(Palette.neutral_bg, Palette.danger, Palette.neutral_hover, 15))
             self.is_log_on = False
 
+    def _set_pcap_ui_state(self, is_on):
+        """PCAPdroid 캡처 ON/OFF 상태를 토글 버튼에 반영합니다. 메인 스레드에서만 위젯을
+        건드릴 수 있어서, 백그라운드 스레드(자동 셋팅 등)에서는 signals.pcap_state를
+        emit해서 이 슬롯을 통해 반영합니다."""
+        self.is_pcap_on = is_on
+        if is_on:
+            self.btn_toggle_pcap.setText("■ PCAPdroid OFF")
+            self.btn_toggle_pcap.setStyleSheet(btn_css(Palette.danger, "white", Palette.danger_bg_hover, 15))
+        else:
+            self.btn_toggle_pcap.setText("● PCAPdroid ON")
+            self.btn_toggle_pcap.setStyleSheet(btn_css(Palette.danger_bg, Palette.danger, Palette.danger_bg_hover, 15))
+
     def toggle_pcap(self):
         if not self.current_uuid:
             self.safe_log_insert("[System] ❌ 먼저 단말기를 연결해 주세요.")
@@ -1876,21 +1962,25 @@ class App(QMainWindow):
         if not self.is_pcap_on:
             self.safe_log_insert("[System] PCAPdroid 상태 점검 및 실행 중...")
             self.stop_realtime_sip_stream()
-            adb_logic.switch_pcapdroid_to_pcap_file_mode(self.current_uuid)
-            success = adb_logic.start_pcapdroid(self.current_uuid)
+
+            def log(msg):
+                self.safe_log_insert(f"[PCAPdroid] {msg}", is_error=("❌" in msg))
+
+            adb_logic.switch_pcapdroid_to_pcap_file_mode(self.current_uuid, log=log)
+            success = adb_logic.start_pcapdroid(self.current_uuid, log=log)
             if success:
-                self.btn_toggle_pcap.setText("■ PCAPdroid OFF")
-                self.btn_toggle_pcap.setStyleSheet(btn_css(Palette.danger, "white", Palette.danger_bg_hover, 15))
-                self.is_pcap_on = True
+                self._set_pcap_ui_state(True)
                 self.safe_log_insert("[System] 📡 PCAPdroid 캡처 활성화 완료!")
             else:
                 self.safe_log_insert("[System] ❌ 캡처를 시작하지 못했습니다. 로그를 확인하세요.")
         else:
             self.safe_log_insert("[System] 캡처 종료 중...")
-            adb_logic.stop_pcapdroid(self.current_uuid)
-            self.btn_toggle_pcap.setText("● PCAPdroid ON")
-            self.btn_toggle_pcap.setStyleSheet(btn_css(Palette.danger_bg, Palette.danger, Palette.danger_bg_hover, 15))
-            self.is_pcap_on = False
+
+            def log(msg):
+                self.safe_log_insert(f"[PCAPdroid] {msg}", is_error=("❌" in msg))
+
+            adb_logic.stop_pcapdroid(self.current_uuid, log=log)
+            self._set_pcap_ui_state(False)
             self.safe_log_insert("[System] 🛑 캡처가 중지되었습니다.")
 
             threading.Thread(target=self._analyze_pcap_sip_flow, args=(self.current_uuid,), daemon=True).start()
@@ -1921,6 +2011,33 @@ class App(QMainWindow):
     # ==========================================
     # 📡 실시간 SIP Flow (PCAPdroid TCP exporter 스트리밍)
     # ==========================================
+    def start_pcapdroid_autosetup(self):
+        """단말 연결(미러링 시작) 직후 PCAPdroid 설치 여부를 확인하고, 설치되어 있으면
+        (없으면 설치부터 하고) 메인 화면까지 진입해둔 뒤, 이어서 실시간 SIP Flow 스트리밍
+        (TCP exporter 모드)을 바로 시작합니다. 한 스레드에서 순서대로 이어붙여야 두 흐름이
+        동시에 uiautomator2로 PCAPdroid 화면을 건드리며 클릭/뒤로가기가 엉키는 경합을
+        피할 수 있습니다."""
+        if not self.current_uuid:
+            return
+
+        uuid = self.current_uuid
+
+        def log(msg):
+            self.safe_log_insert(f"[PCAPdroid] {msg}", is_error=("❌" in msg))
+
+        def worker():
+            self.safe_log_insert("[System] PCAPdroid 설치 상태를 확인합니다...")
+            if not adb_logic.ensure_pcapdroid_installed(uuid, log=log):
+                self.safe_log_insert("[System] ❌ PCAPdroid 설치 실패")
+                return
+            if not adb_logic.launch_pcapdroid(uuid, log=log):
+                return
+            if self.current_uuid != uuid:
+                return
+            self.start_realtime_sip_stream()
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def start_realtime_sip_stream(self):
         if not self.current_uuid or self.is_pcap_on:
             return
@@ -1937,8 +2054,11 @@ class App(QMainWindow):
             event_type = "RX" if ev["is_response"] else "PROC"
             self.add_flow_card(event_type, ev["title"], ev["detail"])
 
+        def log(msg):
+            self.safe_log_insert(f"[PCAPdroid] {msg}", is_error=("❌" in msg))
+
         def worker():
-            adb_logic.run_realtime_sip_stream(uuid, on_event, stop_event, state, port=self._realtime_sip_port)
+            adb_logic.run_realtime_sip_stream(uuid, on_event, stop_event, state, port=self._realtime_sip_port, log=log)
 
         self._realtime_sip_thread = threading.Thread(target=worker, daemon=True)
         self._realtime_sip_thread.start()
@@ -2082,7 +2202,7 @@ class App(QMainWindow):
             lbl.setStyleSheet(f"color:{Palette.blue};")
             content_layout.insertWidget(content_layout.count() - 1, lbl)
             for item in items:
-                btn = self._make_button(f"  {item}", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=34, radius=10)
+                btn = self._make_button(f"  {item}", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=28, radius=4)
                 btn.setStyleSheet(btn.styleSheet() + "QPushButton { text-align:left; padding-left:10px; }")
                 btn.clicked.connect(lambda checked=False, c=category, i=item: self.execute_action(c, i))
                 content_layout.insertWidget(content_layout.count() - 1, btn)
