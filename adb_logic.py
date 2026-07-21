@@ -750,15 +750,14 @@ def stop_pcapdroid(uuid, log=print):
         return False
 
 
-def pull_latest_pcapdroid_file(uuid, local_dir):
-    """폰의 Download 폴더에서 가장 최근에 생성된 PCAPdroid 캡처 파일을 local_dir로 pull합니다.
-    PCAPdroid는 "PCAPdroid_14_Jul_18_23_23"처럼 확장자 없이 저장하므로 .pcap 확장자로
-    필터링하지 않고 파일명 접두사(PCAPdroid_)로 찾습니다.
+def _find_and_pull_latest_pcapdroid_file(uuid, local_dir):
+    """폰의 Download 폴더에서 가장 최근에 생성된 PCAPdroid 캡처 파일을 local_dir로 pull합니다
+    (대기 없이 즉시 시도). PCAPdroid는 "PCAPdroid_14_Jul_18_23_23"처럼 확장자 없이 저장하므로
+    .pcap 확장자로 필터링하지 않고 파일명 접두사(PCAPdroid_)로 찾습니다.
+    캡처가 진행 중인 파일을 pull해도(아직 flush 안 된 마지막 패킷이 잘려도) tshark는 그 앞
+    패킷들은 정상적으로 읽어내므로, 폴링 방식의 준실시간 SIP Flow 분석에도 그대로 씁니다.
     """
     try:
-        # 캡처 종료 직후엔 파일이 아직 flush 중일 수 있어 살짝 대기합니다.
-        time.sleep(1.5)
-
         result = subprocess.run(
             [
                 "adb",
@@ -794,6 +793,14 @@ def pull_latest_pcapdroid_file(uuid, local_dir):
     except Exception as e:
         print(f"❌ pcap pull 중 오류 발생: {e}")
         return None
+
+
+def pull_latest_pcapdroid_file(uuid, local_dir):
+    """폰의 Download 폴더에서 가장 최근에 생성된 PCAPdroid 캡처 파일을 local_dir로 pull합니다.
+    캡처 종료 직후엔 파일이 아직 flush 중일 수 있어 살짝 대기한 뒤 시도합니다.
+    """
+    time.sleep(1.5)
+    return _find_and_pull_latest_pcapdroid_file(uuid, local_dir)
 
 
 def find_tshark():
@@ -1010,6 +1017,24 @@ def _ensure_pcapdroid_target_apps(d):
         time.sleep(1)
 
 
+def _wait_for_activity_focus(uuid, activity, timeout=15, log=print):
+    """dumpsys window의 mCurrentFocus를 폴링해서 지정한 액티비티(예: 재난망 LM75의
+    메인 화면인 'com.EveryTalk.Global/com.cybertel.mcptt.ui.contact.ContactActivity')로
+    포커스가 넘어올 때까지 기다립니다. app_start 직후 화면 전환이 끝나기 전에 다음 동작을
+    실행해버리는 것을 막기 위한 용도입니다."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            cmd = f"adb -s {uuid} shell dumpsys window | findstr mCurrentFocus"
+            output = subprocess.check_output(cmd, shell=True).decode(errors="ignore").strip()
+            if activity in output:
+                return True
+        except Exception as e:
+            log(f"⚠️ 포커스 확인 중 오류: {e}")
+        time.sleep(0.5)
+    return False
+
+
 def setup_pcapdroid_settings(uuid, log=print):
     try:
         d = u2.connect(uuid)
@@ -1069,7 +1094,12 @@ def setup_pcapdroid_settings(uuid, log=print):
             # ----------------------------------------------------
             log("- 📱 EveryTalk 앱을 실행합니다...")
             d.app_start("com.EveryTalk.Global")
-            time.sleep(2)
+
+            main_activity = "com.EveryTalk.Global/com.cybertel.mcptt.ui.contact.ContactActivity"
+            if not _wait_for_activity_focus(uuid, main_activity, timeout=15, log=log):
+                log("❌ EveryTalk 메인 화면(ContactActivity) 로딩 실패")
+                return False
+
             return True
         else:
             log("❌ Play 버튼을 찾지 못했습니다.")
@@ -1412,6 +1442,143 @@ def run_realtime_sip_stream(uuid, on_event, stop_event, state, host="127.0.0.1",
             pass
         subprocess.run(["adb", "-s", uuid, "reverse", "--remove", f"tcp:{port}"])
         print("🛑 실시간 SIP Flow 스트리밍 종료.")
+
+
+def run_polling_sip_stream(uuid, on_event, stop_event, state, interval=2.0, log=print):
+    """TCP exporter 모드는 PCAPdroid가 캡처한 패킷을 실시간으로 PC에 포워딩하는 동안
+    단말의 정상 트래픽 경로에도 영향을 줘서, 실측 결과 MCPTT 호 연결 자체가 안 되는
+    문제가 있었습니다. 그래서 (수동 PCAP ON 버튼과 동일하게 검증된) 'PCAP file' 모드로
+    캡처하면서, 주기적으로 캡처 중인 파일을 pull해 tshark로 분석하는 방식의 준실시간
+    대안입니다. 통화 경로에 개입하지 않으므로 호 연결에 영향을 주지 않습니다.
+
+    최대 interval초 지연이 있는 폴링 방식이라 완전한 실시간은 아니지만, 이전에 이미
+    본 이벤트는 다시 올리지 않고 새로 생긴 것만 on_event(dict)로 전달합니다.
+    stop_event가 set되면 다음 폴링 주기를 기다리지 않고 즉시 캡처를 멈추고 반환합니다.
+    """
+    if not find_tshark():
+        log("❌ tshark를 찾을 수 없어 실시간 SIP Flow를 시작할 수 없습니다.")
+        return
+
+    if not switch_pcapdroid_to_pcap_file_mode(uuid, log=log):
+        return
+    if not start_pcapdroid(uuid, log=log):
+        return
+
+    state["capturing"] = True
+    local_dir = os.path.join(os.getcwd(), "pcap_captures")
+    seen_count = 0
+    log(f"📡 실시간 SIP Flow(폴링, {interval:.0f}초 간격) 스트리밍 시작! (PCAP file 모드 — 통화 연결에 영향 없음)")
+
+    try:
+        while not stop_event.is_set():
+            pcap_path = _find_and_pull_latest_pcapdroid_file(uuid, local_dir)
+            if pcap_path:
+                events = parse_sip_flow_from_pcap(pcap_path)
+                for ev in events[seen_count:]:
+                    on_event(ev)
+                seen_count = len(events)
+            stop_event.wait(interval)
+    finally:
+        state["capturing"] = False
+        stop_pcapdroid(uuid, log=log)
+        print("🛑 실시간 SIP Flow(폴링) 스트리밍 종료.")
+
+
+_SIP_LOGCAT_TAG = "TELON_MCPTT_STACK_SIP"
+_SIP_REQUEST_RE = re.compile(r"^([A-Z]{3,10})\s+(\S+)\s+SIP/2\.0\s*$")
+_SIP_STATUS_RE = re.compile(r"^SIP/2\.0\s+(\d{3})\s*(.*)$")
+
+
+def _sip_event_from_logcat_message(first_line, headers):
+    """logcat에서 모은 SIP 메시지 한 건(첫 줄 + From/To/Call-ID 헤더)을 이벤트 dict로 변환합니다."""
+    from_h = headers.get("from", "")
+    to_h = headers.get("to", "")
+    call_id = headers.get("call-id", "")
+
+    req = _SIP_REQUEST_RE.match(first_line)
+    if req:
+        method, uri = req.groups()
+        return {
+            "is_response": False,
+            "title": method,
+            "detail": f"{from_h} → {to_h} | {method} {uri} (Call-ID: {call_id})",
+        }
+
+    status = _SIP_STATUS_RE.match(first_line)
+    if status:
+        code, reason = status.groups()
+        return {
+            "is_response": True,
+            "title": f"{code} {reason}".strip(),
+            "detail": f"{from_h} → {to_h} | Call-ID: {call_id}",
+        }
+    return None
+
+
+def run_logcat_sip_stream(uuid, on_event, stop_event, state, log=print):
+    """PCAPdroid(VPN 캡처)는 root 없는 기기에서 통화 경로 자체에 개입해서 MCPTT 호 연결을
+    막아버리는 문제가 있었습니다(테스트 단말이 비루팅이라 root 캡처 모드도 못 씀). 그래서
+    네트워크 캡처를 아예 쓰지 않고, EveryTalk 앱이 SIP 스택 메시지를 그대로 찍어주는 logcat
+    태그('TELON_MCPTT_STACK_SIP')를 실시간으로 읽어 SIP Flow를 재구성합니다. adb logcat만
+    읽으므로 통화 경로에 전혀 개입하지 않습니다.
+    """
+    subprocess.run(["adb", "-s", uuid, "logcat", "-c"])
+
+    cmd = ["adb", "-s", uuid, "logcat", "-v", "threadtime", f"{_SIP_LOGCAT_TAG}:V", "*:S"]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=1)
+    state["proc"] = proc
+    log("📡 실시간 SIP Flow(logcat) 스트리밍 시작! (네트워크 캡처 없이 앱 로그만 읽습니다)")
+
+    tag_marker = _SIP_LOGCAT_TAG + ":"
+    current_first_line = None
+    current_headers = {}
+
+    def flush():
+        nonlocal current_first_line, current_headers
+        if current_first_line:
+            ev = _sip_event_from_logcat_message(current_first_line, current_headers)
+            if ev:
+                on_event(ev)
+        current_first_line = None
+        current_headers = {}
+
+    try:
+        while not stop_event.is_set():
+            raw = proc.stdout.readline()
+            if not raw:
+                break
+            line = raw.decode("utf-8", errors="replace").rstrip("\n")
+            idx = line.find(tag_marker)
+            if idx == -1:
+                continue
+            content = line[idx + len(tag_marker):]
+            if content.startswith(" "):
+                content = content[1:]
+
+            if _SIP_REQUEST_RE.match(content) or _SIP_STATUS_RE.match(content):
+                flush()
+                current_first_line = content
+                continue
+
+            if current_first_line is None:
+                continue
+
+            if not content.strip():
+                flush()
+                continue
+
+            key, sep, val = content.partition(":")
+            if sep:
+                key = key.strip().lower()
+                if key in ("from", "to", "call-id"):
+                    current_headers[key] = val.strip()
+    finally:
+        flush()
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+        log("🛑 실시간 SIP Flow(logcat) 스트리밍 종료.")
 
 
 def start_device_pcap(uuid):

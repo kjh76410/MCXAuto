@@ -4,13 +4,13 @@
   <Default-user-profile User-ID="mcptt" user-profile-index="191bd012-02e5-41b4-9326-1d884ed22e75" index="1" />
   <on-network>
     <Timers>
-      <T4>0</T4>
+      <T4>7200</T4>
       <T100>0</T100>
       <T101>0</T101>
-      <T103>0</T103>
+      <T103>8000</T103>
       <T104>0</T104>
       <T132>0</T132>
-      <T203>8000</T203>
+      <T203>15</T203>
     </Timers>
     <HPLM PLMN="1001">
       <service>
@@ -30,13 +30,13 @@
       <csctlsport>4420</csctlsport>
       <usedcsctls>true</usedcsctls>
       <pcscf1>2001:4200:110:1000:721::11</pcscf1>
-      <pcscf2></pcscf2>
+      <pcscf2>2001:4200:210:1000:721::11</pcscf2>
       <pcscfport>5080</pcscfport>
       <usedpcopcscf>true</usedpcopcscf>
       <registerexpire>600000</registerexpire>
       <subscribeexpire>7200</subscribeexpire>
-      <callsessionexpire>7200</callsessionexpire>
-      <ipsecenabled>false</ipsecenabled>
+      <callsessionexpire>36000</callsessionexpire>
+      <ipsecenabled>true</ipsecenabled>
       <sleepmodeenabled>true</sleepmodeenabled>
       <reg-retry-after>0</reg-retry-after>
       <useragent>PS-LTE/1.2.3 VM65PS/DB260720 Device_Type/Android_Phone PS-LTE</useragent>

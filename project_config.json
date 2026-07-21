@@ -92,6 +92,32 @@
                     "attachment": 1
                 }
             }
+        },
+        {
+            "keyword": "STT",
+            "project_name": "재난망_LM75",
+            "per_group_emergency_call": true,
+            "features": {
+                "group_call": {
+                    "regroup": 0,
+                    "prearranged": 1,
+                    "chat": 0
+                },
+                "private_call": {
+                    "normal": 0,
+                    "without_floor_control": 0,
+                    "mcvideo_push": 0,
+                    "mcvideo_pull": 0,
+                    "first_answer": 0
+                },
+                "message": {
+                    "normal": 1,
+                    "emergency": 1,
+                    "pre_defined": 0,
+                    "canned": 1,
+                    "attachment": 1
+                }
+            }
         }
     ],
     "default": "알 수 없는 프로젝트"

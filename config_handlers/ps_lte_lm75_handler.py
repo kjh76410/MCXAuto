@@ -186,12 +186,14 @@ class PsLteLm75Handler:
             # ==========================================
             # 🟢 1. 통화 발신 (비상 모드도 우선 일반 PTT/PTV로 호를 겁니다)
             # ==========================================
+            groupname = f"tel:+{target_info}"
+
             if is_video:
                 print_log(f"📹 영상호(PTV) 발신 중...")
-                run_adb(f"am broadcast -a action.mcptt.req.groupvideo.dial --es groupname {target_info}")
+                run_adb(f"am broadcast -a action.mcptt.req.groupvideo.dial --es groupname {groupname}")
             else:
                 print_log(f"📞 음성호(PTT) 발신 중...")
-                run_adb(f"am broadcast -a action.mcptt.req.groupvoice.call --es groupname {target_info}")
+                run_adb(f"am broadcast -a action.mcptt.req.groupvoice.call --es groupname {groupname}")
 
             time.sleep(3.0)
 
