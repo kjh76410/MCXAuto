@@ -20,6 +20,41 @@ TEST_MESSAGE_POOL = [
     "123 테스트",
     "테스트 중입니다.",
     "메시지입니다.",
+    "가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하ab",
+    r"""[TEST MESSAGE - 종합 문자열 테스트]
+    1. 기본 문자 테스트: ABC abc 123 가나다라마바사
+    2. 특수문자 테스트: @#$%^&*()_+-=[]{};:'",.<>/?\|`
+    3. 줄바꿈 및 탭 테스트:
+        - 첫 번째 줄
+        - 두 번째 줄
+        - 세 번째 줄
+
+[JSON 형식 테스트]
+    {
+        "id": 1001,
+        "name": "홍길동",
+        "email": "test@example.com",
+        "active": true
+    }
+
+[시간 및 날짜 테스트]
+    현재 시각: 2025-10-23 11:30:45
+    타임스탬프: 1734955845
+
+[언어 혼합 테스트]
+    Korean: 안녕하세요
+    English: Hello
+    日本語: テストです
+    中文: 测试中
+
+[파일 경로 / URL 테스트]
+    C:\Users\Tester\Documents\test.txt
+    https://example.com/api/v1/data?user=test&id=123
+
+[결과 요약]
+    Status: SUCCESS ✅
+    ErrorCode: 0
+    Duration: 1523ms""",
 ]
 
 class PsLteLm75Handler:
@@ -246,18 +281,22 @@ class PsLteLm75Handler:
     # ==========================================
     # 💬 IM 메시지 발신용 함수 (UIAutomator2 기반)
     # ==========================================
-    def send_message(self, d, target_info, message_text=None, log_console=None):
+    def send_message(self, d, target_info, message_text=None, seq_no=None, seq_total=None, log_console=None):
         """
         target_info(그룹명)로 IM 메시지를 전송합니다.
 
-        1. SMS 목록(SmsMainActivity)에 해당 그룹과의 대화가 이미 있으면 바로 열어서 입력.
-        2. 없으면 Contact 목록(ContactActivity)에서 그룹을 찾아(필요 시 스크롤)
-           더보기(btn_more) -> SMS 보내기(group_sms_send)로 새 메시지 화면을 열어서 입력.
+        LM75는 앱을 켜면 ContactActivity(메인 화면)가 바로 뜨는 구조입니다.
+        ContactActivity에서 group_name으로 대상 그룹을 찾아(필요 시 스크롤)
+        group_information_view를 눌러 상세 화면으로 진입한 뒤,
+        더보기(btn_more) -> SMS 보내기(group_sms_send)로 새 메시지 화면을 열어서 입력합니다.
 
         message_text를 지정하지 않으면 TEST_MESSAGE_POOL에서 무작위로 하나 골라 사용합니다.
+        seq_no/seq_total을 지정하면 반복 전송 중 몇 번째인지 메시지 끝에 붙여서 보냅니다.
         """
         if message_text is None:
             message_text = random.choice(TEST_MESSAGE_POOL)
+        if seq_no is not None and seq_total is not None:
+            message_text = f"{message_text} ({seq_no}/{seq_total})"
 
         def print_log(msg):
             print(msg)
@@ -276,99 +315,78 @@ class PsLteLm75Handler:
             if result.returncode != 0:
                 print_log(f"⚠️ ADB 실행 에러: {result.stderr}")
 
-        def go_home():
-            # 💡 [핵심] SmsMainActivity/ContactActivity는 not exported라서 am start -n으로
-            # 외부에서 강제로 못 띄웁니다(SecurityException). 그래서 뒤로가기로 홈 화면까지
-            # 되돌아간 뒤, 홈 화면의 메뉴 버튼을 실제로 클릭해서 이동해야 합니다.
-            home_marker = d(resourceId="com.EveryTalk.Global:id/layout_main_menu_sms")
+        def go_to_main():
+            # 💡 [핵심] LM75는 앱 실행 시 ContactActivity가 곧 메인 화면입니다.
+            # ContactActivity는 not exported라서 am start -n으로 강제 진입이 안 되므로,
+            # 3-dot 메뉴(phone_cmd_more)가 보일 때까지 뒤로가기로 되돌아옵니다.
+            main_marker = d(resourceId="com.EveryTalk.Global:id/phone_cmd_more")
             for i in range(5):
-                if home_marker.exists:
+                if main_marker.exists:
                     return True
-                print_log(f"🔙 홈 화면을 찾기 위해 뒤로가기를 누릅니다. ({i + 1}/5)")
+                print_log(f"🔙 메인 화면(ContactActivity)을 찾기 위해 뒤로가기를 누릅니다. ({i + 1}/5)")
                 d.press("back")
                 time.sleep(1.0)
-            return home_marker.exists
+            return main_marker.exists
 
         print_log(f"\n[Message] 💬 '{target_info}' 그룹에 메시지 전송을 시도합니다.")
 
         try:
-            # 1. 앱을 켜고 홈 화면으로 되돌아간 뒤, "메시지" 메뉴를 클릭해서 SMS 목록으로 이동
+            # 1. 앱을 켜서 메인 화면(ContactActivity)까지 돌아온다
             d.app_start("com.EveryTalk.Global", stop=False)
             time.sleep(1.5)
 
-            if not go_home():
-                print_log("❌ 홈 화면을 찾지 못해 메시지 화면으로 진입할 수 없습니다.")
-                return
-
-            d(resourceId="com.EveryTalk.Global:id/layout_main_menu_sms").click()
-            time.sleep(2.0)
-
-            sms_name_item = d(
-                resourceId="com.EveryTalk.Global:id/sms_name", text=target_info
+            # 연속 전송 시: 이미 대상 그룹의 대화 화면(toolbar_title)에 있으면
+            # 화면 이동 없이 바로 메시지를 입력/전송한다.
+            toolbar_title = d(resourceId="com.EveryTalk.Global:id/toolbar_title")
+            already_in_group = (
+                toolbar_title.exists and toolbar_title.get_text() == target_info
             )
 
-            if sms_name_item.exists:
-                # 1-A. 이미 대화가 있는 경우: 바로 열어서 입력
-                print_log(f"✅ 메시지 목록에서 '{target_info}' 대화를 찾았습니다. 바로 엽니다.")
-                sms_name_item.click()
-                time.sleep(1.0)
-
-                msg_input = d(resourceId="com.EveryTalk.Global:id/sms_view_msginputbox")
-                msg_input.click()
-                msg_input.set_text(message_text)
-                print_log(f"✏️ 메시지 입력 완료: '{message_text}'")
-
-                send_btn = d(resourceId="com.EveryTalk.Global:id/sms_view_msgsendbutton")
-                send_btn.click()
-                print_log("📤 전송 버튼을 눌렀습니다.")
-
+            if already_in_group:
+                print_log(f"✅ 이미 '{target_info}' 대화 화면입니다. 화면 이동 없이 바로 전송합니다.")
             else:
-                # 1-B. 대화가 없는 경우: 채널 목록(ContactActivity)에서 그룹을 찾아 새 메시지 생성
-                print_log(f"🔍 메시지 목록에 없어 채널 목록에서 '{target_info}'를 찾습니다.")
-
-                if not go_home():
-                    print_log("❌ 홈 화면을 찾지 못해 채널 목록으로 진입할 수 없습니다.")
+                if not go_to_main():
+                    print_log("❌ 메인 화면(ContactActivity)을 찾지 못해 메시지 전송을 진행할 수 없습니다.")
                     return
 
-                d(resourceId="com.EveryTalk.Global:id/layout_main_menu_private").click()
-                time.sleep(2.0)
-
-                if not d(text=target_info).exists:
+                # 2. ContactActivity에서 group_name으로 대상 그룹을 찾는다 (필요 시 스크롤)
+                group_name_item = d(
+                    resourceId="com.EveryTalk.Global:id/group_name", text=target_info
+                )
+                if not group_name_item.exists:
                     print_log(f"📜 화면에 안 보여서 스크롤하며 '{target_info}'를 찾습니다.")
-                    d(scrollable=True).scroll.to(text=target_info)
+                    d(scrollable=True).scroll.to(
+                        resourceId="com.EveryTalk.Global:id/group_name", text=target_info
+                    )
                     time.sleep(0.5)
+                    group_name_item = d(
+                        resourceId="com.EveryTalk.Global:id/group_name", text=target_info
+                    )
 
-                group_item = d(text=target_info)
-                if not group_item.exists:
+                if not group_name_item.exists:
                     print_log(f"❌ '{target_info}' 그룹을 채널 목록에서 찾지 못했습니다.")
                     return
 
-                more_btn = group_item.right(
-                    resourceId="com.EveryTalk.Global:id/btn_more"
-                )
-                if not more_btn.exists:
-                    print_log(f"❌ '{target_info}'의 더보기(btn_more) 버튼을 찾지 못했습니다.")
-                    return
-
-                more_btn.click()
-                time.sleep(0.5)
-
-                send_sms_btn = d(resourceId="com.EveryTalk.Global:id/group_sms_send")
-                if not send_sms_btn.exists:
-                    print_log("❌ group_sms_send 버튼을 찾지 못했습니다.")
-                    return
-
-                send_sms_btn.click()
+                print_log(f"✅ '{target_info}' 그룹을 찾았습니다. 상세 화면으로 진입합니다.")
+                group_name_item.click()
                 time.sleep(1.0)
 
-                new_msg_input = d(resourceId="com.EveryTalk.Global:id/sms_new_message")
-                new_msg_input.click()
-                new_msg_input.set_text(message_text)
-                print_log(f"✏️ 새 메시지 입력 완료: '{message_text}'")
+            new_msg_input = d(resourceId="com.EveryTalk.Global:id/sms_new_message")
+            if not new_msg_input.exists:
+                print_log("❌ sms_new_message 버튼을 찾지 못했습니다.")
+                return
 
-                new_send_btn = d(resourceId="com.EveryTalk.Global:id/sms_new_send_btn")
-                new_send_btn.click()
-                print_log("📤 전송 버튼을 눌렀습니다.")
+            new_msg_input.click()
+            new_msg_input.set_text(message_text)
+            print_log(f"✏️ 메시지 입력 완료: '{message_text}'")
+
+            new_send_btn = d(resourceId="com.EveryTalk.Global:id/sms_btn")
+            if not new_send_btn.exists:
+                print_log("❌ sms_btn 버튼을 찾지 못했습니다.")
+                return
+
+            new_send_btn.click()
+            print_log("📤 전송 버튼을 눌렀습니다.")
 
             print_log(f"✅ '{target_info}' 메시지 전송 시나리오 완료!")
 

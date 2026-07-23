@@ -1197,7 +1197,9 @@ class DevicePanel(QWidget):
                         self.safe_log_insert(
                             f"\n▶️ [{idx}/{len(selected_groups)}] '{t_name}' 메시지 전송 진행 중... ({rep}/{t_repeat}회)"
                         )
-                        handler_instance.send_message(d, target_info=t_name, log_console=self.log_console)
+                        handler_instance.send_message(
+                            d, target_info=t_name, seq_no=rep, seq_total=t_repeat, log_console=self.log_console
+                        )
                         time.sleep(2)
                     if stopped:
                         break

@@ -1,13 +1,13 @@
 <?xml version='1.0' encoding='UTF-8' standalone='no' ?>
 <mcptt-UE-initial-configuration xmlns="urn:3gpp:mcptt:mcpttUEinitConfig:1.0" domain="ims.mnc030.mcc450.3gppnetwork.org">
   <name xml:lang="en">mcptt ue init config</name>
-  <Default-user-profile User-ID="mcptt" user-profile-index="191bd012-02e5-41b4-9326-1d884ed22e75" index="1" />
+  <Default-user-profile User-ID="mcptt" user-profile-index="1" index="191bd012-02e5-41b4-9326-1d884ed22e75" />
   <on-network>
     <Timers>
-      <T4>7200</T4>
+      <T4>0</T4>
       <T100>0</T100>
       <T101>0</T101>
-      <T103>8000</T103>
+      <T103>0</T103>
       <T104>0</T104>
       <T132>0</T132>
       <T203>15</T203>
@@ -59,7 +59,7 @@
       <mbms-public-service-identity>sip:mcs-embms@mcptt.safetynet.or.kr</mbms-public-service-identity>
       <cms-public-service-identity>sip:cms1_psi@ptt.mnc030.mcc450.3gppnetwork.org</cms-public-service-identity>
       <gms-public-service-identity>sip:gms1_psi@ptt.mnc030.mcc450.3gppnetwork.org</gms-public-service-identity>
-      <use-wifirouter>false</use-wifirouter>
+      <use-wifirouter>true</use-wifirouter>
       <use-wifirouter-ll>-110</use-wifirouter-ll>
       <use-wifirouter-ww>-75</use-wifirouter-ww>
       <use-wifirouter-lw-interval>3</use-wifirouter-lw-interval>
