@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 import qtawesome as qta
+from qfluentwidgets import PrimaryPushButton, TogglePushButton
 
 import adb_logic
 from file_manager import FileManager
@@ -50,7 +51,6 @@ from ui_common import (
     styled,
     add_shadow,
     card_css,
-    btn_css,
     make_button,
     clear_layout,
     Signals,
@@ -59,6 +59,24 @@ from ui_common import (
     SegmentedButton,
     PulseCanvas,
 )
+
+# 프로젝트 이름 -> config_handlers 모듈/클래스. 단말 연결 시 자동 감지된 프로젝트로
+# 발신 로직을 고르는 데도 쓰이고(_get_handler), 사이드바의 "시나리오 라이브러리" 페이지가
+# 프로젝트별로 어떤 시나리오(핸들러 메서드)가 있는지 보여주는 데도 이 registry 하나를 같이 씁니다.
+PROJECT_HANDLERS = {
+    "재난망": ("config_handlers.ps_lte_handler", "PsLteHandler"),
+    "재난망_LM75": ("config_handlers.ps_lte_lm75_handler", "PsLteLm75Handler"),
+    "CTB_POC": ("config_handlers.ctb_poc_handler", "CTB_POCHandler"),
+    "450connect": ("config_handlers.connect450_handler", "Connect450Handler"),
+}
+
+# 핸들러 메서드명 -> 시나리오 라이브러리 페이지에 보여줄 한국어 이름.
+SCENARIO_LABELS = {
+    "run": "환경 설정 자동화",
+    "make_call": "통화 발신",
+    "make_emergency_call": "비상통화 발신",
+    "send_message": "메시지 전송",
+}
 
 
 class DevicePanel(QWidget):
@@ -138,10 +156,26 @@ class DevicePanel(QWidget):
         """예전 좌측 사이드바(280px 고정 세로 컬럼)를 두 패널이 나란히 들어갈 수 있도록
         압축한 상단 가로 헤더로 바꾼 버전입니다. 환경/WiFi/앱 설치·삭제/시나리오 실행 같은
         부차 기능은 ⚙ 관리 메뉴 하나로 몰아넣었습니다."""
-        frame = styled(QFrame(), f"background-color:{Palette.bg}; border-radius:5px;")
+        frame = styled(QFrame(), f"background-color:{Palette.bg}; border-radius:{Palette.radius}px;")
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(3)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(6)
+        self.btn_connect = PrimaryPushButton(qta.icon("fa5s.plug", color="white"), "기기 연결")
+        self.btn_connect.setFixedHeight(28)
+        self.btn_connect.setFont(kfont(11, True))
+        self.btn_connect.setCursor(Qt.PointingHandCursor)
+        self.btn_manage = self._make_button(
+            "⚙ 관리", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover,
+            height=28, icon_name="fa5s.tools", icon_size=13,
+        )
+        self.btn_manage.clicked.connect(self._open_manage_menu)
+        btn_row.addWidget(self.btn_connect, 1)
+        btn_row.addWidget(self.btn_manage, 1)
+        layout.addLayout(btn_row)
+        layout.addSpacing(4)
 
         top_row = QHBoxLayout()
         top_row.setSpacing(8)
@@ -176,21 +210,6 @@ class DevicePanel(QWidget):
         info_row.addStretch(1)
         layout.addLayout(info_row)
 
-        btn_row = QHBoxLayout()
-        btn_row.setSpacing(6)
-        self.btn_connect = self._make_button(
-            "기기 연결", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover,
-            height=28, icon_name="fa5s.plug", icon_size=13,
-        )
-        self.btn_manage = self._make_button(
-            "⚙ 관리", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover,
-            height=28, icon_name="fa5s.tools", icon_size=13,
-        )
-        self.btn_manage.clicked.connect(self._open_manage_menu)
-        btn_row.addWidget(self.btn_connect, 1)
-        btn_row.addWidget(self.btn_manage, 1)
-        layout.addLayout(btn_row)
-
         return frame
 
     def _open_manage_menu(self):
@@ -224,20 +243,40 @@ class DevicePanel(QWidget):
 
     # ---------- 왼쪽: 미러링(위) + Group/User List(아래) ----------
     def _build_left_column(self):
-        self.phone_width = 190
-        self.phone_height = 290
+        self.phone_width = 230
+        self.phone_height = 350
 
         col = QWidget()
         col_layout = QVBoxLayout(col)
         col_layout.setContentsMargins(0, 0, 0, 0)
         col_layout.setSpacing(10)
-        col.setFixedWidth(300)
+        col.setFixedWidth(340)
 
         # 🔥 미러링 카드는 컬럼 폭에 맞춰 늘리지 않고 내용물(작은 화면) 크기만큼만 차지하도록
         # AlignHCenter로 추가합니다. 그래야 카드 배경이 남는 여백 없이 딱 붙습니다.
         col_layout.addWidget(self._build_mirror_card(), 0, Qt.AlignHCenter)
-        col_layout.addWidget(self._build_list_card(), 1)
+        col_layout.addWidget(self._build_my_id_chip(), 0, Qt.AlignHCenter)
+        col_layout.addStretch(1)
         return col
+
+    def _build_my_id_chip(self):
+        """내 정보(연결된 단말의 ID)를 미러링 카드 바로 아래에 작은 알약 배지로 보여줍니다."""
+        chip = styled(QFrame(), f"background-color:{Palette.neutral_bg}; border-radius:{Palette.radius}px;")
+        layout = QHBoxLayout(chip)
+        layout.setContentsMargins(12, 6, 12, 6)
+        layout.setSpacing(6)
+
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(qta.icon("fa5s.user-circle", color=Palette.text_main).pixmap(QSize(13, 13)))
+        icon_lbl.setStyleSheet("background:transparent;")
+        layout.addWidget(icon_lbl)
+
+        self.my_id_label = QLabel("내 정보: 연결 대기")
+        self.my_id_label.setFont(kfont(11, True))
+        self.my_id_label.setStyleSheet(f"color:{Palette.text_main}; background:transparent;")
+        layout.addWidget(self.my_id_label)
+
+        return chip
 
     def _build_mirror_card(self):
         card = styled(QFrame(), card_css())
@@ -284,15 +323,24 @@ class DevicePanel(QWidget):
         return add_shadow(card)
 
     def _build_list_card(self):
-        card = styled(QFrame(), card_css())
+        """시나리오 탭(Group/User List + 발신) 안에 들어가는 콘텐츠. tab_view 안에 얹히므로
+        (예전처럼 미러링 옆에 따로 뜨는 카드가 아니라) 카드 배경/그림자 없이 만듭니다."""
+        card = QWidget()
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(8)
 
         header = QHBoxLayout()
-        self.btn_tab_group = self._make_button("Group List", Palette.neutral_hover, Palette.text_main, Palette.neutral_hover, height=28, radius=6)
+        self.btn_tab_group = TogglePushButton("Group List")
+        self.btn_tab_group.setFixedHeight(28)
+        self.btn_tab_group.setFont(kfont(11, True))
+        self.btn_tab_group.setCursor(Qt.PointingHandCursor)
+        self.btn_tab_group.setChecked(True)
         self.btn_tab_group.clicked.connect(lambda: self.switch_tab("group"))
-        self.btn_tab_user = self._make_button("User List", Palette.neutral_bg, Palette.text_sub, Palette.neutral_hover, height=28, radius=6)
+        self.btn_tab_user = TogglePushButton("User List")
+        self.btn_tab_user.setFixedHeight(28)
+        self.btn_tab_user.setFont(kfont(11, True))
+        self.btn_tab_user.setCursor(Qt.PointingHandCursor)
         self.btn_tab_user.clicked.connect(lambda: self.switch_tab("user"))
         self.btn_refresh = self._make_button("", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=28, radius=6, icon_name="fa5s.sync-alt")
         self.btn_refresh.setFixedWidth(34)
@@ -306,8 +354,8 @@ class DevicePanel(QWidget):
         lbl_mode = QLabel("테스트 모드:")
         lbl_mode.setFont(kfont(11))
         lbl_mode.setStyleSheet(f"color:{Palette.text_sub};")
-        self.seg_mode_toggle = SegmentedButton(["📞 통화", "💬 메시지"], selected_color=Palette.neutral_hover, height=25, font=kfont(11, True))
-        self.seg_mode_toggle.set("📞 통화")
+        self.seg_mode_toggle = SegmentedButton(["통화", "메시지"], selected_color=Palette.neutral_hover, height=25, font=kfont(11, True))
+        self.seg_mode_toggle.set("통화")
         self.seg_mode_toggle.changed.connect(self.on_mode_toggle_changed)
         mode_row.addWidget(lbl_mode)
         mode_row.addWidget(self.seg_mode_toggle, 1)
@@ -320,22 +368,23 @@ class DevicePanel(QWidget):
         self.list_stack.addWidget(self.user_scroll)
         layout.addWidget(self.list_stack, 1)
 
-        self.my_id_label = QLabel("내 정보: 연결 대기")
-        self.my_id_label.setFont(kfont(11, True))
-        self.my_id_label.setStyleSheet(f"color:{Palette.blue};")
-        layout.addWidget(self.my_id_label)
-
         btn_row = QHBoxLayout()
         btn_row.setSpacing(4)
-        self.btn_group_call = self._make_button("통화 발신", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=34, icon_name="fa5s.phone")
+        self.btn_group_call = PrimaryPushButton(qta.icon("fa5s.phone", color="white"), "통화 발신")
+        self.btn_group_call.setFixedHeight(34)
+        self.btn_group_call.setFont(kfont(11, True))
+        self.btn_group_call.setCursor(Qt.PointingHandCursor)
         self.btn_group_call.clicked.connect(self.on_main_call_button_clicked)
-        self.btn_group_msg = self._make_button("메시지 전송", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=34, icon_name="fa5s.comment-dots")
+        self.btn_group_msg = PrimaryPushButton(qta.icon("fa5s.comment-dots", color="white"), "메시지 전송")
+        self.btn_group_msg.setFixedHeight(34)
+        self.btn_group_msg.setFont(kfont(11, True))
+        self.btn_group_msg.setCursor(Qt.PointingHandCursor)
         self.btn_group_msg.clicked.connect(self.send_group_message)
         btn_row.addWidget(self.btn_group_call)
         btn_row.addWidget(self.btn_group_msg)
         layout.addLayout(btn_row)
 
-        return add_shadow(card)
+        return card
 
     def _make_scroll_list(self):
         area = QScrollArea()
@@ -374,10 +423,18 @@ class DevicePanel(QWidget):
         monitor_header.addWidget(lbl_title)
         monitor_header.addStretch(1)
 
-        self.btn_toggle_log = self._make_button("Logcat ON", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=24, radius=5, icon_name="fa5s.file-alt")
+        self.btn_toggle_log = TogglePushButton(qta.icon("fa5s.file-alt", color=Palette.text_main), "Logcat ON")
+        self.btn_toggle_log.setFixedHeight(24)
+        self.btn_toggle_log.setFont(kfont(11, True))
+        self.btn_toggle_log.setCursor(Qt.PointingHandCursor)
+        self.btn_toggle_log.setIconSize(QSize(14, 14))
         self.btn_toggle_log.setFixedWidth(105)
         self.btn_toggle_log.clicked.connect(self.toggle_log)
-        self.btn_toggle_pcap = self._make_button("PCAP ON", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=24, radius=5, icon_name="fa5s.circle", icon_size=10)
+        self.btn_toggle_pcap = TogglePushButton(qta.icon("fa5s.circle", color=Palette.text_main), "PCAP ON")
+        self.btn_toggle_pcap.setFixedHeight(24)
+        self.btn_toggle_pcap.setFont(kfont(11, True))
+        self.btn_toggle_pcap.setCursor(Qt.PointingHandCursor)
+        self.btn_toggle_pcap.setIconSize(QSize(10, 10))
         self.btn_toggle_pcap.setFixedWidth(95)
         self.btn_toggle_pcap.clicked.connect(self.toggle_pcap)
         monitor_header.addWidget(self.btn_toggle_log)
@@ -387,9 +444,11 @@ class DevicePanel(QWidget):
         self.tab_view = QTabWidget()
         self.tab_view.setStyleSheet(
             f"QTabBar::tab {{ background:{Palette.neutral_bg}; padding:5px 12px; border-radius:3px; margin:3px 2px; }}"
-            f"QTabBar::tab:selected {{ background:{Palette.blue}; color:white; }}"
+            f"QTabBar::tab:selected {{ background:{Palette.neutral_hover}; color:{Palette.text_main}; }}"
             f"QTabWidget::pane {{ border:none; }}"
         )
+
+        self.tab_view.addTab(self._build_list_card(), "시나리오")
 
         sip_tab = QWidget()
         sip_layout = QVBoxLayout(sip_tab)
@@ -970,15 +1029,9 @@ class DevicePanel(QWidget):
         ).start()
 
     def _get_handler(self, proj_name):
-        handler_map = {
-            "재난망": ("config_handlers.ps_lte_handler", "PsLteHandler"),
-            "재난망_LM75": ("config_handlers.ps_lte_lm75_handler", "PsLteLm75Handler"),
-            "CTB_POC": ("config_handlers.ctb_poc_handler", "CTB_POCHandler"),
-            "450connect": ("config_handlers.connect450_handler", "Connect450Handler"),
-        }
-        if proj_name not in handler_map:
+        if proj_name not in PROJECT_HANDLERS:
             return None
-        module_name, class_name = handler_map[proj_name]
+        module_name, class_name = PROJECT_HANDLERS[proj_name]
         module = importlib.import_module(module_name)
         return getattr(module, class_name)()
 
@@ -1121,14 +1174,10 @@ class DevicePanel(QWidget):
             self.user_list_layout.insertWidget(0, lbl)
 
     def switch_tab(self, tab_name):
-        if tab_name == "group":
-            self.btn_tab_group.setStyleSheet(btn_css(Palette.neutral_hover, Palette.text_main, Palette.neutral_hover, 17))
-            self.btn_tab_user.setStyleSheet(btn_css(Palette.neutral_bg, Palette.text_sub, Palette.neutral_hover, 17))
-            self.list_stack.setCurrentIndex(0)
-        else:
-            self.btn_tab_user.setStyleSheet(btn_css(Palette.neutral_hover, Palette.text_main, Palette.neutral_hover, 17))
-            self.btn_tab_group.setStyleSheet(btn_css(Palette.neutral_bg, Palette.text_sub, Palette.neutral_hover, 17))
-            self.list_stack.setCurrentIndex(1)
+        is_group = tab_name == "group"
+        self.btn_tab_group.setChecked(is_group)
+        self.btn_tab_user.setChecked(not is_group)
+        self.list_stack.setCurrentIndex(0 if is_group else 1)
 
     def send_group_message(self):
         if not self.current_uuid:
@@ -1439,13 +1488,15 @@ class DevicePanel(QWidget):
             log_path = os.path.join(os.getcwd(), "logs", f"log_{self.panel_label}_{timestamp}.txt")
             self.log_proc, self.log_file = adb_logic.start_log_process(self.current_uuid, log_path)
             self.btn_toggle_log.setText("■ LOG OFF")
-            self.btn_toggle_log.setStyleSheet(btn_css(Palette.neutral_hover, Palette.text_main, Palette.neutral_hover, 15))
+            self.btn_toggle_log.setIcon(qta.icon("fa5s.file-alt", color=Palette.danger))
+            self.btn_toggle_log.setChecked(True)
             self.is_log_on = True
         else:
             adb_logic.stop_process(self.log_proc)
             self.log_file.close()
             self.btn_toggle_log.setText("▶ LOG ON")
-            self.btn_toggle_log.setStyleSheet(btn_css(Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, 15))
+            self.btn_toggle_log.setIcon(qta.icon("fa5s.file-alt", color=Palette.text_main))
+            self.btn_toggle_log.setChecked(False)
             self.is_log_on = False
 
     def _set_pcap_ui_state(self, is_on):
@@ -1453,12 +1504,13 @@ class DevicePanel(QWidget):
         건드릴 수 있어서, 백그라운드 스레드(자동 셋팅 등)에서는 signals.pcap_state를
         emit해서 이 슬롯을 통해 반영합니다."""
         self.is_pcap_on = is_on
+        self.btn_toggle_pcap.setChecked(is_on)
         if is_on:
             self.btn_toggle_pcap.setText("■ PCAPdroid OFF")
-            self.btn_toggle_pcap.setStyleSheet(btn_css(Palette.neutral_hover, Palette.text_main, Palette.neutral_hover, 15))
+            self.btn_toggle_pcap.setIcon(qta.icon("fa5s.circle", color=Palette.danger))
         else:
             self.btn_toggle_pcap.setText("● PCAPdroid ON")
-            self.btn_toggle_pcap.setStyleSheet(btn_css(Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, 15))
+            self.btn_toggle_pcap.setIcon(qta.icon("fa5s.circle", color=Palette.text_main))
 
     def toggle_pcap(self):
         if not self.current_uuid:

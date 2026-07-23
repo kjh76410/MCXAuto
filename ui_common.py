@@ -14,19 +14,22 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 import qtawesome as qta
+from qfluentwidgets import PushButton
 
 
 # ==========================================
 # 🎨 [iOS System Palette]
 # ==========================================
 class Palette:
-    bg = "#F2F2F7"
-    panel = "#FFFFFF"
-    border = "#E5E5EA"
+    bg = "#F9F6F0"
+    panel = "#FDFBF7"
+    border = "#F4F1EB"
     text_main = "#1C1C1E"
     text_sub = "#8E8E93"
-    blue = "#0B4192"
-    blue_hover = "#093475"
+    blue = "#0052CC"
+    blue_hover = "#0065FF"
+    accent = "#1A1A1D"
+    accent_hover = "#333336"
     orange = "#FF9500"
     orange_hover = "#DB7F00"
     danger = "#FF3B30"
@@ -36,9 +39,9 @@ class Palette:
     tint_blue_hover = "#D2DAE9"
     tint_orange_bg = "#FFF1DC"
     tint_orange_hover = "#FFE6BF"
-    neutral_bg = "#EDEDF0"
-    neutral_hover = "#E2E2E6"
-    radius = 4
+    neutral_bg = "#F4F1EB"
+    neutral_hover = "#EAE3D5"
+    radius = 10
 
 
 def load_custom_font():
@@ -46,16 +49,17 @@ def load_custom_font():
         base_path = sys._MEIPASS
     else:
         base_path = os.path.dirname(os.path.abspath(__file__))
-    font_path = os.path.join(base_path, "assets", "fonts", "NotoSansKR-Regular.ttf")
-    if os.path.exists(font_path):
-        QFontDatabase.addApplicationFont(font_path)
+    for font_file in ("Pretendard-Regular.otf", "NotoSansKR-Regular.ttf"):
+        font_path = os.path.join(base_path, "assets", "fonts", font_file)
+        if os.path.exists(font_path):
+            QFontDatabase.addApplicationFont(font_path)
 
 
 FONT_SCALE = 0.85
 
 
 def kfont(size, bold=False):
-    f = QFont("Noto Sans KR", max(8, round(size * FONT_SCALE)))
+    f = QFont("Pretendard", max(8, round(size * FONT_SCALE)))
     f.setBold(bold)
     return f
 
@@ -104,11 +108,12 @@ def btn_css(bg, fg, hover, radius=Palette.radius, disabled_bg="#F2F2F7", disable
 
 
 def make_button(text, bg, fg, hover, height=26, radius=Palette.radius, icon_name=None, icon_size=14):
-    btn = QPushButton(text)
+    """bg/hover/radius는 옛 QSS 버튼과의 시그니처 호환을 위해 남아있을 뿐, 실제 배경/테두리는
+    이제 Fluent 기본 PushButton 스타일을 그대로 씁니다(fg는 아이콘 색상에만 씁니다)."""
+    btn = PushButton(text)
     btn.setFixedHeight(height)
     btn.setFont(kfont(11, True))
     btn.setCursor(Qt.PointingHandCursor)
-    btn.setStyleSheet(btn_css(bg, fg, hover, radius))
     if icon_name:
         btn.setIcon(qta.icon(icon_name, color=fg))
         btn.setIconSize(QSize(icon_size, icon_size))

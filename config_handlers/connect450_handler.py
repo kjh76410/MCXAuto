@@ -14,7 +14,7 @@ class Connect450Handler:
                 d.press("back")  # 입력 후 키보드 닫기
                 time.sleep(0.5)
             else:
-                print("❌ 로그인 ID 입력창을 찾을 수 없습니다.")
+                print("❌ fh로그인 ID 입력창을 찾을 수 없습니다.")
                 return
 
             # 2. 로그인 버튼 선택
