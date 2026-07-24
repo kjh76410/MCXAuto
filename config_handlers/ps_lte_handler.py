@@ -330,6 +330,35 @@ class PsLteHandler:
             d.app_start("com.EveryTalk.Global", stop=False)
             time.sleep(1.5)
 
+            # 연속 전송 시: 이미 대상 그룹의 대화 화면(SmsChatActivity)에 있으면
+            # 홈 화면으로 되돌아가지 않고 화면 이동 없이 바로 입력/전송한다.
+            # action_bar_container 안에 그룹명 텍스트가 있으면 해당 그룹 대화 화면인 것으로 판단.
+            already_in_group = d.xpath(
+                f'//*[@resource-id="com.EveryTalk.Global:id/action_bar_container"]//*[@text="{target_info}"]'
+            ).exists
+
+            if already_in_group:
+                print_log(f"✅ 이미 '{target_info}' 대화 화면입니다. 화면 이동 없이 바로 전송합니다.")
+
+                msg_input = d(resourceId="com.EveryTalk.Global:id/sms_view_msginputbox")
+                send_btn = d(resourceId="com.EveryTalk.Global:id/sms_view_msgsendbutton")
+                if not msg_input.exists:
+                    msg_input = d(resourceId="com.EveryTalk.Global:id/sms_new_message")
+                    send_btn = d(resourceId="com.EveryTalk.Global:id/sms_new_send_btn")
+
+                if not msg_input.exists or not send_btn.exists:
+                    print_log("❌ 대화 화면의 입력창/전송버튼을 찾지 못했습니다.")
+                    return
+
+                msg_input.click()
+                msg_input.set_text(message_text)
+                print_log(f"✏️ 메시지 입력 완료: '{message_text}'")
+
+                send_btn.click()
+                print_log("📤 전송 버튼을 눌렀습니다.")
+                print_log(f"✅ '{target_info}' 메시지 전송 시나리오 완료!")
+                return
+
             if not go_home():
                 print_log("❌ 홈 화면을 찾지 못해 메시지 화면으로 진입할 수 없습니다.")
                 return
