@@ -1,0 +1,246 @@
+{
+  "재난망": {
+    "MCPTT": {
+      "resource_id": "",
+      "text": "MCPTT",
+      "class_name": "android.widget.TextView",
+      "desc": "2개의 MCPTT 알림 있음",
+      "bounds": [
+        540,
+        1674,
+        792,
+        1914
+      ]
+    },
+    "메인화면 참여자 정보": {
+      "resource_id": "com.EveryTalk.Global:id/main_menu_member",
+      "text": "",
+      "class_name": "android.widget.ImageView",
+      "desc": "",
+      "bounds": [
+        780,
+        1489,
+        945,
+        1654
+      ]
+    },
+    "채널 목록": {
+      "resource_id": "com.EveryTalk.Global:id/layout_main_menu_private",
+      "text": "",
+      "class_name": "android.widget.RelativeLayout",
+      "desc": "",
+      "bounds": [
+        45,
+        1755,
+        292,
+        1911
+      ]
+    },
+    "참여 채널": {
+      "resource_id": "com.EveryTalk.Global:id/layout_main_menu_session",
+      "text": "",
+      "class_name": "android.widget.RelativeLayout",
+      "desc": "",
+      "bounds": [
+        292,
+        1755,
+        539,
+        1911
+      ]
+    },
+    "녹취": {
+      "resource_id": "",
+      "text": "",
+      "class_name": "android.widget.RelativeLayout",
+      "desc": "",
+      "bounds": [
+        539,
+        1755,
+        787,
+        1911
+      ]
+    },
+    "메시지": {
+      "resource_id": "com.EveryTalk.Global:id/layout_main_menu_sms",
+      "text": "",
+      "class_name": "android.widget.RelativeLayout",
+      "desc": "",
+      "bounds": [
+        787,
+        1755,
+        1035,
+        1911
+      ]
+    },
+    "메시지 뱃지": {
+      "resource_id": "com.EveryTalk.Global:id/iconSmsText",
+      "text": "99+",
+      "class_name": "android.widget.TextView",
+      "desc": "",
+      "bounds": [
+        912,
+        1762,
+        981,
+        1828
+      ]
+    },
+    "내 정보": {
+      "resource_id": "com.EveryTalk.Global:id/main_option_button",
+      "text": "",
+      "class_name": "android.widget.ImageView",
+      "desc": "",
+      "bounds": [
+        860,
+        102,
+        960,
+        202
+      ]
+    },
+    "설정": {
+      "resource_id": "com.EveryTalk.Global:id/main_menu_setup",
+      "text": "",
+      "class_name": "android.widget.ImageView",
+      "desc": "",
+      "bounds": [
+        960,
+        102,
+        1050,
+        192
+      ]
+    },
+    "미디어 전환": {
+      "resource_id": "com.EveryTalk.Global:id/main_menu_voice_video_button",
+      "text": "",
+      "class_name": "android.widget.ImageView",
+      "desc": "",
+      "bounds": [
+        90,
+        1501,
+        300,
+        1641
+      ]
+    },
+    "SW PTT key": {
+      "resource_id": "com.EveryTalk.Global:id/main_menu_ptt_key",
+      "text": "",
+      "class_name": "android.widget.ImageView",
+      "desc": "",
+      "bounds": [
+        390,
+        1421,
+        690,
+        1721
+      ]
+    },
+    "스피커OFF": {
+      "resource_id": "com.EveryTalk.Global:id/icon_call_speak",
+      "text": "",
+      "class_name": "android.widget.ImageView",
+      "desc": "",
+      "bounds": [
+        445,
+        1245,
+        635,
+        1330
+      ]
+    },
+    "공통통화그룹 바로가기": {
+      "resource_id": "com.EveryTalk.Global:id/icon_shortcut",
+      "text": "",
+      "class_name": "android.widget.ImageView",
+      "desc": "",
+      "bounds": [
+        665,
+        1245,
+        855,
+        1330
+      ]
+    },
+    "녹취OFF": {
+      "resource_id": "com.EveryTalk.Global:id/record_btn",
+      "text": "",
+      "class_name": "android.widget.ImageView",
+      "desc": "",
+      "bounds": [
+        225,
+        1245,
+        415,
+        1330
+      ]
+    },
+    "메인화면 주채널 아이콘": {
+      "resource_id": "com.EveryTalk.Global:id/main_icon_call_group",
+      "text": "",
+      "class_name": "android.widget.ImageView",
+      "desc": "",
+      "bounds": [
+        407,
+        860,
+        467,
+        920
+      ]
+    },
+    "메인화면 우선순위 아이콘": {
+      "resource_id": "com.EveryTalk.Global:id/channel_layout",
+      "text": "",
+      "class_name": "android.widget.FrameLayout",
+      "desc": "",
+      "bounds": [
+        482,
+        860,
+        562,
+        920
+      ]
+    },
+    "메인화면 공통통화그룹 아이콘": {
+      "resource_id": "com.EveryTalk.Global:id/main_icon_public_group_image_view",
+      "text": "",
+      "class_name": "android.widget.ImageView",
+      "desc": "",
+      "bounds": [
+        577,
+        860,
+        672,
+        920
+      ]
+    },
+    "메인화면 채널명": {
+      "resource_id": "com.EveryTalk.Global:id/enter_ch_name",
+      "text": "행안부_공통_통화그룹_테스트03",
+      "class_name": "android.widget.TextView",
+      "desc": "",
+      "bounds": [
+        115,
+        950,
+        965,
+        1035
+      ]
+    },
+    "메인화면 그룹번호": {
+      "resource_id": "com.EveryTalk.Global:id/enter_ch_num",
+      "text": "CH No.82999990002",
+      "class_name": "android.widget.TextView",
+      "desc": "",
+      "bounds": [
+        289,
+        1050,
+        790,
+        1123
+      ]
+    },
+    "메인화면 주채널 미디어타입": {
+      "resource_id": "com.EveryTalk.Global:id/enter_voice_video_status_text_view",
+      "text": "음성 채널",
+      "class_name": "android.widget.TextView",
+      "desc": "",
+      "bounds": [
+        416,
+        1138,
+        664,
+        1223
+      ]
+    }
+  },
+  "450connect": {},
+  "CTB_POC": {}
+}

@@ -2,11 +2,13 @@ import sys
 import threading
 
 from PySide6.QtWidgets import QApplication, QGridLayout, QHBoxLayout, QLabel, QWidget
-from qfluentwidgets import FluentIcon, FluentWindow, Theme, setTheme, setThemeColor
+from qfluentwidgets import FluentIcon, FluentWindow, Theme, setTheme, setThemeColor, setFontFamilies
 
 import adb_logic
 from device_panel import DevicePanel, ResultsPanel
 from object_manager_page import ObjectManagerPage
+from project_manager_page import ProjectManagerPage
+from scenario_builder_page import ScenarioBuilderPage
 from scenario_page import ScenarioLibraryPage
 from ui_common import Palette, SegmentedButton, kfont, load_custom_font
 
@@ -45,6 +47,11 @@ class App(FluentWindow):
         self.setCustomBackgroundColor(Palette.bg, "#202020")
 
         load_custom_font()
+        # kfont()로 직접 폰트를 지정하는 위젯 밖에도, qfluentwidgets가 자체적으로
+        # 그리는 네비게이션/메뉴/테이블 헤더 등은 이 라이브러리 전역 폰트 목록
+        # (기본값 Segoe UI/Microsoft YaHei/PingFang SC)을 따로 써서 Pretendard가
+        # 안 먹었었습니다. 여기서도 Pretendard를 최우선으로 쓰도록 맞춰줍니다.
+        setFontFamilies(["Pretendard", "Microsoft YaHei", "Segoe UI"])
         self.setWindowTitle("MCX QA Automation Dashboard")
         self.resize(1960, 950)
         self.setStyleSheet(self._global_qss())
@@ -106,11 +113,24 @@ class App(FluentWindow):
         self.navigationInterface.setExpandWidth(180)
         self.addSubInterface(root, FluentIcon.HOME, "대시보드")
 
+        self.project_manager_page = ProjectManagerPage()
+        self.addSubInterface(self.project_manager_page, FluentIcon.FOLDER_ADD, "프로젝트 관리")
+
         self.object_manager_page = ObjectManagerPage(self.panel_a, self.panel_b)
         self.addSubInterface(self.object_manager_page, FluentIcon.TAG, "객체 관리")
 
+        self.scenario_builder_page = ScenarioBuilderPage(self.panel_a, self.panel_b)
+        self.addSubInterface(self.scenario_builder_page, FluentIcon.EDIT, "시나리오 작성")
+
         self.scenario_page = ScenarioLibraryPage()
         self.addSubInterface(self.scenario_page, FluentIcon.LIBRARY, "시나리오")
+        self.scenario_page.on_edit_builder_scenario = self._edit_scenario_in_builder
+
+    def _edit_scenario_in_builder(self, project_name, scenario_name):
+        """'시나리오' 화면에서 '시나리오 작성에서 편집' 버튼을 누르면 호출됩니다.
+        '시나리오 작성' 화면으로 전환하고 해당 시나리오를 편집기에 바로 불러옵니다."""
+        self.scenario_builder_page.load_scenario_for_edit(project_name, scenario_name)
+        self.switchTo(self.scenario_builder_page)
 
     def on_device_mode_changed(self, value):
         """단말 표시 개수를 1대/2대로 전환합니다. B 패널 위젯을 숨기고, 숨겨진 만큼의

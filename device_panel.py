@@ -58,17 +58,43 @@ from ui_common import (
     ClickableLabel,
     SegmentedButton,
     PulseCanvas,
+    CenteredIconPrimaryButton,
 )
 
 # 프로젝트 이름 -> config_handlers 모듈/클래스. 단말 연결 시 자동 감지된 프로젝트로
 # 발신 로직을 고르는 데도 쓰이고(_get_handler), 사이드바의 "시나리오 라이브러리" 페이지가
 # 프로젝트별로 어떤 시나리오(핸들러 메서드)가 있는지 보여주는 데도 이 registry 하나를 같이 씁니다.
-PROJECT_HANDLERS = {
-    "재난망": ("config_handlers.ps_lte_handler", "PsLteHandler"),
-    "재난망_LM75": ("config_handlers.ps_lte_lm75_handler", "PsLteLm75Handler"),
-    "CTB_POC": ("config_handlers.ctb_poc_handler", "CTB_POCHandler"),
-    "450connect": ("config_handlers.connect450_handler", "Connect450Handler"),
-}
+# project_config.json의 각 프로젝트 항목에 달린 handler_module/handler_class로부터
+# 채워지며(둘 다 있는 프로젝트만 포함), "프로젝트 관리" 화면에서 새 프로젝트를 추가하면
+# reload_project_handlers()가 이 딕셔너리를 in-place로 갱신합니다 - 이 모듈을
+# import한 다른 화면들도 전부 같은 딕셔너리 객체를 들고 있으므로 재할당이 아니라
+# clear()+update()로 갱신해야 그 화면들에도 반영됩니다.
+def _load_project_handlers_from_config():
+    result = {}
+    try:
+        config_path = os.path.join(os.getcwd(), "project_config.json")
+        if os.path.exists(config_path):
+            with open(config_path, "r", encoding="utf-8") as f:
+                config_data = json.load(f)
+            for proj in config_data.get("projects", []):
+                name = proj.get("project_name")
+                module = proj.get("handler_module")
+                cls = proj.get("handler_class")
+                if name and module and cls:
+                    result[name] = (module, cls)
+    except Exception as e:
+        print(f"[device_panel] ⚠️ 프로젝트 핸들러 설정 로드 에러: {e}")
+    return result
+
+
+PROJECT_HANDLERS = _load_project_handlers_from_config()
+
+
+def reload_project_handlers():
+    """project_config.json에 새 프로젝트가 추가된 뒤 호출해 PROJECT_HANDLERS를 최신
+    상태로 맞춥니다."""
+    PROJECT_HANDLERS.clear()
+    PROJECT_HANDLERS.update(_load_project_handlers_from_config())
 
 # 핸들러 메서드명 -> 시나리오 라이브러리 페이지에 보여줄 한국어 이름.
 SCENARIO_LABELS = {
@@ -77,6 +103,25 @@ SCENARIO_LABELS = {
     "make_emergency_call": "비상통화 발신",
     "send_message": "메시지 전송",
 }
+
+# project_config.json의 features.message 키 -> 표시 라벨. 상단 배너의 지원 기능 뱃지뿐
+# 아니라, Group/User List의 메시지 방식 버튼도 프로젝트가 실제 지원하는 종류만
+# 이 라벨로 보여주는 데 같이 씁니다("normal"=일반이 현재 유일하게 실제 전송이 구현된
+# 종류이고, 나머지는 버튼은 보이되 선택 시 "아직 지원하지 않음"으로 안내됩니다).
+MESSAGE_TYPE_LABELS = {
+    "normal": "일반",
+    "emergency": "비상",
+    "pre_defined": "Pre-Defined",
+    "canned": "상용문구",
+    "attachment": "첨부파일",
+}
+
+# 재난망/재난망_LM75는 고정된 테스트 Group을 씁니다. 이 ID로 시작하는 그룹이 XML에
+# 있으면(예: sip URI가 "82900110119g"처럼 접미사가 붙어있어도 매칭되도록 startswith로
+# 비교) 각 섹션(ReGroup/PreArranged/Chat/Chatting) 안에서 이 순서 그대로 맨 위에
+# 고정해서 보여줍니다. 이 목록에 없는 프로젝트는 기존처럼 이름순 정렬만 적용됩니다.
+PINNED_TEST_GROUP_PROJECTS = ("재난망", "재난망_LM75")
+PINNED_TEST_GROUP_IDS = ["82900110115", "82900110119", "82900110120", "82900110121"]
 
 
 class DevicePanel(QWidget):
@@ -111,6 +156,7 @@ class DevicePanel(QWidget):
         self._sip_analyzer_gen = 0
         self._flow_dedupe = {}
         self._pending_dnd_reason = False
+        self._pending_file_upload = None
         self._sip_log_process = None
         self._pulse_idle_timer = None
         self.log_proc = None
@@ -175,40 +221,6 @@ class DevicePanel(QWidget):
         btn_row.addWidget(self.btn_connect, 1)
         btn_row.addWidget(self.btn_manage, 1)
         layout.addLayout(btn_row)
-        layout.addSpacing(4)
-
-        top_row = QHBoxLayout()
-        top_row.setSpacing(8)
-        self.lbl_project = QLabel(f"[{self.panel_label}] 프로젝트: 대기 중")
-        self.lbl_project.setFont(kfont(13, True))
-        self.lbl_project.setStyleSheet(f"color:{Palette.blue};")
-        top_row.addWidget(self.lbl_project)
-        top_row.addStretch(1)
-        self.lbl_network = QLabel("네트워크: -")
-        self.lbl_network.setFont(kfont(10))
-        self.lbl_network.setStyleSheet(f"color:{Palette.text_main};")
-        top_row.addWidget(self.lbl_network)
-        layout.addLayout(top_row)
-
-        self.label = QLabel("단말을 연결해주세요.")
-        self.label.setFont(kfont(10))
-        self.label.setStyleSheet(f"color:{Palette.text_sub};")
-        layout.addWidget(self.label)
-
-        info_row = QHBoxLayout()
-        info_row.setSpacing(10)
-        self.lbl_model = QLabel("모델: -")
-        self.lbl_hw_version = QLabel("HW: -")
-        self.lbl_android_ver = QLabel("Android: -")
-        self.lbl_os_build = QLabel("OS: -")
-        self.lbl_version = QLabel("버전: -")
-        self.lbl_project_version = self.lbl_version  # 하위 호환: 예전 이름으로도 접근 가능
-        for lbl in (self.lbl_model, self.lbl_hw_version, self.lbl_android_ver, self.lbl_os_build, self.lbl_version):
-            lbl.setFont(kfont(9))
-            lbl.setStyleSheet(f"color:{Palette.text_main};")
-            info_row.addWidget(lbl)
-        info_row.addStretch(1)
-        layout.addLayout(info_row)
 
         return frame
 
@@ -256,8 +268,52 @@ class DevicePanel(QWidget):
         # AlignHCenter로 추가합니다. 그래야 카드 배경이 남는 여백 없이 딱 붙습니다.
         col_layout.addWidget(self._build_mirror_card(), 0, Qt.AlignHCenter)
         col_layout.addWidget(self._build_my_id_chip(), 0, Qt.AlignHCenter)
+        col_layout.addWidget(self._build_project_info_card())
         col_layout.addStretch(1)
         return col
+
+    def _build_project_info_card(self):
+        """프로젝트/네트워크/모델·HW·Android·OS·버전 정보를 미러링 카드와 내 정보
+        배지 바로 아래에 보여줍니다(예전에는 상단 헤더에 있었습니다)."""
+        frame = styled(QFrame(), f"background-color:{Palette.bg}; border-radius:{Palette.radius}px;")
+        layout = QVBoxLayout(frame)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(3)
+
+        top_row = QHBoxLayout()
+        top_row.setSpacing(8)
+        self.lbl_project = QLabel(f"[{self.panel_label}] 프로젝트: 대기 중")
+        self.lbl_project.setFont(kfont(13, True))
+        self.lbl_project.setStyleSheet(f"color:{Palette.blue};")
+        top_row.addWidget(self.lbl_project)
+        top_row.addStretch(1)
+        self.lbl_network = QLabel("네트워크: -")
+        self.lbl_network.setFont(kfont(10))
+        self.lbl_network.setStyleSheet(f"color:{Palette.text_main};")
+        top_row.addWidget(self.lbl_network)
+        layout.addLayout(top_row)
+
+        self.label = QLabel("단말을 연결해주세요.")
+        self.label.setFont(kfont(10))
+        self.label.setStyleSheet(f"color:{Palette.text_sub};")
+        layout.addWidget(self.label)
+
+        info_row = QHBoxLayout()
+        info_row.setSpacing(10)
+        self.lbl_model = QLabel("모델: -")
+        self.lbl_hw_version = QLabel("HW: -")
+        self.lbl_android_ver = QLabel("Android: -")
+        self.lbl_os_build = QLabel("OS: -")
+        self.lbl_version = QLabel("버전: -")
+        self.lbl_project_version = self.lbl_version  # 하위 호환: 예전 이름으로도 접근 가능
+        for lbl in (self.lbl_model, self.lbl_hw_version, self.lbl_android_ver, self.lbl_os_build, self.lbl_version):
+            lbl.setFont(kfont(9))
+            lbl.setStyleSheet(f"color:{Palette.text_main};")
+            info_row.addWidget(lbl)
+        info_row.addStretch(1)
+        layout.addLayout(info_row)
+
+        return frame
 
     def _build_my_id_chip(self):
         """내 정보(연결된 단말의 ID)를 미러링 카드 바로 아래에 작은 알약 배지로 보여줍니다."""
@@ -283,7 +339,6 @@ class DevicePanel(QWidget):
         outer = QVBoxLayout(card)
         outer.setContentsMargins(14, 8, 14, 8)
         outer.setSpacing(4)
-        outer.setAlignment(Qt.AlignHCenter)
 
         btn_kwargs = dict(bg=Palette.neutral_bg, fg=Palette.text_main, hover=Palette.neutral_hover, height=25, radius=5)
 
@@ -296,6 +351,7 @@ class DevicePanel(QWidget):
         top_nav.addWidget(btn_capture)
         top_nav.addWidget(btn_record)
         outer.addLayout(top_nav)
+        outer.setAlignment(top_nav, Qt.AlignHCenter)
 
         self.mirror_container = styled(QWidget(), "background-color:#1C1C1E;")
         self.mirror_container.setFixedSize(self.phone_width, self.phone_height)
@@ -305,7 +361,7 @@ class DevicePanel(QWidget):
         self.lbl_placeholder.setAlignment(Qt.AlignCenter)
         self.lbl_placeholder.setStyleSheet(f"color:{Palette.text_sub}; background:transparent;")
         self.lbl_placeholder.setFont(kfont(11))
-        outer.addWidget(self.mirror_container)
+        outer.addWidget(self.mirror_container, 0, Qt.AlignHCenter)
 
         bottom_nav = QHBoxLayout()
         bottom_nav.setSpacing(2)
@@ -319,6 +375,7 @@ class DevicePanel(QWidget):
         bottom_nav.addWidget(btn_home)
         bottom_nav.addWidget(btn_back)
         outer.addLayout(bottom_nav)
+        outer.setAlignment(bottom_nav, Qt.AlignHCenter)
 
         return add_shadow(card)
 
@@ -351,13 +408,9 @@ class DevicePanel(QWidget):
         layout.addLayout(header)
 
         mode_row = QHBoxLayout()
-        lbl_mode = QLabel("테스트 모드:")
-        lbl_mode.setFont(kfont(11))
-        lbl_mode.setStyleSheet(f"color:{Palette.text_sub};")
         self.seg_mode_toggle = SegmentedButton(["통화", "메시지"], selected_color=Palette.neutral_hover, height=25, font=kfont(11, True))
         self.seg_mode_toggle.set("통화")
         self.seg_mode_toggle.changed.connect(self.on_mode_toggle_changed)
-        mode_row.addWidget(lbl_mode)
         mode_row.addWidget(self.seg_mode_toggle, 1)
         layout.addLayout(mode_row)
 
@@ -369,19 +422,44 @@ class DevicePanel(QWidget):
         layout.addWidget(self.list_stack, 1)
 
         btn_row = QHBoxLayout()
-        btn_row.setSpacing(4)
-        self.btn_group_call = PrimaryPushButton(qta.icon("fa5s.phone", color="white"), "통화 발신")
-        self.btn_group_call.setFixedHeight(34)
-        self.btn_group_call.setFont(kfont(11, True))
+        btn_row.setSpacing(12)
+        btn_row.addStretch(1)
+        # 💡 border-radius만 지정하면 Qt가 배경/테두리 속성이 없다고 보고 네이티브
+        # 스타일(각진 버튼)로 그려버립니다. background-color/border를 같이 명시해야
+        # 스타일시트 렌더링 경로를 타면서 둥근 모서리가 실제로 적용됩니다.
+        circle_btn_css = f"""
+            QPushButton {{
+                background-color: {Palette.accent};
+                border: none;
+                border-radius: 22px;
+            }}
+            QPushButton:hover {{
+                background-color: {Palette.accent_hover};
+            }}
+            QPushButton:pressed {{
+                background-color: {Palette.accent_hover};
+            }}
+        """
+        self.btn_group_call = CenteredIconPrimaryButton(qta.icon("fa5s.phone", color="white"), "")
+        self.btn_group_call.setFixedSize(44, 44)
+        self.btn_group_call.setIconSize(QSize(18, 18))
+        self.btn_group_call.setStyleSheet(circle_btn_css)
+        self.btn_group_call.setToolTip("통화 발신")
         self.btn_group_call.setCursor(Qt.PointingHandCursor)
         self.btn_group_call.clicked.connect(self.on_main_call_button_clicked)
-        self.btn_group_msg = PrimaryPushButton(qta.icon("fa5s.comment-dots", color="white"), "메시지 전송")
-        self.btn_group_msg.setFixedHeight(34)
-        self.btn_group_msg.setFont(kfont(11, True))
+        self.btn_group_msg = CenteredIconPrimaryButton(qta.icon("fa5s.comment-dots", color="white"), "")
+        self.btn_group_msg.setFixedSize(44, 44)
+        self.btn_group_msg.setIconSize(QSize(18, 18))
+        self.btn_group_msg.setStyleSheet(circle_btn_css)
+        self.btn_group_msg.setToolTip("메시지 전송")
         self.btn_group_msg.setCursor(Qt.PointingHandCursor)
         self.btn_group_msg.clicked.connect(self.send_group_message)
+        # 테스트 모드(통화/메시지) 선택에 맞는 버튼만 남기고 나머지는 숨깁니다.
+        self.btn_group_call.setVisible(self.current_mode == "call")
+        self.btn_group_msg.setVisible(self.current_mode != "call")
         btn_row.addWidget(self.btn_group_call)
         btn_row.addWidget(self.btn_group_msg)
+        btn_row.addStretch(1)
         layout.addLayout(btn_row)
 
         return card
@@ -752,13 +830,7 @@ class DevicePanel(QWidget):
             "mcvideo_pull": "Video Pull",
             "first_answer": "First Answer",
         }
-        msg_map = {
-            "normal": "일반",
-            "emergency": "비상",
-            "pre_defined": "Pre-Defined",
-            "canned": "상용문구",
-            "attachment": "첨부파일",
-        }
+        msg_map = MESSAGE_TYPE_LABELS
 
         private_call_data = features.get("private_call", {})
         self.has_private_call = any(val == 1 for val in private_call_data.values())
@@ -782,8 +854,10 @@ class DevicePanel(QWidget):
             for f_name in active_features:
                 badge = QLabel(f_name)
                 badge.setFont(kfont(9, True))
+                badge.setAlignment(Qt.AlignCenter)
+                badge.setFixedHeight(20)
                 badge.setStyleSheet(
-                    f"background-color:{bg_color}; color:{txt_color}; border-radius:5px; padding:2px 8px;"
+                    f"background-color:{bg_color}; color:{txt_color}; border-radius:10px; padding:0 10px;"
                 )
                 badge.setAttribute(Qt.WA_StyledBackground, True)
                 g_layout.addWidget(badge)
@@ -795,6 +869,14 @@ class DevicePanel(QWidget):
 
         if self.feature_tag_layout.count() == 0:
             self._reset_feature_tags()
+
+    def _message_type_values(self):
+        """상단 배너의 "지원 기능" 뱃지와 같은 features.message 설정을 그대로
+        Group List 메시지 방식 버튼 values로 씁니다. 설정이 없는 프로젝트는
+        기존 동작대로 "일반" 하나만 보여줍니다."""
+        message_features = FileManager.get_project_features(self.project_name).get("message", {})
+        values = [label for key, label in MESSAGE_TYPE_LABELS.items() if message_features.get(key) == 1]
+        return values or [MESSAGE_TYPE_LABELS["normal"]]
 
     # ==========================================
     # 📋 Group List
@@ -857,8 +939,12 @@ class DevicePanel(QWidget):
         action_row = QWidget()
         action_layout = QHBoxLayout(action_row)
         action_layout.setContentsMargins(8, 0, 8, 6)
-        seg_call = SegmentedButton(seg_call_values, selected_color=Palette.neutral_hover, height=22, font=kfont(10))
-        seg_msg = SegmentedButton(seg_msg_values, selected_color=Palette.neutral_hover, height=22, font=kfont(10))
+        seg_call = SegmentedButton(
+            seg_call_values, selected_color=Palette.accent, selected_text_color="white", height=22, font=kfont(10)
+        )
+        seg_msg = SegmentedButton(
+            seg_msg_values, selected_color=Palette.accent, selected_text_color="white", height=22, font=kfont(10)
+        )
         action_layout.addWidget(seg_call)
         action_layout.addWidget(seg_msg)
         card_layout.addWidget(action_row)
@@ -895,6 +981,17 @@ class DevicePanel(QWidget):
         if not path or not os.path.exists(path):
             return
         groups = FileManager.parse_group_list(path)
+
+        # 재난망/재난망_LM75의 고정 테스트 Group은 실제로는 PreArranged인데, XML의
+        # sip URI가 "g"로 안 끝나는 경우 parse_group_list의 일반 규칙(id가 "g"로
+        # 안 끝나면 Chatting)에 걸려 엉뚱한 섹션(Chatting Room)으로 분류되곤 합니다.
+        # 이 프로젝트들은 group_call 기능이 PreArranged만 지원하므로, 테스트 Group ID는
+        # 항상 PreArranged Group으로 강제 분류합니다.
+        if self.project_name in PINNED_TEST_GROUP_PROJECTS:
+            for g in groups:
+                if any(g.get("id", "").startswith(pid) for pid in PINNED_TEST_GROUP_IDS):
+                    g["type"] = "PreArranged Group"
+
         my_info = FileManager.parse_my_info(path)
         self.my_id_label.setText(f"내 정보: {my_info}")
 
@@ -904,9 +1001,10 @@ class DevicePanel(QWidget):
         self.group_list_layout.addStretch(1)
 
         group_emergency_ok = FileManager.supports_group_emergency_call(self.project_name)
-        call_values = ["🔊 PTT", "📹 PTV"]
+        call_values = ["PTT", "PTV"]
         if group_emergency_ok:
-            call_values += ["🚨 E-PTT", "🚨 E-PTV"]
+            call_values += ["E-PTT", "E-PTV"]
+        msg_values = self._message_type_values()
 
         def add_section_title(title):
             header = QWidget()
@@ -942,14 +1040,14 @@ class DevicePanel(QWidget):
 
                 is_emergency = g_info.get("type") == "Emergency"
                 if is_emergency:
-                    seg_values = ["🚨 Emergency"]
+                    seg_values = ["Emergency"]
                     if g_info.get("target_type") == "PreArranged Group":
-                        seg_values.append("⚠️ Imminent Peril")
+                        seg_values.append("Imminent Peril")
                 else:
                     seg_values = call_values
 
                 card, checkbox, seg_call, seg_msg, repeat_edit, action_row = self._make_list_card(
-                    self.group_list_layout, g_info["name"], id_text, seg_values, ["📄 Text", "🖼️ Photo"]
+                    self.group_list_layout, g_info["name"], id_text, seg_values, msg_values
                 )
                 checkbox.clicked.connect(self.update_group_visibility)
 
@@ -966,13 +1064,27 @@ class DevicePanel(QWidget):
                 }
                 self.all_cards.append(self.group_check_vars[check_key])
 
-        def bucket(t):
-            return sorted((g for g in groups if g.get("type") == t), key=lambda x: x.get("name", "").lower())
+        pinned_ids = PINNED_TEST_GROUP_IDS if self.project_name in PINNED_TEST_GROUP_PROJECTS else []
 
-        create_section("🚨 Emergency", bucket("Emergency"), empty_message="설정된 그룹이 없습니다.")
-        create_section("📁 ReGroup", bucket("ReGroup"))
-        create_section("📁 PreArranged", bucket("PreArranged Group"))
-        create_section("💬 Chat", bucket("Chat Group"))
+        def sort_key(g):
+            gid = g.get("id", "")
+            for i, pinned_id in enumerate(pinned_ids):
+                if gid.startswith(pinned_id):
+                    return (0, i)
+            return (1, g.get("name", "").lower())
+
+        def bucket(t):
+            return sorted((g for g in groups if g.get("type") == t), key=sort_key)
+
+        if self.project_name in PINNED_TEST_GROUP_PROJECTS:
+            # 재난망/재난망_LM75는 group_call 기능이 PreArranged만 지원해서
+            # Emergency/ReGroup/Chat 구분선 자체가 필요 없습니다.
+            create_section("📁 PreArranged", bucket("PreArranged Group"))
+        else:
+            create_section("🚨 Emergency", bucket("Emergency"), empty_message="설정된 그룹이 없습니다.")
+            create_section("📁 ReGroup", bucket("ReGroup"))
+            create_section("📁 PreArranged", bucket("PreArranged Group"))
+            create_section("💬 Chat", bucket("Chat Group"))
         create_section("💭 Chatting Room", bucket("Chatting"))
         self.update_group_visibility()
 
@@ -992,6 +1104,8 @@ class DevicePanel(QWidget):
 
     def on_mode_toggle_changed(self, selected_value):
         self.current_mode = "call" if "통화" in selected_value else "msg"
+        self.btn_group_call.setVisible(self.current_mode == "call")
+        self.btn_group_msg.setVisible(self.current_mode != "call")
         self.update_group_visibility()
         self.update_user_action_frame()
 
@@ -1131,8 +1245,8 @@ class DevicePanel(QWidget):
                 self.user_list_layout,
                 d_name,
                 f"ID: {u_name}",
-                ["🔊 PTT", "📹 PTV", "W/O Floor", "🚨 E-PTT", "🚨 E-PTV"],
-                ["📄 Text", "🖼️ Photo", "🎥 Video"],
+                ["PTT", "PTV", "W/O Floor", "E-PTT", "E-PTV"],
+                ["Text", "Photo", "Video"],
             )
             checkbox.clicked.connect(self.update_user_action_frame)
 
@@ -1228,7 +1342,13 @@ class DevicePanel(QWidget):
                     break
                 t_name, t_type, t_repeat = target["name"], target["msg_type"], target.get("repeat", 1)
 
-                if t_type != "Text":
+                if t_type == MESSAGE_TYPE_LABELS["normal"]:
+                    send_method = handler_instance.send_message
+                elif t_type == MESSAGE_TYPE_LABELS["emergency"] and hasattr(handler_instance, "send_emergency_message"):
+                    send_method = handler_instance.send_emergency_message
+                elif t_type == MESSAGE_TYPE_LABELS["attachment"] and hasattr(handler_instance, "send_attachment_message"):
+                    send_method = handler_instance.send_attachment_message
+                else:
                     self.safe_log_insert(f"⚠️ '{t_name}' ({t_type}) 메시지 방식은 아직 지원하지 않아 건너뜁니다.")
                     continue
 
@@ -1236,7 +1356,7 @@ class DevicePanel(QWidget):
                     self.safe_log_insert(
                         f"\n▶️ [{idx}/{len(selected_groups)}] '{t_name}' 메시지 전송 진행 중... (총 {t_repeat}회)"
                     )
-                    handler_instance.send_message(d, target_info=t_name, repeat=t_repeat, log_console=self.log_console)
+                    send_method(d, target_info=t_name, repeat=t_repeat, log_console=self.log_console)
                     time.sleep(2)
                 else:
                     for rep in range(1, t_repeat + 1):
@@ -1246,7 +1366,7 @@ class DevicePanel(QWidget):
                         self.safe_log_insert(
                             f"\n▶️ [{idx}/{len(selected_groups)}] '{t_name}' 메시지 전송 진행 중... ({rep}/{t_repeat}회)"
                         )
-                        handler_instance.send_message(
+                        send_method(
                             d, target_info=t_name, seq_no=rep, seq_total=t_repeat, log_console=self.log_console
                         )
                         time.sleep(2)
@@ -1277,8 +1397,17 @@ class DevicePanel(QWidget):
             height = max(1, round(dev_h * scale))
 
         self.mirror_container.setFixedSize(width, height)
+
+        # 💡 Qt는 위젯 크기를 논리 픽셀(디스플레이 배율 적용 전) 단위로 다루지만, 이 컨테이너
+        # 안에 SetParent로 끼워 넣는 scrcpy 창은 Win32 SetWindowPos라 물리 픽셀 단위로 동작합니다.
+        # 배율(125%/150% 등)을 안 곱해주면 scrcpy 창이 실제 컨테이너보다 작게 들어가서
+        # 컨테이너 배경색(검정)이 테두리로 남는 문제가 있었습니다.
+        dpr = self.mirror_container.devicePixelRatioF() or 1.0
+        phys_width = max(1, round(width * dpr))
+        phys_height = max(1, round(height * dpr))
+
         parent_hwnd = int(self.mirror_container.winId())
-        adb_logic.start_mirroring_embedded(self.current_uuid, parent_hwnd, width, height)
+        adb_logic.start_mirroring_embedded(self.current_uuid, parent_hwnd, phys_width, phys_height)
 
     def record_screen(self):
         self.safe_log_insert("🎥 동영상 촬영 기능 준비 중")
@@ -1642,6 +1771,7 @@ class DevicePanel(QWidget):
         uuid = self.current_uuid
         self._flow_dedupe = {}
         self._pending_dnd_reason = False
+        self._pending_file_upload = None
         self._show_sip_placeholder()
 
         def logcat_reader():
@@ -1695,6 +1825,34 @@ class DevicePanel(QWidget):
                         if self.results_panel:
                             self.results_panel.auto_grade_result("FAIL", f"[{self.panel_label}] 통화 실패 자동 감지: {reason}")
                     self.safe_log_insert(line)
+                elif "[HTTPFileUpload][run] start" in line:
+                    file_match = re.search(r"_filePath:([^,]+)", line)
+                    callee_match = re.search(r"_calleeUri:(\[[^\]]*\])", line)
+                    file_name = os.path.basename(file_match.group(1).strip()) if file_match else "알 수 없음"
+                    callee = callee_match.group(1) if callee_match else "-"
+                    self._pending_file_upload = {"file_name": file_name}
+                    self._emit_flow("file_upload", "PROC", "메시지 첨부파일 전송 시작", f"파일: {file_name} → {callee}")
+                    self.safe_log_insert(line)
+                elif "[HTTPFileUpload][run] responseCode:" in line:
+                    code_match = re.search(r"responseCode:(-?\d+)", line)
+                    code = code_match.group(1) if code_match else "?"
+                    is_success = code.isdigit() and 200 <= int(code) < 300
+                    file_name = (self._pending_file_upload or {}).get("file_name", "첨부파일")
+                    detail = f"{file_name} 업로드 응답: HTTP {code}"
+                    if is_success:
+                        self._emit_flow("file_upload_result", "RX", "첨부파일 전송 성공", detail)
+                        if self.results_panel:
+                            self.results_panel.auto_grade_result(
+                                "PASS", f"[{self.panel_label}] 메시지 첨부파일 전송 성공 (자동 감지)"
+                            )
+                    else:
+                        self._emit_flow("file_upload_result", "ERR", "첨부파일 전송 실패", detail, is_error=True)
+                        if self.results_panel:
+                            self.results_panel.auto_grade_result(
+                                "FAIL", f"[{self.panel_label}] 메시지 첨부파일 전송 실패: HTTP {code}"
+                            )
+                    self._pending_file_upload = None
+                    self.safe_log_insert(line, is_error=not is_success)
                 elif "uiEventType = TYPE_DELETE_SESSION" in line or "uiEventType = TYPE_DELETED_SESSION" in line:
                     self._emit_flow("session_end", "PROC", "Session End", "세션 종료")
                     self.safe_log_insert(line)

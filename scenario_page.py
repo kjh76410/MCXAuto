@@ -20,9 +20,11 @@ from qfluentwidgets import PrimaryPushButton, TogglePushButton
 import qtawesome as qta
 
 import object_store
+import scenario_store
 from code_editor import CodeEditor
 from device_panel import PROJECT_HANDLERS, SCENARIO_LABELS
-from ui_common import Palette, add_shadow, card_css, clear_layout, kfont, styled
+from scenario_builder_page import ScenarioBuilderPage
+from ui_common import Palette, add_shadow, card_css, clear_layout, kfont, make_button, styled
 
 
 class ScenarioLibraryPage(QWidget):
@@ -38,25 +40,31 @@ class ScenarioLibraryPage(QWidget):
         self._scenario_buttons = {}
         self._current_project = None
         self._current = None  # (module, handler_cls, method_name, file_path, start_line, line_count)
+        self._current_builder_scenario_name = None
+        # ui_logic.py가 채워주는 콜백: (project_name, scenario_name) -> None.
+        # "시나리오 작성" 화면으로 전환해 해당 시나리오를 편집기에 불러오는 역할.
+        self.on_edit_builder_scenario = None
 
         outer = QHBoxLayout(self)
         outer.setContentsMargins(16, 16, 16, 16)
         outer.setSpacing(16)
 
-        outer.addWidget(self._build_project_list(), 2)
+        # 프로젝트 목록을 마지막에 만드는 이유: 그 안에서 첫 프로젝트를 자동 선택하며
+        # _on_project_selected()가 시나리오 목록/코드 패널의 위젯을 바로 건드리는데, 그
+        # 위젯들은 아래 두 패널을 먼저 만들어야 존재합니다. 화면상 배치는 addWidget 순서
+        # (project -> scenario list -> code)로 그대로 유지됩니다.
         self._scenario_list_card, self._scenario_list_layout = self._build_scenario_list()
-        outer.addWidget(self._scenario_list_card, 2)
-        outer.addWidget(self._build_code_panel(), 6)
+        code_panel = self._build_code_panel()
+        project_list = self._build_project_list()
 
-        if PROJECT_HANDLERS:
-            first_project = next(iter(PROJECT_HANDLERS))
-            self._project_buttons[first_project].setChecked(True)
-            self._on_project_selected(first_project)
+        outer.addWidget(project_list, 2)
+        outer.addWidget(self._scenario_list_card, 2)
+        outer.addWidget(code_panel, 6)
 
     # ---------- 1단: 저장된 프로젝트 목록 ----------
     def _build_project_list(self):
-        card = styled(QFrame(), card_css())
-        layout = QVBoxLayout(card)
+        self._project_list_card = styled(QFrame(), card_css())
+        layout = QVBoxLayout(self._project_list_card)
         layout.setContentsMargins(10, 14, 10, 14)
         layout.setSpacing(6)
 
@@ -65,7 +73,15 @@ class ScenarioLibraryPage(QWidget):
         title.setStyleSheet(f"color:{Palette.text_sub};")
         layout.addWidget(title)
 
-        group = QButtonGroup(card)
+        self._project_list_layout = layout
+        self._refresh_project_buttons()
+
+        return add_shadow(self._project_list_card)
+
+    def _refresh_project_buttons(self):
+        clear_layout(self._project_list_layout, keep=1)  # keep=1: 타이틀
+        self._project_buttons = {}
+        group = QButtonGroup(self._project_list_card)
         group.setExclusive(True)
         for proj_name in PROJECT_HANDLERS:
             btn = TogglePushButton(proj_name)
@@ -74,11 +90,16 @@ class ScenarioLibraryPage(QWidget):
             btn.setCursor(Qt.PointingHandCursor)
             btn.clicked.connect(lambda checked=False, p=proj_name: self._on_project_selected(p))
             group.addButton(btn)
-            layout.addWidget(btn)
+            self._project_list_layout.addWidget(btn)
             self._project_buttons[proj_name] = btn
-        layout.addStretch(1)
+        self._project_list_layout.addStretch(1)
 
-        return add_shadow(card)
+        if self._current_project in self._project_buttons:
+            self._project_buttons[self._current_project].setChecked(True)
+        elif PROJECT_HANDLERS:
+            first_project = next(iter(PROJECT_HANDLERS))
+            self._project_buttons[first_project].setChecked(True)
+            self._on_project_selected(first_project)
 
     # ---------- 2단: 선택한 프로젝트의 시나리오 목록 ----------
     def _build_scenario_list(self):
@@ -103,6 +124,15 @@ class ScenarioLibraryPage(QWidget):
 
         return add_shadow(card), layout
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        # 다른 화면(특히 "프로젝트 관리"/"시나리오 작성")에서 프로젝트를 추가하거나
+        # 시나리오를 추가/삭제하고 돌아왔을 때도 목록이 최신 상태로 보이도록 이 페이지가
+        # 다시 보일 때마다 새로고침합니다.
+        self._refresh_project_buttons()
+        if self._current_project:
+            self._on_project_selected(self._current_project)
+
     def _on_project_selected(self, proj_name):
         self._current_project = proj_name
         clear_layout(self._scenario_list_layout, keep=2)  # keep=2: 타이틀 + "시나리오 추가" 버튼
@@ -110,6 +140,7 @@ class ScenarioLibraryPage(QWidget):
         self._show_code_placeholder("왼쪽에서 시나리오를 선택하세요.")
 
         module_name, class_name = PROJECT_HANDLERS[proj_name]
+        handler_cls = None
         try:
             module = importlib.import_module(module_name)
             handler_cls = getattr(module, class_name)
@@ -117,32 +148,54 @@ class ScenarioLibraryPage(QWidget):
             self._scenario_list_layout.insertWidget(
                 self._scenario_list_layout.count() - 1, self._build_warning_label(str(e))
             )
-            return
-
-        method_names = [
-            name for name, value in vars(handler_cls).items()
-            if not name.startswith("_") and callable(value)
-        ]
-        if not method_names:
-            self._scenario_list_layout.insertWidget(
-                self._scenario_list_layout.count() - 1, self._build_warning_label("등록된 시나리오가 없습니다.")
-            )
-            return
 
         group = QButtonGroup(self._scenario_list_card)
         group.setExclusive(True)
-        for name in method_names:
-            label = SCENARIO_LABELS.get(name, name)
-            btn = TogglePushButton(label)
-            btn.setFont(kfont(11, True))
-            btn.setFixedHeight(30)
-            btn.setCursor(Qt.PointingHandCursor)
-            btn.clicked.connect(
-                lambda checked=False, p=proj_name, n=name: self._on_scenario_selected(p, n)
+
+        method_names = []
+        if handler_cls is not None:
+            method_names = [
+                name for name, value in vars(handler_cls).items()
+                if not name.startswith("_") and callable(value)
+            ]
+            if method_names:
+                self._scenario_list_layout.insertWidget(
+                    self._scenario_list_layout.count() - 1, self._build_section_header("핸들러")
+                )
+            for name in method_names:
+                label = SCENARIO_LABELS.get(name, name)
+                btn = TogglePushButton(label)
+                btn.setFont(kfont(11, True))
+                btn.setFixedHeight(30)
+                btn.setCursor(Qt.PointingHandCursor)
+                btn.clicked.connect(
+                    lambda checked=False, p=proj_name, n=name: self._on_scenario_selected(p, n)
+                )
+                group.addButton(btn)
+                self._scenario_list_layout.insertWidget(self._scenario_list_layout.count() - 1, btn)
+                self._scenario_buttons[name] = btn
+
+        builder_scenarios = scenario_store.list_scenarios(proj_name)
+        if builder_scenarios:
+            self._scenario_list_layout.insertWidget(
+                self._scenario_list_layout.count() - 1, self._build_section_header("시나리오")
             )
-            group.addButton(btn)
-            self._scenario_list_layout.insertWidget(self._scenario_list_layout.count() - 1, btn)
-            self._scenario_buttons[name] = btn
+            for name in builder_scenarios:
+                btn = TogglePushButton(name)
+                btn.setFont(kfont(11, True))
+                btn.setFixedHeight(30)
+                btn.setCursor(Qt.PointingHandCursor)
+                btn.clicked.connect(
+                    lambda checked=False, p=proj_name, n=name: self._on_builder_scenario_selected(p, n)
+                )
+                group.addButton(btn)
+                self._scenario_list_layout.insertWidget(self._scenario_list_layout.count() - 1, btn)
+                self._scenario_buttons[f"__builder__{name}"] = btn
+
+        if not method_names and not builder_scenarios:
+            self._scenario_list_layout.insertWidget(
+                self._scenario_list_layout.count() - 1, self._build_warning_label("등록된 시나리오가 없습니다.")
+            )
 
     def _on_add_scenario_clicked(self):
         proj_name = self._current_project
@@ -225,6 +278,13 @@ class ScenarioLibraryPage(QWidget):
         lbl.setStyleSheet(f"color:{Palette.danger};")
         return lbl
 
+    @staticmethod
+    def _build_section_header(text):
+        lbl = QLabel(text)
+        lbl.setFont(kfont(10, True))
+        lbl.setStyleSheet(f"color:{Palette.text_sub}; padding-top:6px;")
+        return lbl
+
     # ---------- 3단: 코드 보기 / 수정 ----------
     def _build_code_panel(self):
         card = styled(QFrame(), card_css())
@@ -238,6 +298,14 @@ class ScenarioLibraryPage(QWidget):
         self._code_title_lbl.setStyleSheet(f"color:{Palette.text_main};")
         header.addWidget(self._code_title_lbl)
         header.addStretch(1)
+
+        self._btn_edit_in_builder = make_button(
+            "시나리오 작성에서 편집", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover,
+            height=30, icon_name="fa5s.edit",
+        )
+        self._btn_edit_in_builder.clicked.connect(self._open_current_builder_scenario_for_edit)
+        self._btn_edit_in_builder.setVisible(False)
+        header.addWidget(self._btn_edit_in_builder)
 
         self._btn_save = PrimaryPushButton("저장")
         self._btn_save.setFixedHeight(30)
@@ -275,6 +343,8 @@ class ScenarioLibraryPage(QWidget):
 
     def _show_code_placeholder(self, message):
         self._current = None
+        self._current_builder_scenario_name = None
+        self._btn_edit_in_builder.setVisible(False)
         self._code_title_lbl.setText("코드")
         self._code_edit.setReadOnly(True)
         self._code_edit.setPlainText(message)
@@ -282,6 +352,9 @@ class ScenarioLibraryPage(QWidget):
         self._status_lbl.setText("")
 
     def _on_scenario_selected(self, proj_name, method_name):
+        self._current_builder_scenario_name = None
+        self._btn_edit_in_builder.setVisible(False)
+
         module_name, class_name = PROJECT_HANDLERS[proj_name]
         try:
             module = importlib.import_module(module_name)
@@ -300,6 +373,31 @@ class ScenarioLibraryPage(QWidget):
         self._code_edit.setReadOnly(False)
         self._btn_save.setEnabled(True)
         self._status_lbl.setText(file_path)
+
+    def _on_builder_scenario_selected(self, proj_name, name):
+        steps = scenario_store.list_scenarios(proj_name).get(name)
+        if steps is None:
+            self._show_code_placeholder(f"⚠️ 시나리오를 찾을 수 없습니다: {name}")
+            return
+
+        self._current = None  # 코드 파일이 아니라 "저장"으로 덮어쓸 대상이 없음
+        self._current_builder_scenario_name = name
+        self._btn_edit_in_builder.setVisible(True)
+        self._code_title_lbl.setText(f"{proj_name} - {name} (시나리오 작성)")
+        lines = [f"# '{name}'은 시나리오 작성 화면에서 객체 기반으로 만든 시나리오입니다.\n",
+                 "# 위의 '시나리오 작성에서 편집' 버튼을 누르면 바로 수정할 수 있습니다.\n\n"]
+        for i, step in enumerate(steps, 1):
+            lines.append(f"{i}. {ScenarioBuilderPage._step_label(step)}\n")
+        self._code_edit.setPlainText("".join(lines))
+        self._code_edit.setReadOnly(True)
+        self._btn_save.setEnabled(False)
+        self._status_lbl.setText("'시나리오 작성에서 편집' 버튼으로 바로 수정할 수 있습니다.")
+
+    def _open_current_builder_scenario_for_edit(self):
+        if not self._current_project or not self._current_builder_scenario_name:
+            return
+        if self.on_edit_builder_scenario:
+            self.on_edit_builder_scenario(self._current_project, self._current_builder_scenario_name)
 
     def _save_current_scenario(self):
         if not self._current:

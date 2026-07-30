@@ -3,7 +3,7 @@ import os
 import math
 import random
 
-from PySide6.QtCore import Qt, QObject, Signal, QTimer, QSize
+from PySide6.QtCore import Qt, QObject, Signal, QTimer, QSize, QRectF
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -14,22 +14,22 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 import qtawesome as qta
-from qfluentwidgets import PushButton
+from qfluentwidgets import PushButton, PrimaryPushButton
 
 
 # ==========================================
-# 🎨 [iOS System Palette]
+# 🎨 [Deep Indigo Palette]
 # ==========================================
 class Palette:
-    bg = "#F9F6F0"
-    panel = "#FDFBF7"
-    border = "#F4F1EB"
+    bg = "#F5F6F8"
+    panel = "#FFFFFF"
+    border = "#E5E7EB"
     text_main = "#1C1C1E"
-    text_sub = "#8E8E93"
-    blue = "#0052CC"
-    blue_hover = "#0065FF"
-    accent = "#1A1A1D"
-    accent_hover = "#333336"
+    text_sub = "#6B7280"
+    blue = "#2563EB"
+    blue_hover = "#1D4ED8"
+    accent = "#4F46E5"
+    accent_hover = "#4338CA"
     orange = "#FF9500"
     orange_hover = "#DB7F00"
     danger = "#FF3B30"
@@ -39,8 +39,8 @@ class Palette:
     tint_blue_hover = "#D2DAE9"
     tint_orange_bg = "#FFF1DC"
     tint_orange_hover = "#FFE6BF"
-    neutral_bg = "#F4F1EB"
-    neutral_hover = "#EAE3D5"
+    neutral_bg = "#EEF0F4"
+    neutral_hover = "#E2E5EC"
     radius = 10
 
 
@@ -61,6 +61,11 @@ FONT_SCALE = 0.85
 def kfont(size, bold=False):
     f = QFont("Pretendard", max(8, round(size * FONT_SCALE)))
     f.setBold(bold)
+    # Pretendard-Regular.otf는 자체 힌팅 명령이 없는 CFF 윤곽선이라, 작은 크기에서
+    # "그"의 "ㅡ" 같은 얇은 가로 획이 그리드 피팅 과정에서 통째로 사라지는 문제가
+    # 있었습니다. 품질 우선 안티앨리어싱 전략을 강제해 얇은 획이 픽셀 격자에 걸려도
+    # 없어지지 않고 흐리게라도 남도록 합니다.
+    f.setStyleStrategy(QFont.PreferAntialias | QFont.PreferQuality)
     return f
 
 
@@ -107,10 +112,42 @@ def btn_css(bg, fg, hover, radius=Palette.radius, disabled_bg="#F2F2F7", disable
     )
 
 
+def _paint_centered_icon(self, e):
+    """텍스트 없이 아이콘만 있는 버튼용 paintEvent. qfluentwidgets PushButton의 기본
+    아이콘 위치 계산식이 아이콘 뒤에 텍스트가 붙는 상황을 가정하고 있어서, 텍스트가
+    없으면 버튼 폭을 아무리 조정해도 아이콘이 항상 왼쪽으로 살짝 치우쳐 보입니다.
+    버튼 정중앙 좌표를 직접 계산해서 그립니다."""
+    QPushButton.paintEvent(self, e)
+    if self.icon().isNull():
+        return
+
+    painter = QPainter(self)
+    painter.setRenderHints(QPainter.Antialiasing | QPainter.SmoothPixmapTransform)
+    if not self.isEnabled():
+        painter.setOpacity(0.3628)
+    elif self.isPressed:
+        painter.setOpacity(0.786)
+
+    w, h = self.iconSize().width(), self.iconSize().height()
+    x = (self.width() - w) / 2
+    y = (self.height() - h) / 2
+    self._drawIcon(self._icon, painter, QRectF(x, y, w, h))
+
+
+class _CenteredIconButton(PushButton):
+    """텍스트 없이 아이콘만 있는 PushButton용 (make_button()이 자동으로 골라 씁니다)."""
+    paintEvent = _paint_centered_icon
+
+
+class CenteredIconPrimaryButton(PrimaryPushButton):
+    """텍스트 없이 아이콘만 있는 PrimaryPushButton용 (예: 원형 뱃지 버튼)."""
+    paintEvent = _paint_centered_icon
+
+
 def make_button(text, bg, fg, hover, height=26, radius=Palette.radius, icon_name=None, icon_size=14):
     """bg/hover/radius는 옛 QSS 버튼과의 시그니처 호환을 위해 남아있을 뿐, 실제 배경/테두리는
     이제 Fluent 기본 PushButton 스타일을 그대로 씁니다(fg는 아이콘 색상에만 씁니다)."""
-    btn = PushButton(text)
+    btn = _CenteredIconButton(text) if (icon_name and not text) else PushButton(text)
     btn.setFixedHeight(height)
     btn.setFont(kfont(11, True))
     btn.setCursor(Qt.PointingHandCursor)
@@ -168,9 +205,11 @@ class SegmentedButton(QWidget):
 
     changed = Signal(str)
 
-    def __init__(self, values, selected_color=Palette.neutral_hover, height=23, font=None, parent=None):
+    def __init__(self, values, selected_color=Palette.neutral_hover, selected_text_color=None,
+                 height=23, font=None, parent=None):
         super().__init__(parent)
         self._selected_color = selected_color
+        self._selected_text_color = selected_text_color or Palette.text_main
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(3)
@@ -197,7 +236,7 @@ class SegmentedButton(QWidget):
         for btn in self._buttons.values():
             if btn.isChecked():
                 btn.setStyleSheet(
-                    f"QPushButton {{ background-color:{self._selected_color}; color:{Palette.text_main}; "
+                    f"QPushButton {{ background-color:{self._selected_color}; color:{self._selected_text_color}; "
                     f"border:none; border-radius:3px; font-weight:600; }}"
                 )
             else:

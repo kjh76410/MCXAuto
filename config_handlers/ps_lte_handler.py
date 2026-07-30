@@ -437,3 +437,309 @@ class PsLteHandler:
 
         except Exception as e:
             print_log(f"❌ '{target_info}' 메시지 전송 중 오류 발생: {e}")
+
+    # ==========================================
+    # 🚨 비상(방송) 메시지 발신용 함수 (UIAutomator2 기반)
+    # ==========================================
+    def send_emergency_message(self, d, target_info, message_text=None, seq_no=None, seq_total=None, log_console=None):
+        """target_info(그룹명)로 비상(방송) 메시지를 전송합니다.
+
+        화면 이동 로직은 send_message와 동일하게 SmsChatActivity(그룹 대화 화면)까지
+        이동합니다. 그 화면에서 sms_chat_broadcast_message_button 토글의 checked 상태를
+        보고, 꺼져 있으면 먼저 눌러서 켠 뒤에 메시지를 입력/전송합니다(이미 켜져 있으면
+        바로 입력/전송).
+        """
+        if message_text is None:
+            message_text = random.choice(TEST_MESSAGE_POOL)
+        if seq_no is not None and seq_total is not None:
+            message_text = f"{message_text} ({seq_no}/{seq_total})"
+
+        def print_log(msg):
+            print(msg)
+            if log_console:
+                log_console.insert("end", f"{msg}\n")
+                log_console.see("end")
+
+        def go_home():
+            home_marker = d(resourceId="com.EveryTalk.Global:id/layout_main_menu_sms")
+            for i in range(5):
+                if home_marker.exists:
+                    return True
+                print_log(f"🔙 홈 화면을 찾기 위해 뒤로가기를 누릅니다. ({i + 1}/5)")
+                d.press("back")
+                time.sleep(1.0)
+            return home_marker.exists
+
+        def ensure_broadcast_mode():
+            """비상(방송) 토글 버튼을 찾아 꺼져 있으면 켭니다. 대화가 아예 없던 그룹은
+            새 메시지 작성 화면(SmsChatActivity가 아님)으로 빠져서 이 버튼 자체가 없을 수
+            있어, 그 경우엔 경고만 남기고 일반 메시지로라도 전송을 이어갑니다."""
+            broadcast_btn = d(resourceId="com.EveryTalk.Global:id/sms_chat_broadcast_message_button")
+            if not broadcast_btn.exists:
+                print_log("⚠️ 비상(방송) 버튼을 화면에서 찾지 못했습니다. 일반 메시지로 진행합니다.")
+                return False
+
+            if broadcast_btn.info.get("checked"):
+                print_log("✅ 비상(방송) 모드가 이미 켜져 있습니다.")
+            else:
+                print_log("🚨 비상(방송) 모드를 켭니다.")
+                broadcast_btn.click()
+                time.sleep(0.5)
+            return True
+
+        print_log(f"\n[Emergency Message] 🚨 '{target_info}' 그룹에 비상 메시지 전송을 시도합니다.")
+
+        try:
+            d.app_start("com.EveryTalk.Global", stop=False)
+            time.sleep(1.5)
+
+            already_in_group = d.xpath(
+                f'//*[@resource-id="com.EveryTalk.Global:id/action_bar_container"]//*[@text="{target_info}"]'
+            ).exists
+
+            if already_in_group:
+                print_log(f"✅ 이미 '{target_info}' 대화 화면입니다. 화면 이동 없이 바로 진행합니다.")
+
+                msg_input = d(resourceId="com.EveryTalk.Global:id/sms_view_msginputbox")
+                send_btn = d(resourceId="com.EveryTalk.Global:id/sms_view_msgsendbutton")
+                if not msg_input.exists or not send_btn.exists:
+                    print_log("❌ 대화 화면의 입력창/전송버튼을 찾지 못했습니다.")
+                    return
+
+                ensure_broadcast_mode()
+
+                msg_input.click()
+                msg_input.set_text(message_text)
+                print_log(f"✏️ 메시지 입력 완료: '{message_text}'")
+
+                send_btn.click()
+                print_log("📤 전송 버튼을 눌렀습니다.")
+                print_log(f"✅ '{target_info}' 비상 메시지 전송 시나리오 완료!")
+                return
+
+            if not go_home():
+                print_log("❌ 홈 화면을 찾지 못해 메시지 화면으로 진입할 수 없습니다.")
+                return
+
+            d(resourceId="com.EveryTalk.Global:id/layout_main_menu_sms").click()
+            time.sleep(2.0)
+
+            sms_name_item = d(
+                resourceId="com.EveryTalk.Global:id/sms_name", text=target_info
+            )
+
+            if sms_name_item.exists:
+                print_log(f"✅ 메시지 목록에서 '{target_info}' 대화를 찾았습니다. 바로 엽니다.")
+                sms_name_item.click()
+                time.sleep(1.0)
+
+                msg_input = d(resourceId="com.EveryTalk.Global:id/sms_view_msginputbox")
+
+                ensure_broadcast_mode()
+
+                msg_input.click()
+                msg_input.set_text(message_text)
+                print_log(f"✏️ 메시지 입력 완료: '{message_text}'")
+
+                send_btn = d(resourceId="com.EveryTalk.Global:id/sms_view_msgsendbutton")
+                send_btn.click()
+                print_log("📤 전송 버튼을 눌렀습니다.")
+
+            else:
+                print_log(f"🔍 메시지 목록에 없어 채널 목록에서 '{target_info}'를 찾습니다.")
+
+                if not go_home():
+                    print_log("❌ 홈 화면을 찾지 못해 채널 목록으로 진입할 수 없습니다.")
+                    return
+
+                d(resourceId="com.EveryTalk.Global:id/layout_main_menu_private").click()
+                time.sleep(2.0)
+
+                if not d(text=target_info).exists:
+                    print_log(f"📜 화면에 안 보여서 스크롤하며 '{target_info}'를 찾습니다.")
+                    d(scrollable=True).scroll.to(text=target_info)
+                    time.sleep(0.5)
+
+                group_item = d(text=target_info)
+                if not group_item.exists:
+                    print_log(f"❌ '{target_info}' 그룹을 채널 목록에서 찾지 못했습니다.")
+                    return
+
+                more_btn = group_item.right(
+                    resourceId="com.EveryTalk.Global:id/btn_more"
+                )
+                if not more_btn.exists:
+                    print_log(f"❌ '{target_info}'의 더보기(btn_more) 버튼을 찾지 못했습니다.")
+                    return
+
+                more_btn.click()
+                time.sleep(0.5)
+
+                send_sms_btn = d(resourceId="com.EveryTalk.Global:id/group_sms_send")
+                if not send_sms_btn.exists:
+                    print_log("❌ group_sms_send 버튼을 찾지 못했습니다.")
+                    return
+
+                send_sms_btn.click()
+                time.sleep(1.0)
+
+                # 대화가 아예 없던 그룹은 여기서 새 메시지 작성 화면으로 진입하는데,
+                # 이 화면엔 비상(방송) 버튼이 없을 수 있습니다(있으면 켜고, 없으면 경고 후 진행).
+                ensure_broadcast_mode()
+
+                new_msg_input = d(resourceId="com.EveryTalk.Global:id/sms_new_message")
+                new_msg_input.click()
+                new_msg_input.set_text(message_text)
+                print_log(f"✏️ 새 메시지 입력 완료: '{message_text}'")
+
+                new_send_btn = d(resourceId="com.EveryTalk.Global:id/sms_new_send_btn")
+                new_send_btn.click()
+                print_log("📤 전송 버튼을 눌렀습니다.")
+
+            print_log(f"✅ '{target_info}' 비상 메시지 전송 시나리오 완료!")
+
+        except Exception as e:
+            print_log(f"❌ '{target_info}' 비상 메시지 전송 중 오류 발생: {e}")
+
+    # ==========================================
+    # 📎 첨부파일 메시지 발신용 함수 (UIAutomator2 기반)
+    # ==========================================
+    def send_attachment_message(self, d, target_info, message_text=None, seq_no=None, seq_total=None, log_console=None):
+        """target_info(그룹명)에 첨부파일 메시지를 전송합니다.
+
+        반드시 SmsChatActivity(그룹 대화 화면)에서 시작해야 합니다 - 첨부 옵션 패널은
+        이 화면에서만 뜨고, 대화가 아예 없어서 새 메시지 작성 화면(sms_new_message)으로
+        빠지는 경로에는 없습니다. 화면 이동 자체는 send_message와 동일합니다.
+
+        입력창이 비어있는 채로 sms_view_msgsendbutton을 누르면 첨부 옵션 패널이 열리고,
+        그 안에 5개 버튼이 있습니다:
+            layout_image_send_btn        이미지
+            layout_recorded_list_btn     녹취 파일
+            layout_camera_capture_btn    사진 촬영
+            layout_camera_video_btn      동영상 촬영
+            layout_file_select_btn       파일
+        지금은 이미지만 구현했고(항상 layout_image_send_btn을 선택), 나머지는 같은
+        방식으로 resourceId만 바꿔서 이어서 추가하면 됩니다. 이미지 선택 후 다시
+        sms_view_msgsendbutton을 눌러 전송을 확정합니다.
+        """
+
+        def print_log(msg):
+            print(msg)
+            if log_console:
+                log_console.insert("end", f"{msg}\n")
+                log_console.see("end")
+
+        def go_home():
+            home_marker = d(resourceId="com.EveryTalk.Global:id/layout_main_menu_sms")
+            for i in range(5):
+                if home_marker.exists:
+                    return True
+                print_log(f"🔙 홈 화면을 찾기 위해 뒤로가기를 누릅니다. ({i + 1}/5)")
+                d.press("back")
+                time.sleep(1.0)
+            return home_marker.exists
+
+        def open_chat_screen():
+            """target_info 그룹의 SmsChatActivity(대화 화면)까지 이동합니다.
+            첨부 패널은 이 화면에서만 뜨므로, 성공적으로 도착했을 때만 True를 돌려줍니다."""
+            already_in_group = d.xpath(
+                f'//*[@resource-id="com.EveryTalk.Global:id/action_bar_container"]//*[@text="{target_info}"]'
+            ).exists
+            if already_in_group:
+                print_log(f"✅ 이미 '{target_info}' 대화 화면입니다. 화면 이동 없이 바로 진행합니다.")
+                return True
+
+            if not go_home():
+                print_log("❌ 홈 화면을 찾지 못해 메시지 화면으로 진입할 수 없습니다.")
+                return False
+
+            d(resourceId="com.EveryTalk.Global:id/layout_main_menu_sms").click()
+            time.sleep(2.0)
+
+            sms_name_item = d(resourceId="com.EveryTalk.Global:id/sms_name", text=target_info)
+            if sms_name_item.exists:
+                print_log(f"✅ 메시지 목록에서 '{target_info}' 대화를 찾았습니다. 바로 엽니다.")
+                sms_name_item.click()
+                time.sleep(1.0)
+                return True
+
+            print_log(f"🔍 메시지 목록에 없어 채널 목록에서 '{target_info}'를 찾습니다.")
+            if not go_home():
+                print_log("❌ 홈 화면을 찾지 못해 채널 목록으로 진입할 수 없습니다.")
+                return False
+
+            d(resourceId="com.EveryTalk.Global:id/layout_main_menu_private").click()
+            time.sleep(2.0)
+
+            if not d(text=target_info).exists:
+                print_log(f"📜 화면에 안 보여서 스크롤하며 '{target_info}'를 찾습니다.")
+                d(scrollable=True).scroll.to(text=target_info)
+                time.sleep(0.5)
+
+            group_item = d(text=target_info)
+            if not group_item.exists:
+                print_log(f"❌ '{target_info}' 그룹을 채널 목록에서 찾지 못했습니다.")
+                return False
+
+            more_btn = group_item.right(resourceId="com.EveryTalk.Global:id/btn_more")
+            if not more_btn.exists:
+                print_log(f"❌ '{target_info}'의 더보기(btn_more) 버튼을 찾지 못했습니다.")
+                return False
+
+            more_btn.click()
+            time.sleep(0.5)
+
+            send_sms_btn = d(resourceId="com.EveryTalk.Global:id/group_sms_send")
+            if not send_sms_btn.exists:
+                print_log("❌ group_sms_send 버튼을 찾지 못했습니다.")
+                return False
+
+            send_sms_btn.click()
+            time.sleep(1.0)
+
+            # 대화가 아예 없던 그룹은 여기서 SmsChatActivity가 아니라 새 메시지 작성
+            # 화면(sms_new_message)으로 빠지는데, 첨부 패널 버튼은 SmsChatActivity 전용이라
+            # 이 경로로는 첨부 전송을 진행할 수 없습니다.
+            if not d(resourceId="com.EveryTalk.Global:id/sms_view_msgsendbutton").exists:
+                print_log("❌ 대화가 없던 그룹이라 SmsChatActivity(첨부 가능 화면)로 진입하지 못했습니다.")
+                return False
+            return True
+
+        print_log(f"\n[Attachment] 📎 '{target_info}' 그룹에 첨부파일(이미지) 전송을 시도합니다.")
+
+        try:
+            d.app_start("com.EveryTalk.Global", stop=False)
+            time.sleep(1.5)
+
+            if not open_chat_screen():
+                return
+
+            send_btn = d(resourceId="com.EveryTalk.Global:id/sms_view_msgsendbutton")
+            if not send_btn.exists:
+                print_log("❌ sms_view_msgsendbutton 버튼을 찾지 못했습니다.")
+                return
+
+            print_log("📎 첨부 옵션 패널을 엽니다.")
+            send_btn.click()
+            time.sleep(1.0)
+
+            image_btn = d(resourceId="com.EveryTalk.Global:id/layout_image_send_btn")
+            if not image_btn.exists:
+                print_log("❌ layout_image_send_btn(이미지) 버튼을 찾지 못했습니다.")
+                return
+
+            print_log("🖼️ 이미지 버튼을 선택합니다.")
+            image_btn.click()
+            time.sleep(1.0)
+
+            send_btn = d(resourceId="com.EveryTalk.Global:id/sms_view_msgsendbutton")
+            if not send_btn.exists:
+                print_log("❌ 전송 버튼을 찾지 못했습니다.")
+                return
+
+            send_btn.click()
+            print_log("📤 전송 버튼을 눌렀습니다.")
+            print_log(f"✅ '{target_info}' 첨부파일 전송 시나리오 완료!")
+
+        except Exception as e:
+            print_log(f"❌ '{target_info}' 첨부파일 전송 중 오류 발생: {e}")

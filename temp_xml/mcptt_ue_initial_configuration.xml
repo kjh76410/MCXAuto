@@ -1,13 +1,13 @@
 <?xml version='1.0' encoding='UTF-8' standalone='no' ?>
 <mcptt-UE-initial-configuration xmlns="urn:3gpp:mcptt:mcpttUEinitConfig:1.0" domain="ims.mnc030.mcc450.3gppnetwork.org">
   <name xml:lang="en">mcptt ue init config</name>
-  <Default-user-profile User-ID="mcptt" user-profile-index="1" index="191bd012-02e5-41b4-9326-1d884ed22e75" />
+  <Default-user-profile User-ID="mcptt" user-profile-index="191bd012-02e5-41b4-9326-1d884ed22e75" index="1" />
   <on-network>
     <Timers>
-      <T4>0</T4>
+      <T4>7200</T4>
       <T100>0</T100>
       <T101>0</T101>
-      <T103>0</T103>
+      <T103>8000</T103>
       <T104>0</T104>
       <T132>0</T132>
       <T203>15</T203>
@@ -30,7 +30,7 @@
       <csctlsport>4420</csctlsport>
       <usedcsctls>true</usedcsctls>
       <pcscf1>2001:4200:110:1000:721::11</pcscf1>
-      <pcscf2>2001:4200:210:1000:721::11</pcscf2>
+      <pcscf2></pcscf2>
       <pcscfport>5080</pcscfport>
       <usedpcopcscf>true</usedpcopcscf>
       <registerexpire>600000</registerexpire>
@@ -39,7 +39,7 @@
       <ipsecenabled>true</ipsecenabled>
       <sleepmodeenabled>true</sleepmodeenabled>
       <reg-retry-after>0</reg-retry-after>
-      <useragent>PS-LTE/1.2.3 VM65PS/DB260720 Device_Type/Android_Phone PS-LTE</useragent>
+      <useragent>PS-LTE/1.2.3 VM65PS/JH01 Device_Type/Android_Phone PS-LTE</useragent>
       <idmsid>450300010018667</idmsid>
       <idmspw>eDh5TwFdLUVp8_JLB5VHVq48opIjQsiNaTWn7867wKI</idmspw>
       <public-user-identity>sip:+821352001413@ims.mnc030.mcc450.3gppnetwork.org</public-user-identity>
@@ -59,7 +59,7 @@
       <mbms-public-service-identity>sip:mcs-embms@mcptt.safetynet.or.kr</mbms-public-service-identity>
       <cms-public-service-identity>sip:cms1_psi@ptt.mnc030.mcc450.3gppnetwork.org</cms-public-service-identity>
       <gms-public-service-identity>sip:gms1_psi@ptt.mnc030.mcc450.3gppnetwork.org</gms-public-service-identity>
-      <use-wifirouter>true</use-wifirouter>
+      <use-wifirouter>false</use-wifirouter>
       <use-wifirouter-ll>-110</use-wifirouter-ll>
       <use-wifirouter-ww>-75</use-wifirouter-ww>
       <use-wifirouter-lw-interval>3</use-wifirouter-lw-interval>

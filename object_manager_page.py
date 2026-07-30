@@ -2,8 +2,8 @@ import re
 import xml.etree.ElementTree as ET
 from io import BytesIO
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QPainter, QPen, QPixmap
+from PySide6.QtCore import Qt, QSize, Signal
+from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QButtonGroup,
     QFrame,
@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMessageBox,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -22,9 +23,37 @@ import qtawesome as qta
 
 import object_store
 from device_panel import PROJECT_HANDLERS
-from ui_common import Palette, add_shadow, card_css, kfont, styled
+from ui_common import Palette, add_shadow, card_css, clear_layout, kfont, make_button, styled
 
 BOUNDS_RE = re.compile(r"\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]")
+
+
+class ScreenLabel(QLabel):
+    """미러링된 단말 화면을 보여주는 라벨. 화면 위 클릭 좌표를
+    원본 스크린샷(=계층 덤프) 좌표로 변환해 clicked 시그널로 알려준다."""
+
+    clicked = Signal(int, int)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._orig_size = None
+
+    def set_orig_size(self, width, height):
+        self._orig_size = (width, height)
+
+    def mousePressEvent(self, event):
+        pixmap = self.pixmap()
+        if event.button() == Qt.LeftButton and self._orig_size and pixmap and pixmap.width() > 0:
+            disp_w, disp_h = pixmap.width(), pixmap.height()
+            scale = self._orig_size[0] / disp_w
+            offset_x = (self.width() - disp_w) / 2
+            offset_y = (self.height() - disp_h) / 2
+            pos = event.position().toPoint()
+            x = (pos.x() - offset_x) * scale
+            y = (pos.y() - offset_y) * scale
+            if 0 <= x <= self._orig_size[0] and 0 <= y <= self._orig_size[1]:
+                self.clicked.emit(int(x), int(y))
+        super().mousePressEvent(event)
 
 
 class ObjectManagerPage(QWidget):
@@ -45,24 +74,34 @@ class ObjectManagerPage(QWidget):
         self._selected_node = None
         self._current_project = None
         self._project_buttons = {}
+        self._saved_checkboxes = {}
 
         outer = QHBoxLayout(self)
         outer.setContentsMargins(16, 16, 16, 16)
         outer.setSpacing(16)
 
-        outer.addWidget(self._build_project_list(), 2)
-        outer.addWidget(self._build_inspector_panel(), 5)
-        outer.addWidget(self._build_detail_and_saved_panel(), 3)
+        # 프로젝트 목록을 마지막에 만드는 이유: 그 안에서 첫 프로젝트를 자동 선택하며
+        # _refresh_saved_list() 등이 다른 패널의 위젯(_saved_list 등)을 바로 건드리는데,
+        # 그 위젯들은 아래 두 패널을 먼저 만들어야 존재합니다. 화면상 배치는 addWidget
+        # 순서(project -> inspector -> detail)로 그대로 유지됩니다.
+        inspector_panel = self._build_inspector_panel()
+        detail_panel = self._build_detail_and_saved_panel()
+        project_list = self._build_project_list()
 
-        if PROJECT_HANDLERS:
-            first_project = next(iter(PROJECT_HANDLERS))
-            self._project_buttons[first_project].setChecked(True)
-            self._on_project_selected(first_project)
+        outer.addWidget(project_list, 2)
+        outer.addWidget(inspector_panel, 5)
+        outer.addWidget(detail_panel, 3)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # "프로젝트 관리" 화면에서 새 프로젝트를 추가하고 돌아왔을 때도 목록이
+        # 최신 상태로 보이도록 이 화면이 다시 보일 때마다 새로고침합니다.
+        self._refresh_project_buttons()
 
     # ---------- 1단: 프로젝트 목록 ----------
     def _build_project_list(self):
-        card = styled(QFrame(), card_css())
-        layout = QVBoxLayout(card)
+        self._project_list_card = styled(QFrame(), card_css())
+        layout = QVBoxLayout(self._project_list_card)
         layout.setContentsMargins(10, 14, 10, 14)
         layout.setSpacing(6)
 
@@ -71,7 +110,15 @@ class ObjectManagerPage(QWidget):
         title.setStyleSheet(f"color:{Palette.text_sub};")
         layout.addWidget(title)
 
-        group = QButtonGroup(card)
+        self._project_list_layout = layout
+        self._refresh_project_buttons()
+
+        return add_shadow(self._project_list_card)
+
+    def _refresh_project_buttons(self):
+        clear_layout(self._project_list_layout, keep=1)  # keep=1: 타이틀
+        self._project_buttons = {}
+        group = QButtonGroup(self._project_list_card)
         group.setExclusive(True)
         for proj_name in PROJECT_HANDLERS:
             btn = TogglePushButton(proj_name)
@@ -80,11 +127,16 @@ class ObjectManagerPage(QWidget):
             btn.setCursor(Qt.PointingHandCursor)
             btn.clicked.connect(lambda checked=False, p=proj_name: self._on_project_selected(p))
             group.addButton(btn)
-            layout.addWidget(btn)
+            self._project_list_layout.addWidget(btn)
             self._project_buttons[proj_name] = btn
-        layout.addStretch(1)
+        self._project_list_layout.addStretch(1)
 
-        return add_shadow(card)
+        if self._current_project in self._project_buttons:
+            self._project_buttons[self._current_project].setChecked(True)
+        elif PROJECT_HANDLERS:
+            first_project = next(iter(PROJECT_HANDLERS))
+            self._project_buttons[first_project].setChecked(True)
+            self._on_project_selected(first_project)
 
     def _on_project_selected(self, proj_name):
         self._current_project = proj_name
@@ -116,10 +168,10 @@ class ObjectManagerPage(QWidget):
             toolbar.addWidget(btn)
         toolbar.addStretch(1)
 
-        btn_refresh = PrimaryPushButton(qta.icon("fa5s.sync-alt", color="white"), "새로고침")
-        btn_refresh.setFixedHeight(28)
-        btn_refresh.setFont(kfont(11, True))
-        btn_refresh.setCursor(Qt.PointingHandCursor)
+        btn_refresh = make_button(
+            "새로고침", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover,
+            height=28, icon_name="fa5s.sync-alt",
+        )
         btn_refresh.clicked.connect(self._refresh_device)
         toolbar.addWidget(btn_refresh)
         outer.addLayout(toolbar)
@@ -128,12 +180,14 @@ class ObjectManagerPage(QWidget):
         body.setSpacing(10)
         outer.addLayout(body, 1)
 
-        self._screen_lbl = QLabel("새로고침을 눌러 화면을 불러오세요.")
+        self._screen_lbl = ScreenLabel("새로고침을 눌러 화면을 불러오세요.")
         self._screen_lbl.setAlignment(Qt.AlignCenter)
         self._screen_lbl.setStyleSheet(
             f"background-color:#1C1C1E; color:{Palette.text_sub}; border-radius:{Palette.radius}px;"
         )
         self._screen_lbl.setMinimumWidth(300)
+        self._screen_lbl.setCursor(Qt.PointingHandCursor)
+        self._screen_lbl.clicked.connect(self._on_screen_clicked)
         body.addWidget(self._screen_lbl, 5)
 
         list_col = QVBoxLayout()
@@ -186,6 +240,10 @@ class ObjectManagerPage(QWidget):
         name_row = QHBoxLayout()
         self._name_edit = QLineEdit()
         self._name_edit.setPlaceholderText("이 요소에 붙일 이름")
+        self._name_edit.setStyleSheet(
+            f"QLineEdit {{ background-color:#FFFFFF; color:{Palette.text_main}; "
+            f"border:1px solid {Palette.border}; border-radius:6px; padding:4px 8px; }}"
+        )
         name_row.addWidget(self._name_edit, 1)
         layout.addLayout(name_row)
 
@@ -205,12 +263,28 @@ class ObjectManagerPage(QWidget):
         self._saved_list = QListWidget()
         layout.addWidget(self._saved_list, 1)
 
-        btn_delete = PrimaryPushButton(qta.icon("fa5s.trash-alt", color="white"), "선택 삭제")
-        btn_delete.setFixedHeight(28)
-        btn_delete.setFont(kfont(10, True))
-        btn_delete.setCursor(Qt.PointingHandCursor)
+        btn_delete = make_button(
+            "선택 삭제", Palette.danger_bg, Palette.danger, Palette.danger_bg_hover,
+            height=28, icon_name="fa5s.trash-alt",
+        )
         btn_delete.clicked.connect(self._delete_selected_saved_object)
         layout.addWidget(btn_delete)
+
+        copy_move_row = QHBoxLayout()
+        copy_move_row.setSpacing(4)
+        btn_copy = make_button(
+            "다른 프로젝트로 복사", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover,
+            height=28, icon_name="fa5s.copy",
+        )
+        btn_copy.clicked.connect(lambda: self._copy_or_move_selected_saved_object(move=False))
+        btn_move = make_button(
+            "이동", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover,
+            height=28, icon_name="fa5s.share",
+        )
+        btn_move.clicked.connect(lambda: self._copy_or_move_selected_saved_object(move=True))
+        copy_move_row.addWidget(btn_copy, 2)
+        copy_move_row.addWidget(btn_move, 1)
+        layout.addLayout(copy_move_row)
 
         return add_shadow(card)
 
@@ -301,9 +375,26 @@ class ObjectManagerPage(QWidget):
             x1, y1, x2, y2 = highlight
             painter.drawRect(x1, y1, x2 - x1, y2 - y1)
             painter.end()
+        self._screen_lbl.set_orig_size(self._pixmap_orig.width(), self._pixmap_orig.height())
         if pixmap.width() > 380:
             pixmap = pixmap.scaledToWidth(380, Qt.SmoothTransformation)
         self._screen_lbl.setPixmap(pixmap)
+
+    def _on_screen_clicked(self, x, y):
+        candidates = [
+            (i, node)
+            for i, node in enumerate(self._nodes)
+            if node["bounds"][0] <= x <= node["bounds"][2] and node["bounds"][1] <= y <= node["bounds"][3]
+        ]
+        if not candidates:
+            return
+
+        def area(node):
+            x1, y1, x2, y2 = node["bounds"]
+            return (x2 - x1) * (y2 - y1)
+
+        row, _ = min(candidates, key=lambda pair: area(pair[1]))
+        self._list.setCurrentRow(row)
 
     # ---------- 이름 붙여 저장 / 저장된 목록 ----------
     def _save_named_object(self):
@@ -323,19 +414,115 @@ class ObjectManagerPage(QWidget):
         self._refresh_saved_list()
 
     def _refresh_saved_list(self):
+        # QListWidgetItem의 기본 체크 표시가 이 앱의 Fluent 테마 아래에서는 그려지지
+        # 않아서(사실상 안 보임), Group/User List에서 이미 검증된 방식대로 각 행에
+        # 직접 스타일링한 토글 버튼을 체크박스로 붙입니다.
         self._saved_list.clear()
+        self._saved_checkboxes = {}
         if not self._current_project:
             return
         saved = object_store.list_objects(self._current_project)
         for name, node in saved.items():
-            item = QListWidgetItem(f"{name}  —  {node.get('resource_id') or node.get('text') or node.get('class_name')}")
+            hint = node.get("resource_id") or node.get("text") or node.get("class_name") or ""
+
+            item = QListWidgetItem()
             item.setData(Qt.UserRole, name)
             self._saved_list.addItem(item)
 
+            row = QWidget()
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(6, 4, 6, 4)
+            row_layout.setSpacing(8)
+
+            checkbox = QPushButton()
+            checkbox.setCheckable(True)
+            checkbox.setFixedSize(20, 20)
+            checkbox.setCursor(Qt.PointingHandCursor)
+            checkbox.clicked.connect(lambda checked=False, cb=checkbox: self._style_saved_checkbox(cb))
+            self._style_saved_checkbox(checkbox)
+            row_layout.addWidget(checkbox)
+
+            label = QLabel(f"{name}  —  {hint}")
+            label.setFont(kfont(10))
+            label.setStyleSheet(f"color:{Palette.text_main};")
+            row_layout.addWidget(label, 1)
+
+            item.setSizeHint(row.sizeHint())
+            self._saved_list.setItemWidget(item, row)
+            self._saved_checkboxes[name] = checkbox
+
+    @staticmethod
+    def _style_saved_checkbox(checkbox):
+        if checkbox.isChecked():
+            checkbox.setIcon(qta.icon("fa5s.check", color="white"))
+            checkbox.setIconSize(QSize(11, 11))
+            checkbox.setStyleSheet(
+                f"QPushButton {{ background-color:{Palette.text_sub}; border:2px solid {Palette.text_sub}; border-radius:3px; }}"
+            )
+        else:
+            checkbox.setIcon(QIcon())
+            checkbox.setStyleSheet(
+                "QPushButton { background-color:white; border:2px solid #C7C7CC; border-radius:3px; }"
+            )
+
+    def _checked_saved_object_names(self):
+        return [name for name, cb in self._saved_checkboxes.items() if cb.isChecked()]
+
     def _delete_selected_saved_object(self):
-        item = self._saved_list.currentItem()
-        if not item or not self._current_project:
+        if not self._current_project:
             return
-        name = item.data(Qt.UserRole)
-        object_store.delete_object(self._current_project, name)
+        names = self._checked_saved_object_names()
+        if not names:
+            QMessageBox.warning(self, "객체 미선택", "삭제할 객체를 체크박스로 선택해주세요.")
+            return
+        ret = QMessageBox.question(
+            self, "삭제 확인", f"체크한 {len(names)}개 객체를 삭제할까요?",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if ret != QMessageBox.Yes:
+            return
+        for name in names:
+            object_store.delete_object(self._current_project, name)
         self._refresh_saved_list()
+
+    def _copy_or_move_selected_saved_object(self, move):
+        if not self._current_project:
+            return
+        names = self._checked_saved_object_names()
+        if not names:
+            QMessageBox.warning(self, "객체 미선택", "복사/이동할 객체를 체크박스로 선택해주세요.")
+            return
+
+        targets = [p for p in PROJECT_HANDLERS if p != self._current_project]
+        if not targets:
+            QMessageBox.information(self, "대상 없음", "복사/이동할 다른 프로젝트가 없습니다.")
+            return
+
+        action_label = "이동" if move else "복사"
+        target, ok = QInputDialog.getItem(
+            self, "대상 프로젝트 선택",
+            f"체크한 {len(names)}개 객체를 어느 프로젝트로 {action_label}할까요?",
+            targets, 0, False,
+        )
+        if not ok or not target:
+            return
+
+        existing = object_store.list_objects(target)
+        duplicates = [name for name in names if name in existing]
+        if duplicates:
+            ret = QMessageBox.question(
+                self, "이름 중복",
+                f"'{target}' 프로젝트에 이미 있는 객체 {len(duplicates)}개({', '.join(duplicates)})를 덮어쓸까요?",
+                QMessageBox.Yes | QMessageBox.No,
+            )
+            if ret != QMessageBox.Yes:
+                return
+
+        for name in names:
+            if move:
+                object_store.move_object(self._current_project, target, name)
+            else:
+                object_store.copy_object(self._current_project, target, name)
+
+        self._refresh_saved_list()
+        QMessageBox.information(self, "완료", f"{len(names)}개 객체를 '{target}' 프로젝트로 {action_label}했습니다.")

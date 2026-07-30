@@ -1,0 +1,29 @@
+{
+  "재난망": {
+    "00": [
+      {
+        "action": "click",
+        "object": "MCPTT",
+        "value": ""
+      },
+      {
+        "action": "wait_exists",
+        "object": "메시지",
+        "value": ""
+      }
+    ],
+    "123": [
+      {
+        "action": "wait_exists",
+        "object": "메시지",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "MCPTT",
+        "value": ""
+      }
+    ]
+  },
+  "CTB_POC": {}
+}

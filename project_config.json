@@ -1,9 +1,11 @@
 {
     "projects": [
         {
-            "keyword": "PTA",
-            "project_name": "PTA",
+            "keyword": "PSP.R",
+            "project_name": "재난망",
             "per_group_emergency_call": true,
+            "handler_module": "config_handlers.ps_lte_handler",
+            "handler_class": "PsLteHandler",
             "features": {
                 "group_call": {
                     "regroup": 0,
@@ -11,11 +13,8 @@
                     "chat": 0
                 },
                 "private_call": {
-                    "emergency_ptt": "0",
-                    "emergency_ptv": "0",
-                    "ptt": 1,
-                    "ptv": 1,
-                    "without_floor_control": 1,
+                    "normal": 0,
+                    "without_floor_control": 0,
                     "mcvideo_push": 0,
                     "mcvideo_pull": 0,
                     "first_answer": 0
@@ -23,7 +22,35 @@
                 "message": {
                     "normal": 1,
                     "emergency": 1,
-                    "pre_defined": 1,
+                    "pre_defined": 0,
+                    "canned": 1,
+                    "attachment": 1
+                }
+            }
+        },
+        {
+            "keyword": "STT",
+            "project_name": "재난망_LM75",
+            "per_group_emergency_call": true,
+            "handler_module": "config_handlers.ps_lte_lm75_handler",
+            "handler_class": "PsLteLm75Handler",
+            "features": {
+                "group_call": {
+                    "regroup": 0,
+                    "prearranged": 1,
+                    "chat": 0
+                },
+                "private_call": {
+                    "normal": 0,
+                    "without_floor_control": 0,
+                    "mcvideo_push": 0,
+                    "mcvideo_pull": 0,
+                    "first_answer": 0
+                },
+                "message": {
+                    "normal": 1,
+                    "emergency": 1,
+                    "pre_defined": 0,
                     "canned": 1,
                     "attachment": 1
                 }
@@ -33,6 +60,8 @@
             "keyword": "CTB.R",
             "project_name": "CTB_POC",
             "per_group_emergency_call": false,
+            "handler_module": "config_handlers.ctb_poc_handler",
+            "handler_class": "CTB_POCHandler",
             "features": {
                 "group_call": {
                     "regroup": 1,
@@ -60,6 +89,8 @@
             "keyword": "Con.R",
             "project_name": "450connect",
             "per_group_emergency_call": false,
+            "handler_module": "config_handlers.connect450_handler",
+            "handler_class": "Connect450Handler",
             "db_config": {
                 "host": "192.168.11.113",
                 "user": "cybertel",
@@ -68,8 +99,8 @@
             }
         },
         {
-            "keyword": "PSP.R",
-            "project_name": "재난망",
+            "keyword": "PTA",
+            "project_name": "PTA",
             "per_group_emergency_call": true,
             "features": {
                 "group_call": {
@@ -78,8 +109,11 @@
                     "chat": 0
                 },
                 "private_call": {
-                    "normal": 0,
-                    "without_floor_control": 0,
+                    "emergency_ptt": "0",
+                    "emergency_ptv": "0",
+                    "ptt": 1,
+                    "ptv": 1,
+                    "without_floor_control": 1,
                     "mcvideo_push": 0,
                     "mcvideo_pull": 0,
                     "first_answer": 0
@@ -87,33 +121,7 @@
                 "message": {
                     "normal": 1,
                     "emergency": 1,
-                    "pre_defined": 0,
-                    "canned": 1,
-                    "attachment": 1
-                }
-            }
-        },
-        {
-            "keyword": "STT",
-            "project_name": "재난망_LM75",
-            "per_group_emergency_call": true,
-            "features": {
-                "group_call": {
-                    "regroup": 0,
-                    "prearranged": 1,
-                    "chat": 0
-                },
-                "private_call": {
-                    "normal": 0,
-                    "without_floor_control": 0,
-                    "mcvideo_push": 0,
-                    "mcvideo_pull": 0,
-                    "first_answer": 0
-                },
-                "message": {
-                    "normal": 1,
-                    "emergency": 1,
-                    "pre_defined": 0,
+                    "pre_defined": 1,
                     "canned": 1,
                     "attachment": 1
                 }

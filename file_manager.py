@@ -234,9 +234,15 @@ class FileManager:
 
                 priority_tag = entry.find(".//anyExt/group-priority")
                 priority = priority_tag.text if priority_tag is not None else "0"
-                # 사전구성(PreArranged)/채팅그룹 ID는 "...g"로 끝나는 짧은 형식이고,
-                # 통화 안 되는 순수 채팅(Chatting)은 "g" 접미사 없이 훨씬 긴 숫자 ID를 씁니다.
-                if not call_id.endswith("g"):
+                entry_info = entry.get("entry-info", "")
+                # 국내(tel:) 프로젝트는 그룹 ID가 그냥 전화번호 형식이라 "g" 접미사가 아예
+                # 없어서, 그 접미사로 Chatting과 PreArranged를 구분하던 기존 규칙이 국내
+                # 그룹 전체를 Chatting으로 잘못 분류했습니다. entry-info="UsePreConfigured"는
+                # 국내/해외 모두 실제 XML에 찍히는 값이라 이걸 최우선으로 보고, 없는
+                # 경우에만 기존 "g" 접미사 휴리스틱(해외 sip: 형식 기준)으로 폴백합니다.
+                if entry_info == "UsePreConfigured":
+                    group_type = "PreArranged Group"
+                elif not call_id.endswith("g"):
                     group_type = "Chatting"
                 elif priority == "31":
                     group_type = "Chat Group"
