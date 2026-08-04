@@ -370,6 +370,14 @@ class PsLteHandler:
                 resourceId="com.EveryTalk.Global:id/sms_name", text=target_info
             )
 
+            if not sms_name_item.exists:
+                print_log(f"📜 메시지 목록에 안 보여서 스크롤하며 '{target_info}'를 찾습니다.")
+                d(scrollable=True).scroll.to(text=target_info)
+                time.sleep(0.5)
+                sms_name_item = d(
+                    resourceId="com.EveryTalk.Global:id/sms_name", text=target_info
+                )
+
             if sms_name_item.exists:
                 # 1-A. 이미 대화가 있는 경우: 바로 열어서 입력
                 print_log(f"✅ 메시지 목록에서 '{target_info}' 대화를 찾았습니다. 바로 엽니다.")
@@ -473,7 +481,13 @@ class PsLteHandler:
         def ensure_broadcast_mode():
             """비상(방송) 토글 버튼을 찾아 꺼져 있으면 켭니다. 대화가 아예 없던 그룹은
             새 메시지 작성 화면(SmsChatActivity가 아님)으로 빠져서 이 버튼 자체가 없을 수
-            있어, 그 경우엔 경고만 남기고 일반 메시지로라도 전송을 이어갑니다."""
+            있어, 그 경우엔 경고만 남기고 일반 메시지로라도 전송을 이어갑니다.
+
+            클릭 후에는 반드시 checked 상태를 재확인합니다. 클릭이 씹혀서 실제로는
+            꺼진 채로 남아있는데도 그냥 전송해버리면 '비상' 모드로 착각한 채 일반
+            메시지가 나가버리므로, 재시도까지 실패하면 전송을 중단시켜야 합니다.
+            반환값: True(방송 모드 켜짐/확인됨), False(버튼 없음, 일반 메시지로 진행),
+            None(버튼은 있지만 켜기 실패 → 호출부에서 전송을 중단해야 함)."""
             broadcast_btn = d(resourceId="com.EveryTalk.Global:id/sms_chat_broadcast_message_button")
             if not broadcast_btn.exists:
                 print_log("⚠️ 비상(방송) 버튼을 화면에서 찾지 못했습니다. 일반 메시지로 진행합니다.")
@@ -481,11 +495,18 @@ class PsLteHandler:
 
             if broadcast_btn.info.get("checked"):
                 print_log("✅ 비상(방송) 모드가 이미 켜져 있습니다.")
-            else:
-                print_log("🚨 비상(방송) 모드를 켭니다.")
+                return True
+
+            for attempt in range(1, 4):
+                print_log(f"🚨 비상(방송) 모드를 켭니다. (시도 {attempt}/3)")
                 broadcast_btn.click()
                 time.sleep(0.5)
-            return True
+                if broadcast_btn.info.get("checked"):
+                    print_log("✅ 비상(방송) 모드 활성화를 확인했습니다.")
+                    return True
+
+            print_log("❌ 비상(방송) 모드 활성화에 실패했습니다. 전송을 중단합니다.")
+            return None
 
         print_log(f"\n[Emergency Message] 🚨 '{target_info}' 그룹에 비상 메시지 전송을 시도합니다.")
 
@@ -506,7 +527,8 @@ class PsLteHandler:
                     print_log("❌ 대화 화면의 입력창/전송버튼을 찾지 못했습니다.")
                     return
 
-                ensure_broadcast_mode()
+                if ensure_broadcast_mode() is None:
+                    return
 
                 msg_input.click()
                 msg_input.set_text(message_text)
@@ -528,6 +550,14 @@ class PsLteHandler:
                 resourceId="com.EveryTalk.Global:id/sms_name", text=target_info
             )
 
+            if not sms_name_item.exists:
+                print_log(f"📜 메시지 목록에 안 보여서 스크롤하며 '{target_info}'를 찾습니다.")
+                d(scrollable=True).scroll.to(text=target_info)
+                time.sleep(0.5)
+                sms_name_item = d(
+                    resourceId="com.EveryTalk.Global:id/sms_name", text=target_info
+                )
+
             if sms_name_item.exists:
                 print_log(f"✅ 메시지 목록에서 '{target_info}' 대화를 찾았습니다. 바로 엽니다.")
                 sms_name_item.click()
@@ -535,7 +565,8 @@ class PsLteHandler:
 
                 msg_input = d(resourceId="com.EveryTalk.Global:id/sms_view_msginputbox")
 
-                ensure_broadcast_mode()
+                if ensure_broadcast_mode() is None:
+                    return
 
                 msg_input.click()
                 msg_input.set_text(message_text)
@@ -585,7 +616,8 @@ class PsLteHandler:
 
                 # 대화가 아예 없던 그룹은 여기서 새 메시지 작성 화면으로 진입하는데,
                 # 이 화면엔 비상(방송) 버튼이 없을 수 있습니다(있으면 켜고, 없으면 경고 후 진행).
-                ensure_broadcast_mode()
+                if ensure_broadcast_mode() is None:
+                    return
 
                 new_msg_input = d(resourceId="com.EveryTalk.Global:id/sms_new_message")
                 new_msg_input.click()
@@ -657,6 +689,12 @@ class PsLteHandler:
             time.sleep(2.0)
 
             sms_name_item = d(resourceId="com.EveryTalk.Global:id/sms_name", text=target_info)
+            if not sms_name_item.exists:
+                print_log(f"📜 메시지 목록에 안 보여서 스크롤하며 '{target_info}'를 찾습니다.")
+                d(scrollable=True).scroll.to(text=target_info)
+                time.sleep(0.5)
+                sms_name_item = d(resourceId="com.EveryTalk.Global:id/sms_name", text=target_info)
+
             if sms_name_item.exists:
                 print_log(f"✅ 메시지 목록에서 '{target_info}' 대화를 찾았습니다. 바로 엽니다.")
                 sms_name_item.click()
