@@ -193,7 +193,7 @@ class DevicePanel(QWidget):
         top_layout.setContentsMargins(0, 0, 0, 0)
         top_layout.setSpacing(10)
         top_layout.addWidget(self._build_header())
-        top_layout.addWidget(self._build_top_banner())
+        self._build_top_banner()
 
         self.left_column_widget = self._build_left_column()
         self.right_column_widget = self._build_right_column()
@@ -240,18 +240,20 @@ class DevicePanel(QWidget):
         menu.exec(self.btn_manage.mapToGlobal(self.btn_manage.rect().bottomLeft()))
 
     def _build_top_banner(self):
-        banner = styled(QFrame(), card_css())
-        banner.setFixedHeight(40)
+        """대시보드 화면에는 더 이상 이 배너 박스를 보여주지 않지만,
+        feature_tag_layout에 기대는 update_project_features()/has_private_call/
+        User 탭 활성화 로직은 계속 동작해야 해서 위젯 자체는 만들어 참조만
+        들고 있습니다(부모 없이 두면 곧바로 GC되어 나중에 접근 시 에러가 납니다)."""
+        banner = QWidget()
         layout = QHBoxLayout(banner)
-        layout.setContentsMargins(12, 4, 12, 4)
         self.feature_tag_frame = QWidget()
         self.feature_tag_layout = QHBoxLayout(self.feature_tag_frame)
         self.feature_tag_layout.setContentsMargins(0, 0, 0, 0)
         self.feature_tag_layout.setSpacing(0)
         layout.addWidget(self.feature_tag_frame)
-        layout.addStretch(1)
         self._reset_feature_tags()
-        return add_shadow(banner)
+        self._feature_banner = banner
+        return banner
 
     # ---------- 왼쪽: 미러링(위) + Group/User List(아래) ----------
     def _build_left_column(self):
@@ -506,14 +508,14 @@ class DevicePanel(QWidget):
         self.btn_toggle_log.setFont(kfont(11, True))
         self.btn_toggle_log.setCursor(Qt.PointingHandCursor)
         self.btn_toggle_log.setIconSize(QSize(14, 14))
-        self.btn_toggle_log.setFixedWidth(105)
+        self.btn_toggle_log.setFixedWidth(120)
         self.btn_toggle_log.clicked.connect(self.toggle_log)
         self.btn_toggle_pcap = TogglePushButton(qta.icon("fa5s.circle", color=Palette.text_main), "PCAP ON")
         self.btn_toggle_pcap.setFixedHeight(24)
         self.btn_toggle_pcap.setFont(kfont(11, True))
         self.btn_toggle_pcap.setCursor(Qt.PointingHandCursor)
         self.btn_toggle_pcap.setIconSize(QSize(10, 10))
-        self.btn_toggle_pcap.setFixedWidth(95)
+        self.btn_toggle_pcap.setFixedWidth(150)
         self.btn_toggle_pcap.clicked.connect(self.toggle_pcap)
         monitor_header.addWidget(self.btn_toggle_log)
         monitor_header.addWidget(self.btn_toggle_pcap)
@@ -719,7 +721,7 @@ class DevicePanel(QWidget):
             self._reset_feature_tags()
             self.pulse_canvas.stop()
             self.lbl_pulse_status.setText("대기")
-            self.lbl_pulse_status.setStyleSheet("color:#8E8E93;")
+            self.lbl_pulse_status.setStyleSheet(f"color:{Palette.text_sub};")
 
             self.mirror_container.setFixedSize(self.phone_width, self.phone_height)
             self.lbl_placeholder.setGeometry(0, 0, self.phone_width, self.phone_height)
@@ -785,7 +787,7 @@ class DevicePanel(QWidget):
             self.pulse_canvas.start()
         else:
             self.lbl_pulse_status.setText("대기")
-            self.lbl_pulse_status.setStyleSheet("color:#8E8E93;")
+            self.lbl_pulse_status.setStyleSheet(f"color:{Palette.text_sub};")
             self.pulse_canvas.stop()
 
     def _on_floor_state(self, state_text):
@@ -863,9 +865,9 @@ class DevicePanel(QWidget):
                 g_layout.addWidget(badge)
             self.feature_tag_layout.addWidget(group)
 
-        create_tag_group("Group", "👥", features.get("group_call", {}), group_map, "#E0E7FF", "#4318FF")
-        create_tag_group("Private", "👤", private_call_data, private_map, "#DCFCE7", "#05CD99")
-        create_tag_group("Message", "✉️", features.get("message", {}), msg_map, "#FFEDD5", "#EE5D50")
+        create_tag_group("Group", "👥", features.get("group_call", {}), group_map, "#EAF1FC", "#8A80E0")
+        create_tag_group("Private", "👤", private_call_data, private_map, "#E4F5EA", "#4FAE85")
+        create_tag_group("Message", "✉️", features.get("message", {}), msg_map, "#FCF0E1", "#E08670")
 
         if self.feature_tag_layout.count() == 0:
             self._reset_feature_tags()
@@ -971,7 +973,7 @@ class DevicePanel(QWidget):
         else:
             checkbox.setIcon(QIcon())
             checkbox.setStyleSheet(
-                "QPushButton { background-color:white; border:2px solid #C7C7CC; border-radius:3px; }"
+                f"QPushButton {{ background-color:white; border:2px solid {Palette.border}; border-radius:3px; }}"
             )
 
     def refresh_group_list(self):

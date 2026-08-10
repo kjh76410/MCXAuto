@@ -2,45 +2,53 @@ import sys
 import os
 import math
 import random
+import webbrowser
 
-from PySide6.QtCore import Qt, QObject, Signal, QTimer, QSize, QRectF
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QPainter, QPainterPath, QPen
+from PySide6.QtCore import Qt, QObject, Signal, QTimer, QSize, QRectF, QPointF
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
+    QApplication,
     QButtonGroup,
+    QDialog,
     QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
+    QMenu,
     QPushButton,
+    QVBoxLayout,
     QWidget,
 )
 import qtawesome as qta
 from qfluentwidgets import PushButton, PrimaryPushButton
 
+import launcher_links_store
+
 
 # ==========================================
-# 🎨 [Deep Indigo Palette]
+# 🎨 [Pastel Lavender Palette]
 # ==========================================
 class Palette:
-    bg = "#F5F6F8"
+    bg = "#F7F6FC"
     panel = "#FFFFFF"
-    border = "#E5E7EB"
-    text_main = "#1C1C1E"
-    text_sub = "#6B7280"
-    blue = "#2563EB"
-    blue_hover = "#1D4ED8"
-    accent = "#4F46E5"
-    accent_hover = "#4338CA"
-    orange = "#FF9500"
-    orange_hover = "#DB7F00"
-    danger = "#FF3B30"
-    danger_bg = "#FFE5E4"
-    danger_bg_hover = "#FFD2D0"
-    tint_blue_bg = "#E4E9F3"
-    tint_blue_hover = "#D2DAE9"
-    tint_orange_bg = "#FFF1DC"
-    tint_orange_hover = "#FFE6BF"
-    neutral_bg = "#EEF0F4"
-    neutral_hover = "#E2E5EC"
+    border = "#E9E6F5"
+    text_main = "#3F3D56"
+    text_sub = "#8B889D"
+    blue = "#7FA8E8"
+    blue_hover = "#6994D9"
+    accent = "#9B92E8"
+    accent_hover = "#8579DD"
+    orange = "#F0AA6E"
+    orange_hover = "#E4954F"
+    danger = "#EF9A96"
+    danger_bg = "#FCEDEC"
+    danger_bg_hover = "#F8DEDC"
+    tint_blue_bg = "#EAF1FC"
+    tint_blue_hover = "#DCE7F8"
+    tint_orange_bg = "#FCF0E1"
+    tint_orange_hover = "#F9E4C7"
+    neutral_bg = "#F1EFFA"
+    neutral_hover = "#E6E2F5"
     radius = 10
 
 
@@ -315,3 +323,249 @@ class PulseCanvas(QWidget):
             else:
                 path.lineTo(x, y)
         painter.drawPath(path)
+
+
+def _launcher_icon_path():
+    if getattr(sys, "frozen", False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, "assets", "icons", "launcher_icon.png")
+
+
+class LauncherBadge(QWidget):
+    """악어 런처 아이콘 머리 위에 떠 있는 원형 뱃지 하나(고정 QA 뱃지 또는
+    사용자가 추가한 링크 뱃지). 프레임 없는 항상-위 위젯이라 악어 아이콘과
+    같은 방식으로 화면 위에 독립적으로 떠 있습니다."""
+
+    clicked = Signal()
+
+    def __init__(self, text, color, size=44, icon_name="fa5s.link"):
+        super().__init__(None)
+        self._size = size
+        self._color = QColor(color)
+        self._hover = False
+        self._text = text
+        self._icon = qta.icon(icon_name, color="#FFFFFF").pixmap(QSize(round(size * 0.42), round(size * 0.42)))
+        self.setFixedSize(size, size)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip(text)
+        add_shadow(self, blur=14, y_offset=2, alpha=60)
+
+    def enterEvent(self, event):
+        self._hover = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hover = False
+        self.update()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(event)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        s = self._size
+        rect = QRectF(2, 2, s - 4, s - 4)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(self._color.lighter(112) if self._hover else self._color)
+        painter.drawEllipse(rect)
+
+        icon_size = self._icon.size()
+        x = (s - icon_size.width()) / 2
+        y = (s - icon_size.height()) / 2
+        painter.drawPixmap(QRectF(x, y, icon_size.width(), icon_size.height()).toRect(), self._icon)
+
+
+class _AddLinkDialog(QDialog):
+    """악어 런처 우클릭 메뉴의 '링크 추가'로 뜨는 이름/URL 입력 다이얼로그."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("링크 추가")
+        self.setFixedWidth(280)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(8)
+
+        self.name_edit = QLineEdit()
+        self.name_edit.setPlaceholderText("뱃지 이름 (예: TMS)")
+        self.url_edit = QLineEdit()
+        self.url_edit.setPlaceholderText("URL (예: 10.1.100.70:1443)")
+        layout.addWidget(self.name_edit)
+        layout.addWidget(self.url_edit)
+
+        btn_row = QHBoxLayout()
+        btn_cancel = QPushButton("취소")
+        btn_save = QPushButton("추가")
+        btn_save.setDefault(True)
+        btn_cancel.clicked.connect(self.reject)
+        btn_save.clicked.connect(self.accept)
+        btn_row.addStretch(1)
+        btn_row.addWidget(btn_cancel)
+        btn_row.addWidget(btn_save)
+        layout.addLayout(btn_row)
+
+    def values(self):
+        return self.name_edit.text().strip(), self.url_edit.text().strip()
+
+
+class RobotLauncherButton(QWidget):
+    """앱의 메인 창과는 별개인, 윈도우 화면(데스크톱) 우측 하단에 항상 떠 있는
+    런처 아이콘(assets/icons/launcher_icon.png를 그려 보여줍니다). 테두리 없는
+    항상-위 위젯이라 main.py 실행 직후 메인 창 없이 이것만 먼저 띄워둘 수 있습니다.
+
+    좌클릭하면 머리 위로 뱃지들이 토글되어 나타납니다: 맨 아래(가장 가까운) 뱃지는
+    항상 있는 'QA'로, 누르면 open_main_requested를 emit해 메인 자동화툴 창을 엽니다.
+    그 위로는 사용자가 우클릭 메뉴 '링크 추가'로 등록한 링크 뱃지들이 추가된 순서대로
+    쌓이며, 누르면 해당 URL을 기본 브라우저로 엽니다. 등록한 링크는 launcher_links_store를
+    통해 파일로 저장되어 다음 실행에도 유지됩니다."""
+
+    open_main_requested = Signal()
+
+    QA_COLOR = "#9B92E8"
+    LINK_COLORS = ["#7FA8E8", "#F0AA6E", "#EF9A96", "#7FD8C6", "#E29BDB"]
+    BADGE_SIZE = 44
+    BADGE_GAP = 10
+
+    ICON_BG_COLOR = "#1F2E56"
+
+    def __init__(self, size=64):
+        super().__init__(None)
+        self._size = size
+        self._hover = False
+        self._icon = self._tint_white(QPixmap(_launcher_icon_path()))
+        self._badges = []  # LauncherBadge 목록: [0]=QA(악어와 가장 가까움), 이후 링크들
+        self._badges_visible = False
+        self.setFixedSize(size, size)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip("클릭: 바로가기 메뉴 · 우클릭: 링크 추가")
+        add_shadow(self, blur=20, y_offset=4, alpha=70)
+        self._move_to_screen_corner()
+        self._rebuild_badges()
+
+    def _move_to_screen_corner(self, margin=24):
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            return
+        geo = screen.availableGeometry()
+        self.move(geo.right() - self._size - margin, geo.bottom() - self._size - margin)
+
+    @staticmethod
+    def _tint_white(pixmap):
+        """아이콘 PNG의 불투명 픽셀을 전부 흰색으로 칠해, 색깔 있는 원본
+        아이콘이라도 뱃지처럼 단색 흰색 글리프로 보이게 합니다."""
+        if pixmap.isNull():
+            return pixmap
+        tinted = QPixmap(pixmap.size())
+        tinted.setDevicePixelRatio(pixmap.devicePixelRatio())
+        tinted.fill(Qt.transparent)
+        painter = QPainter(tinted)
+        painter.drawPixmap(0, 0, pixmap)
+        painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
+        painter.fillRect(tinted.rect(), QColor("#FFFFFF"))
+        painter.end()
+        return tinted
+
+    def _rebuild_badges(self):
+        for badge in self._badges:
+            badge.hide()
+            badge.deleteLater()
+        self._badges = []
+
+        qa_badge = LauncherBadge("QA", self.QA_COLOR, self.BADGE_SIZE, icon_name="fa5s.flask")
+        qa_badge.clicked.connect(self._on_qa_badge_clicked)
+        self._badges.append(qa_badge)
+
+        for i, link in enumerate(launcher_links_store.list_links()):
+            color = self.LINK_COLORS[i % len(self.LINK_COLORS)]
+            badge = LauncherBadge(link.get("name", "?"), color, self.BADGE_SIZE, icon_name="fa5s.link")
+            badge.clicked.connect(lambda checked=False, url=link.get("url", ""): self._on_link_badge_clicked(url))
+            self._badges.append(badge)
+
+        self._layout_badges()
+        for badge in self._badges:
+            badge.setVisible(self._badges_visible)
+
+    def _layout_badges(self):
+        x = self.x() + (self._size - self.BADGE_SIZE) // 2
+        y = self.y() - self.BADGE_GAP
+        for badge in self._badges:
+            y -= badge.height()
+            badge.move(x, y)
+            y -= self.BADGE_GAP
+
+    def _toggle_badges(self):
+        self._badges_visible = not self._badges_visible
+        if self._badges_visible:
+            self._layout_badges()
+        for badge in self._badges:
+            badge.setVisible(self._badges_visible)
+
+    def _on_qa_badge_clicked(self):
+        self._toggle_badges()
+        self.open_main_requested.emit()
+
+    def _on_link_badge_clicked(self, url):
+        self._toggle_badges()
+        if url and not url.startswith(("http://", "https://")):
+            url = "http://" + url
+        if url:
+            webbrowser.open(url)
+
+    def _open_add_link_dialog(self):
+        dlg = _AddLinkDialog()
+        if dlg.exec() == QDialog.Accepted:
+            name, url = dlg.values()
+            if name and url:
+                launcher_links_store.add_link(name, url)
+                self._rebuild_badges()
+
+    def enterEvent(self, event):
+        self._hover = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hover = False
+        self.update()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._toggle_badges()
+        elif event.button() == Qt.RightButton:
+            menu = QMenu()
+            action = menu.addAction("링크 추가")
+            action.triggered.connect(self._open_add_link_dialog)
+            menu.exec(event.globalPosition().toPoint())
+        super().mousePressEvent(event)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        s = self._size
+        radius = s * 0.28
+        bg = QColor(self.ICON_BG_COLOR)
+        if self._hover:
+            bg = bg.lighter(112)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(bg)
+        painter.drawRoundedRect(QRectF(0, 0, s, s), radius, radius)
+
+        pad = s * 0.22
+        icon_rect = QRectF(pad, pad, s - pad * 2, s - pad * 2)
+        if not self._icon.isNull():
+            painter.drawPixmap(icon_rect.toRect(), self._icon)

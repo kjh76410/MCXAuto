@@ -176,6 +176,29 @@ class ObjectManagerPage(QWidget):
         toolbar.addWidget(btn_refresh)
         outer.addLayout(toolbar)
 
+        # weditor처럼 현재 화면의 Activity와 선택한 요소의 resourceId를 화면
+        # 미러링 위쪽에 항상 보이는 정보 바로 표시합니다. 복사해서 쓸 수 있게
+        # 텍스트 선택도 가능하게 해둡니다.
+        info_bar = QFrame()
+        info_bar.setStyleSheet(f"background-color:#1C1C1E; border-radius:{Palette.radius}px;")
+        info_layout = QVBoxLayout(info_bar)
+        info_layout.setContentsMargins(10, 6, 10, 6)
+        info_layout.setSpacing(2)
+
+        self._activity_lbl = QLabel("Activity: -")
+        self._activity_lbl.setFont(kfont(10, True))
+        self._activity_lbl.setStyleSheet("color:#FFFFFF;")
+        self._activity_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        info_layout.addWidget(self._activity_lbl)
+
+        self._resource_id_lbl = QLabel("resourceId: -")
+        self._resource_id_lbl.setFont(kfont(10))
+        self._resource_id_lbl.setStyleSheet("color:#B7B7C2;")
+        self._resource_id_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        info_layout.addWidget(self._resource_id_lbl)
+
+        outer.addWidget(info_bar)
+
         body = QHBoxLayout()
         body.setSpacing(10)
         outer.addLayout(body, 1)
@@ -309,10 +332,13 @@ class ObjectManagerPage(QWidget):
             pixmap = QPixmap()
             pixmap.loadFromData(buf.getvalue())
             self._pixmap_orig = pixmap
+            current = d.app_current()
+            self._activity_lbl.setText(f"Activity: {current.get('package', '')}/{current.get('activity', '')}")
         except Exception as e:
             QMessageBox.warning(self, "불러오기 실패", str(e))
             return
 
+        self._resource_id_lbl.setText("resourceId: -")
         self._nodes = self._parse_hierarchy(xml_str)
         self._populate_list()
         self._render_screenshot(highlight=None)
@@ -357,12 +383,14 @@ class ObjectManagerPage(QWidget):
     def _on_row_selected(self, row):
         if row < 0 or row >= len(self._nodes):
             self._selected_node = None
+            self._resource_id_lbl.setText("resourceId: -")
             return
         node = self._nodes[row]
         self._selected_node = node
         self._detail_labels["resource_id"].setText(node["resource_id"] or "-")
         self._detail_labels["text"].setText(node["text"] or "-")
         self._detail_labels["class_name"].setText(node["class_name"] or "-")
+        self._resource_id_lbl.setText(f"resourceId: {node['resource_id'] or '-'}")
         self._render_screenshot(highlight=node["bounds"])
 
     def _render_screenshot(self, highlight):
@@ -462,7 +490,7 @@ class ObjectManagerPage(QWidget):
         else:
             checkbox.setIcon(QIcon())
             checkbox.setStyleSheet(
-                "QPushButton { background-color:white; border:2px solid #C7C7CC; border-radius:3px; }"
+                f"QPushButton {{ background-color:white; border:2px solid {Palette.border}; border-radius:3px; }}"
             )
 
     def _checked_saved_object_names(self):
