@@ -20,19 +20,14 @@ from qfluentwidgets import PrimaryPushButton, TogglePushButton
 import qtawesome as qta
 
 import object_store
+import scenario_runner
 import scenario_store
 from device_panel import PROJECT_HANDLERS
 from ui_common import Palette, add_shadow, card_css, clear_layout, kfont, make_button, styled
 
-# action key -> (표시 이름, 객체 선택 필요 여부, 값 입력 필요 여부, 값 입력란 placeholder)
-ACTION_META = {
-    "click": ("클릭", True, False, ""),
-    "long_click": ("길게 클릭", True, False, ""),
-    "set_text": ("텍스트 입력", True, True, "입력할 텍스트"),
-    "wait_exists": ("나타날 때까지 대기", True, True, "최대 대기 시간(초), 비우면 10초"),
-    "sleep": ("그냥 대기", False, True, "대기할 시간(초)"),
-    "back": ("뒤로가기 버튼", False, False, ""),
-}
+# 동작 정의와 실제 실행 로직은 화면과 분리해 scenario_runner에 모아뒀습니다
+# (프로젝트 창의 시나리오 목록에서도 같은 엔진으로 실행합니다).
+ACTION_META = scenario_runner.ACTION_META
 
 
 class _RunSignals(QObject):
@@ -333,15 +328,7 @@ class ScenarioBuilderPage(QWidget):
 
         return add_shadow(card)
 
-    @staticmethod
-    def _step_label(step):
-        label, _needs_object, _needs_value, _placeholder = ACTION_META[step["action"]]
-        text = f"[{label}]"
-        if step.get("object"):
-            text += f" {step['object']}"
-        if step.get("value"):
-            text += f'  ← "{step["value"]}"'
-        return text
+    _step_label = staticmethod(scenario_runner.step_label)
 
     def _refresh_step_list(self):
         self._step_list.clear()
@@ -402,6 +389,15 @@ class ScenarioBuilderPage(QWidget):
         self._name_edit.setText(name)
         self._refresh_step_list()
 
+    def select_project(self, project_name):
+        """런처 메뉴처럼 바깥에서 특정 프로젝트를 골라 이 화면을 열 때 씁니다.
+        해당 프로젝트 버튼을 눌린 상태로 만들고 목록들을 그 프로젝트 기준으로 새로 채웁니다."""
+        if project_name not in self._project_buttons:
+            return False
+        self._project_buttons[project_name].setChecked(True)
+        self._on_project_selected(project_name)
+        return True
+
     def load_scenario_for_edit(self, project_name, scenario_name):
         """'시나리오' 목록 화면 등 다른 화면에서 특정 프로젝트의 저장된 시나리오를
         바로 편집할 수 있도록, 해당 프로젝트를 선택하고 스텝 편집기에 불러옵니다."""
@@ -444,63 +440,6 @@ class ScenarioBuilderPage(QWidget):
         ).start()
 
     def _run_worker(self, uuid, project, steps):
-        try:
-            import uiautomator2 as u2
-
-            d = u2.connect(uuid)
-        except Exception as e:
-            self._run_signals.log.emit(f"❌ 단말 연결 실패: {e}")
-            return
-
-        saved_objects = object_store.list_objects(project)
-        self._run_signals.log.emit(f"▶ 시나리오 실행 시작 ({len(steps)}개 스텝)")
-
-        for i, step in enumerate(steps, 1):
-            label = self._step_label(step)
-            try:
-                self._execute_step(d, saved_objects, step)
-                self._run_signals.log.emit(f"  {i}. {label}  ✅")
-            except Exception as e:
-                self._run_signals.log.emit(f"  {i}. {label}  ❌ {e}")
-                self._run_signals.log.emit("⏹ 오류가 발생해 실행을 중단했습니다.")
-                return
-
-        self._run_signals.log.emit("✅ 시나리오 실행 완료")
-
-    @staticmethod
-    def _selector(d, node):
-        if node.get("resource_id"):
-            return d(resourceId=node["resource_id"])
-        if node.get("text"):
-            return d(text=node["text"])
-        return d(className=node.get("class_name", ""))
-
-    def _execute_step(self, d, saved_objects, step):
-        action = step["action"]
-        value = step.get("value") or ""
-        _label, needs_object, _needs_value, _placeholder = ACTION_META[action]
-
-        if action == "back":
-            d.press("back")
-            return
-
-        sel = None
-        if needs_object:
-            obj_name = step.get("object")
-            node = saved_objects.get(obj_name) if obj_name else None
-            if node is None:
-                raise RuntimeError(f"객체 '{obj_name}'을(를) 찾을 수 없습니다 (객체 관리에서 삭제되었을 수 있음)")
-            sel = self._selector(d, node)
-
-        if action == "click":
-            sel.click()
-        elif action == "long_click":
-            sel.long_click()
-        elif action == "set_text":
-            sel.set_text(value)
-        elif action == "wait_exists":
-            timeout = float(value) if value else 10.0
-            if not sel.wait(timeout=timeout):
-                raise RuntimeError("요소가 나타나지 않았습니다.")
-        elif action == "sleep":
-            time.sleep(float(value) if value else 1.0)
+        scenario_runner.run_scenario(
+            uuid, project, steps, on_log=self._run_signals.log.emit
+        )

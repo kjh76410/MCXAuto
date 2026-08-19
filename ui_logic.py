@@ -1,7 +1,7 @@
 import sys
 import threading
 
-from PySide6.QtWidgets import QApplication, QGridLayout, QWidget
+from PySide6.QtWidgets import QApplication
 from qfluentwidgets import FluentIcon, FluentWindow, Theme, setTheme, setThemeColor, setFontFamilies
 
 import adb_logic
@@ -10,7 +10,7 @@ from object_manager_page import ObjectManagerPage
 from project_manager_page import ProjectManagerPage
 from scenario_builder_page import ScenarioBuilderPage
 from scenario_page import ScenarioLibraryPage
-from ui_common import Palette, load_custom_font
+from ui_common import Palette, load_custom_font, place_as_left_card
 
 # 하위 호환: 예전에 ui_logic에서 바로 이 이름들을 가져다 쓰던 코드(또는 향후 참조)를 위해
 # 그대로 재노출합니다. 실제 정의는 ui_common.py에 있습니다.
@@ -28,7 +28,13 @@ from ui_common import (  # noqa: F401
 
 
 class App(FluentWindow):
-    """두 대의 단말을 동시에 다루는 메인 윈도우.
+    """사이드바로 화면을 오가는 '관리 창'(프로젝트 관리 / 객체 관리 / 시나리오 작성 /
+    시나리오). 대시보드(단말 미러링·로그)는 런처의 프로젝트 박스로 여는 별도 창인
+    ProjectWindow(project_window.py)로 분리되어, 여기서는 더 이상 탭으로 보여주지
+    않습니다. 다만 DevicePanel 인스턴스(panel_a/panel_b)는 계속 이 클래스가 만들어
+    들고 있고, 프로젝트 창과 각 관리 화면이 같은 인스턴스를 공유합니다.
+
+    (아래는 예전 설명) 두 대의 단말을 동시에 다루는 메인 윈도우.
     실제 미러링/그룹·유저 리스트/SIP Flow/로그 등 기기별 상태와 위젯은
     모두 DevicePanel(device_panel.py)로 옮겨졌고, 이 클래스는 두 DevicePanel을
     나란히 배치하고 기기 탐색(adb devices 스캔)만 담당하는 얇은 셸입니다.
@@ -56,33 +62,16 @@ class App(FluentWindow):
         self.resize(1960, 950)
         self.setStyleSheet(self._global_qss())
 
-        root = QWidget()
-        root.setObjectName("dashboardInterface")
-        grid = QGridLayout(root)
-        grid.setContentsMargins(10, 10, 10, 10)
-        grid.setHorizontalSpacing(10)
-        grid.setVerticalSpacing(10)
-
         self.results_panel = ResultsPanel()
         self.panel_a = DevicePanel("A", results_panel=self.results_panel)
         self.panel_b = DevicePanel("B", results_panel=self.results_panel)
         self.device_mode = "1"
-        self._grid = grid
-
-        # 대시보드는 단말 1대만 보여줍니다. panel_b는 객체 관리/시나리오 작성 화면에서
-        # 여전히 쓰이므로 인스턴스는 유지하되, 여기 그리드에는 올리지 않습니다.
-        grid.addWidget(self.panel_a.top_block, 0, 0, 1, 2)
-        grid.addWidget(self.panel_a.left_column_widget, 1, 0)
-        grid.addWidget(self.panel_a.right_column_widget, 1, 1)
-
-        grid.setRowStretch(1, 2)
 
         self.panel_a.btn_connect.clicked.connect(self.check_devices)
 
         # 사이드바는 기본 Fluent 방식대로: 아이콘은 평소에도 항상 보이고, ☰를 누르면
         # 아이콘 옆에 글자 라벨이 펼쳐집니다.
         self.navigationInterface.setExpandWidth(180)
-        self.addSubInterface(root, FluentIcon.HOME, "대시보드")
 
         self.project_manager_page = ProjectManagerPage()
         self.addSubInterface(self.project_manager_page, FluentIcon.FOLDER_ADD, "프로젝트 관리")
@@ -96,6 +85,23 @@ class App(FluentWindow):
         self.scenario_page = ScenarioLibraryPage()
         self.addSubInterface(self.scenario_page, FluentIcon.LIBRARY, "시나리오")
         self.scenario_page.on_edit_builder_scenario = self._edit_scenario_in_builder
+
+    # ==========================================
+    # 🪟 런처(QA 박스)에서 열 때: 화면 왼쪽에 큰 카드처럼 배치
+    # ==========================================
+    def show_as_left_card(self, page=None, project=None):
+        """런처의 '시나리오 추가' 박스로 이 관리 창을 열 때 쓰는 표시 방식.
+        화면 왼쪽을 채우는 큰 카드처럼 띄우고, page를 안 주면 '시나리오 작성' 화면을
+        보여줍니다. project를 주면 창이 보이게 된 뒤 그 프로젝트를 선택된 상태로
+        맞춰줍니다(각 페이지의 showEvent가 목록을 새로 그리므로 show() 뒤에 선택)."""
+        target = page if page is not None else self.scenario_builder_page
+        self.switchTo(target)
+        place_as_left_card(self)
+
+        if project:
+            selector = getattr(target, "select_project", None)
+            if callable(selector):
+                selector(project)
 
     def _edit_scenario_in_builder(self, project_name, scenario_name):
         """'시나리오' 화면에서 '시나리오 작성에서 편집' 버튼을 누르면 호출됩니다.
@@ -131,12 +137,6 @@ class App(FluentWindow):
             QDialog {{ background-color:{Palette.panel}; }}
             QLineEdit:focus {{ border:1px solid {Palette.accent}; }}
         """
-
-    def closeEvent(self, event):
-        """프로그램 종료 시 adb 서버를 내려서, 다음 실행 때 깨끗한 서버로 새로 시작하게 합니다.
-        (SDK adb와 scrcpy 번들 adb 버전이 달라 서버 소유권 다툼으로 기기 인식이 멈추는 문제 방지)"""
-        adb_logic.kill_adb_server()
-        super().closeEvent(event)
 
     # ==========================================
     # 🔌 기기 연결 / 상태 조회 (두 대 동시 스캔)
