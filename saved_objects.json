@@ -242,5 +242,356 @@
     }
   },
   "450connect": {},
-  "CTB_POC": {}
+  "CTB_POC": {},
+  "재난망_LM75": {
+    "채널 목록 타이틀바 옵션메뉴": {
+      "resource_id": "com.EveryTalk.Global:id/phone_cmd_more",
+      "text": "",
+      "class_name": "android.widget.TextView",
+      "desc": "설정",
+      "bounds": [
+        608,
+        50,
+        720,
+        146
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+    },
+    "내 정보": {
+      "resource_id": "",
+      "text": "내 정보",
+      "class_name": "android.widget.TextView",
+      "desc": "",
+      "bounds": [
+        350,
+        158,
+        710,
+        262
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+    },
+    "스캔 사용": {
+      "resource_id": "",
+      "text": "스캔 사용",
+      "class_name": "android.widget.TextView",
+      "desc": "",
+      "bounds": [
+        350,
+        262,
+        710,
+        366
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity",
+      "folder": "기본 폴더"
+    },
+    "옵션 메뉴 설정": {
+      "resource_id": "",
+      "text": "설정",
+      "class_name": "android.widget.TextView",
+      "desc": "",
+      "bounds": [
+        350,
+        366,
+        710,
+        470
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+    },
+    "채널목록 타이틀바 검색": {
+      "resource_id": "com.EveryTalk.Global:id/phone_cmd_group_serch",
+      "text": "",
+      "class_name": "android.widget.TextView",
+      "desc": "공통통화 그룹",
+      "bounds": [
+        384,
+        50,
+        496,
+        146
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+    },
+    "채널목록 타이틀바 공통통화그룹": {
+      "resource_id": "com.EveryTalk.Global:id/phone_cmd_public_group_contacts",
+      "text": "",
+      "class_name": "android.widget.TextView",
+      "desc": "공통통화 그룹",
+      "bounds": [
+        496,
+        50,
+        608,
+        146
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+    },
+    "채널목록 검색란": {
+      "resource_id": "com.EveryTalk.Global:id/group_search",
+      "text": "검색",
+      "class_name": "android.widget.EditText",
+      "desc": "",
+      "bounds": [
+        20,
+        162,
+        586,
+        228
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+    },
+    "상세화면 검색란": {
+      "resource_id": "com.EveryTalk.Global:id/sms_new_message",
+      "text": "문자 메시지",
+      "class_name": "android.widget.EditText",
+      "desc": "",
+      "bounds": [
+        10,
+        1172,
+        590,
+        1252
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
+      "folder": "상세화면"
+    },
+    "상세화면 첨부파일": {
+      "resource_id": "com.EveryTalk.Global:id/sms_btn",
+      "text": "",
+      "class_name": "android.widget.Button",
+      "desc": "",
+      "bounds": [
+        600,
+        1162,
+        700,
+        1262
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
+      "folder": "상세화면"
+    },
+    "상황전파 메시지 아이콘": {
+      "resource_id": "com.EveryTalk.Global:id/sms_chat_broadcast_message_button",
+      "text": "",
+      "class_name": "android.widget.ToggleButton",
+      "desc": "",
+      "bounds": [
+        20,
+        1178,
+        92,
+        1248
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
+      "folder": "상세화면"
+    },
+    "첨부파일 이미지 메뉴": {
+      "resource_id": "com.EveryTalk.Global:id/layout_image_send_btn",
+      "text": "",
+      "class_name": "android.widget.LinearLayout",
+      "desc": "",
+      "bounds": [
+        0,
+        1080,
+        144,
+        1280
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
+      "folder": "상세화면"
+    },
+    "첨부파일 녹음 메뉴": {
+      "resource_id": "com.EveryTalk.Global:id/layout_recorded_list_btn",
+      "text": "",
+      "class_name": "android.widget.LinearLayout",
+      "desc": "",
+      "bounds": [
+        144,
+        1080,
+        288,
+        1280
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
+      "folder": "상세화면"
+    },
+    "첨부파일 사진촬영 메뉴": {
+      "resource_id": "com.EveryTalk.Global:id/layout_camera_capture_btn",
+      "text": "",
+      "class_name": "android.widget.LinearLayout",
+      "desc": "",
+      "bounds": [
+        288,
+        1080,
+        432,
+        1280
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
+      "folder": "상세화면"
+    },
+    "첨부파일 동영상 촬영 메뉴": {
+      "resource_id": "com.EveryTalk.Global:id/layout_camera_video_btn",
+      "text": "",
+      "class_name": "android.widget.LinearLayout",
+      "desc": "",
+      "bounds": [
+        432,
+        1080,
+        576,
+        1280
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
+      "folder": "상세화면"
+    },
+    "첨부파일 파일 메뉴": {
+      "resource_id": "com.EveryTalk.Global:id/layout_file_select_btn",
+      "text": "",
+      "class_name": "android.widget.LinearLayout",
+      "desc": "",
+      "bounds": [
+        576,
+        1080,
+        720,
+        1280
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
+      "folder": "상세화면"
+    },
+    "채널목록 주채널": {
+      "resource_id": "com.EveryTalk.Global:id/group_information_view",
+      "text": "",
+      "class_name": "android.widget.LinearLayout",
+      "desc": "",
+      "bounds": [
+        138,
+        261,
+        630,
+        365
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+    },
+    "주채널 옵션메뉴": {
+      "resource_id": "com.EveryTalk.Global:id/btn_more",
+      "text": "",
+      "class_name": "android.widget.ImageButton",
+      "desc": "",
+      "bounds": [
+        630,
+        278,
+        700,
+        348
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+    },
+    "주채널 즐겨찾기": {
+      "resource_id": "com.EveryTalk.Global:id/fav_group_button",
+      "text": "",
+      "class_name": "android.widget.ImageButton",
+      "desc": "",
+      "bounds": [
+        56,
+        414,
+        136,
+        494
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+    },
+    "주채널 참여자 정보": {
+      "resource_id": "com.EveryTalk.Global:id/group_members",
+      "text": "",
+      "class_name": "android.widget.ImageButton",
+      "desc": "",
+      "bounds": [
+        188,
+        414,
+        268,
+        494
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+    },
+    "주채널 메시지 알림": {
+      "resource_id": "com.EveryTalk.Global:id/group_noti",
+      "text": "",
+      "class_name": "android.widget.ImageButton",
+      "desc": "",
+      "bounds": [
+        584,
+        414,
+        664,
+        494
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+    },
+    "상세화면 메시지 전송": {
+      "resource_id": "com.EveryTalk.Global:id/sms_btn",
+      "text": "",
+      "class_name": "android.widget.Button",
+      "desc": "",
+      "bounds": [
+        600,
+        566,
+        700,
+        666
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
+      "folder": "상세화면"
+    },
+    "사진촬영 촬영 버튼": {
+      "resource_id": "org.codeaurora.snapcam:id/shutter_button",
+      "text": "",
+      "class_name": "android.widget.ImageView",
+      "desc": "셔터",
+      "bounds": [
+        285,
+        1105,
+        435,
+        1255
+      ],
+      "package": "org.codeaurora.snapcam",
+      "activity": "com.android.camera.CameraActivity",
+      "folder": "상세화면"
+    },
+    "사진 촬영 후 선택 버튼": {
+      "resource_id": "org.codeaurora.snapcam:id/done_button",
+      "text": "",
+      "class_name": "android.widget.ImageView",
+      "desc": "리뷰 완료",
+      "bounds": [
+        576,
+        1132,
+        720,
+        1276
+      ],
+      "package": "org.codeaurora.snapcam",
+      "activity": "com.android.camera.CameraActivity",
+      "folder": "상세화면"
+    },
+    "주채널 상세화면 옵션메뉴": {
+      "resource_id": "com.EveryTalk.Global:id/toolbar_btn_more",
+      "text": "",
+      "class_name": "android.widget.ImageButton",
+      "desc": "",
+      "bounds": [
+        608,
+        101,
+        678,
+        171
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
+      "folder": "상세화면"
+    }
+  }
 }

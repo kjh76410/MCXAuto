@@ -20,10 +20,10 @@ from qfluentwidgets import PrimaryPushButton, TogglePushButton
 import qtawesome as qta
 
 import object_store
+import scenario_runner
 import scenario_store
 from code_editor import CodeEditor
 from device_panel import PROJECT_HANDLERS, SCENARIO_LABELS
-from scenario_builder_page import ScenarioBuilderPage
 from ui_common import Palette, add_shadow, card_css, clear_layout, kfont, make_button, styled
 
 
@@ -386,8 +386,8 @@ class ScenarioLibraryPage(QWidget):
         self._code_title_lbl.setText(f"{proj_name} - {name} (시나리오 작성)")
         lines = [f"# '{name}'은 시나리오 작성 화면에서 객체 기반으로 만든 시나리오입니다.\n",
                  "# 위의 '시나리오 작성에서 편집' 버튼을 누르면 바로 수정할 수 있습니다.\n\n"]
-        for i, step in enumerate(steps, 1):
-            lines.append(f"{i}. {ScenarioBuilderPage._step_label(step)}\n")
+        for step in steps:
+            lines.append(scenario_runner.step_code(step) + "\n")
         self._code_edit.setPlainText("".join(lines))
         self._code_edit.setReadOnly(True)
         self._btn_save.setEnabled(False)

@@ -145,6 +145,13 @@ def swallow_window_worker(window_title, parent_hwnd, width, height):
         # 4. 부모 프레임 안으로 가두기
         user32.SetParent(scrcpy_hwnd, parent_hwnd)
 
+        # 4.5. 부모 창도 같은 물리 픽셀 크기로 강제 맞춰줍니다. Qt 쪽 리사이즈가
+        # 아직 반영 안 된 상태에서 자식(scrcpy)만 이 크기로 넣으면, 부모 경계 밖으로
+        # 나가는 부분(주로 화면 아래쪽 버튼들)이 잘려 보이고 클릭도 안 먹는 문제가
+        # 있었습니다. SWP_NOMOVE로 위치는 그대로 두고 크기만 맞춥니다.
+        SWP_NOMOVE = 0x0002
+        user32.SetWindowPos(parent_hwnd, 0, 0, 0, width, height, SWP_NOMOVE | 0x0020)
+
         # 5. 크기 맞추고 강제 새로고침
         user32.SetWindowPos(scrcpy_hwnd, 0, 0, 0, width, height, 0x0040 | 0x0020)
 

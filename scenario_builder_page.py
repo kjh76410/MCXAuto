@@ -2,6 +2,7 @@ import threading
 import time
 
 from PySide6.QtCore import Qt, QObject, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QButtonGroup,
     QComboBox,
@@ -45,13 +46,15 @@ class ScenarioBuilderPage(QWidget):
         self.setObjectName("scenarioBuilderInterface")
         self.panel_a = panel_a
         self.panel_b = panel_b
-        self._target = "A"
         self._current_project = None
         self._steps = []
         self._project_buttons = {}
 
         self._run_signals = _RunSignals()
         self._run_signals.log.connect(self._append_log)
+
+        self.panel_a.signals.device_ready.connect(self._on_device_a_ready)
+        self.panel_b.signals.device_ready.connect(self._on_device_b_ready)
 
         outer = QHBoxLayout(self)
         outer.setContentsMargins(16, 16, 16, 16)
@@ -88,13 +91,55 @@ class ScenarioBuilderPage(QWidget):
         title.setStyleSheet(f"color:{Palette.text_sub};")
         layout.addWidget(title)
 
-        self._project_list_layout = layout
+        # 프로젝트 버튼들은 _refresh_project_buttons()가 매번 통째로 지우고 다시 그리므로,
+        # 아래 기기 연결 섹션까지 같이 지워지지 않도록 별도의 내부 레이아웃에 담습니다.
+        self._project_list_layout = QVBoxLayout()
+        self._project_list_layout.setSpacing(6)
+        layout.addLayout(self._project_list_layout)
         self._refresh_project_buttons()
+
+        layout.addSpacing(10)
+
+        device_title = QLabel("기기")
+        device_title.setFont(kfont(12, True))
+        device_title.setStyleSheet(f"color:{Palette.text_sub};")
+        layout.addWidget(device_title)
+
+        self._btn_connect_device = PrimaryPushButton(qta.icon("fa5s.plug", color="white"), "기기 연결")
+        self._btn_connect_device.setFixedHeight(30)
+        self._btn_connect_device.setFont(kfont(11, True))
+        self._btn_connect_device.setCursor(Qt.PointingHandCursor)
+        self._btn_connect_device.clicked.connect(self._on_connect_device_clicked)
+        layout.addWidget(self._btn_connect_device)
+
+        self._device_status_lbl = QLabel("연결된 단말 없음")
+        self._device_status_lbl.setFont(kfont(10))
+        self._device_status_lbl.setStyleSheet(f"color:{Palette.text_sub};")
+        self._device_status_lbl.setWordWrap(True)
+        layout.addWidget(self._device_status_lbl)
 
         return add_shadow(self._project_list_card)
 
+    def _on_connect_device_clicked(self):
+        # 실제 기기 탐색/연결 로직은 panel_a에 이미 연결돼 있는 버튼(App.check_devices)을
+        # 그대로 눌러 재사용합니다. 이 화면에서 새로 구현하지 않습니다.
+        self.panel_a.btn_connect.click()
+
+    def _on_device_a_ready(self, info):
+        if info:
+            self._device_status_lbl.setText(f"A 단말 연결됨: {info.get('model', '')}")
+            self._device_status_lbl.setStyleSheet(f"color:{Palette.blue};")
+        else:
+            self._device_status_lbl.setText("연결된 단말 없음")
+            self._device_status_lbl.setStyleSheet(f"color:{Palette.text_sub};")
+
+    def _on_device_b_ready(self, info):
+        if info:
+            self._device_status_lbl.setText(f"B 단말 연결됨: {info.get('model', '')}")
+            self._device_status_lbl.setStyleSheet(f"color:{Palette.blue};")
+
     def _refresh_project_buttons(self):
-        clear_layout(self._project_list_layout, keep=1)  # keep=1: 타이틀
+        clear_layout(self._project_list_layout, keep=0)
         self._project_buttons = {}
         group = QButtonGroup(self._project_list_card)
         group.setExclusive(True)
@@ -190,11 +235,25 @@ class ScenarioBuilderPage(QWidget):
         if not self._current_project:
             return
         saved = object_store.list_objects(self._current_project)
+
+        by_folder = {folder: [] for folder in object_store.list_folders(self._current_project)}
         for name, node in saved.items():
-            hint = node.get("resource_id") or node.get("text") or node.get("class_name") or ""
-            item = QListWidgetItem(f"{name}  —  {hint}")
-            item.setData(Qt.UserRole, name)
-            self._object_list.addItem(item)
+            by_folder.setdefault(object_store.object_folder(node), []).append((name, node))
+
+        for folder, items in by_folder.items():
+            if not items:
+                continue
+            header = QListWidgetItem(f"📁 {folder}")
+            header.setFlags(Qt.NoItemFlags)
+            header.setFont(kfont(10, True))
+            header.setForeground(QColor(Palette.text_sub))
+            self._object_list.addItem(header)
+
+            for name, node in items:
+                hint = node.get("resource_id") or node.get("text") or node.get("class_name") or ""
+                item = QListWidgetItem(f"  {name}  —  {hint}")
+                item.setData(Qt.UserRole, name)
+                self._object_list.addItem(item)
 
     def _add_step(self):
         if not self._current_project:
@@ -226,6 +285,24 @@ class ScenarioBuilderPage(QWidget):
         layout = QVBoxLayout(card)
         layout.setContentsMargins(12, 14, 12, 14)
         layout.setSpacing(6)
+
+        saved_title = QLabel("저장된 시나리오 (더블클릭: 불러오기)")
+        saved_title.setFont(kfont(11, True))
+        saved_title.setStyleSheet(f"color:{Palette.text_sub};")
+        layout.addWidget(saved_title)
+
+        self._saved_list = QListWidget()
+        self._saved_list.itemDoubleClicked.connect(self._load_selected_scenario)
+        layout.addWidget(self._saved_list, 1)
+
+        btn_delete_saved = make_button(
+            "선택한 저장본 삭제", Palette.danger_bg, Palette.danger, Palette.danger_bg_hover,
+            height=26, icon_name="fa5s.trash-alt",
+        )
+        btn_delete_saved.clicked.connect(self._delete_selected_scenario)
+        layout.addWidget(btn_delete_saved)
+
+        layout.addSpacing(10)
 
         title = QLabel("작성 중인 시나리오")
         title.setFont(kfont(12, True))
@@ -274,39 +351,8 @@ class ScenarioBuilderPage(QWidget):
         save_row.addWidget(btn_save)
         layout.addLayout(save_row)
 
-        saved_title = QLabel("저장된 시나리오 (더블클릭: 불러오기)")
-        saved_title.setFont(kfont(11, True))
-        saved_title.setStyleSheet(f"color:{Palette.text_sub};")
-        layout.addWidget(saved_title)
-
-        self._saved_list = QListWidget()
-        self._saved_list.itemDoubleClicked.connect(self._load_selected_scenario)
-        layout.addWidget(self._saved_list, 1)
-
-        btn_delete_saved = make_button(
-            "선택한 저장본 삭제", Palette.danger_bg, Palette.danger, Palette.danger_bg_hover,
-            height=26, icon_name="fa5s.trash-alt",
-        )
-        btn_delete_saved.clicked.connect(self._delete_selected_scenario)
-        layout.addWidget(btn_delete_saved)
-
         layout.addSpacing(8)
         run_row = QHBoxLayout()
-        lbl_target = QLabel("실행 대상:")
-        lbl_target.setFont(kfont(11))
-        lbl_target.setStyleSheet(f"color:{Palette.text_sub};")
-        run_row.addWidget(lbl_target)
-        group = QButtonGroup(card)
-        group.setExclusive(True)
-        for key in ("A", "B"):
-            btn = TogglePushButton(f"{key} 단말")
-            btn.setFixedHeight(28)
-            btn.setFont(kfont(11, True))
-            btn.setCursor(Qt.PointingHandCursor)
-            btn.setChecked(key == "A")
-            btn.clicked.connect(lambda checked=False, k=key: setattr(self, "_target", k))
-            group.addButton(btn)
-            run_row.addWidget(btn)
         run_row.addStretch(1)
         btn_run = PrimaryPushButton(qta.icon("fa5s.play", color="white"), "실행")
         btn_run.setFixedHeight(28)
@@ -426,9 +472,9 @@ class ScenarioBuilderPage(QWidget):
             QMessageBox.warning(self, "스텝 없음", "실행할 스텝이 없습니다.")
             return
 
-        panel = self.panel_a if self._target == "A" else self.panel_b
+        panel = self.panel_a
         if not panel.current_uuid:
-            QMessageBox.warning(self, "단말 미연결", f"먼저 {self._target} 단말을 연결해주세요.")
+            QMessageBox.warning(self, "단말 미연결", "먼저 기기를 연결해주세요.")
             return
 
         self._log_edit.clear()

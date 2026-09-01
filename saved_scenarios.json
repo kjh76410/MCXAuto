@@ -25,5 +25,117 @@
       }
     ]
   },
-  "CTB_POC": {}
+  "CTB_POC": {},
+  "재난망_LM75": {
+    "내 정보 확인": [
+      {
+        "action": "click",
+        "object": "채널 목록 타이틀바 옵션메뉴",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "내 정보",
+        "value": ""
+      }
+    ],
+    "채널 목록 검색란에 채널명 검색": [
+      {
+        "action": "click",
+        "object": "채널목록 타이틀바 검색",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "채널목록 검색란",
+        "value": ""
+      },
+      {
+        "action": "set_text",
+        "object": "채널목록 검색란",
+        "value": "테스트"
+      }
+    ],
+    "주채널 일반 메시지 전송": [
+      {
+        "action": "click",
+        "object": "채널목록 주채널",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상세화면 검색란",
+        "value": ""
+      },
+      {
+        "action": "set_text",
+        "object": "상세화면 검색란",
+        "value": "테스트 중입니다."
+      },
+      {
+        "action": "set_text",
+        "object": "상세화면 메시지 전송",
+        "value": "테스트 중입니다."
+      }
+    ],
+    "주채널 상황전파 메시지 전송": [
+      {
+        "action": "click",
+        "object": "채널목록 주채널",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상세화면 검색란",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상황전파 메시지 아이콘",
+        "value": ""
+      },
+      {
+        "action": "set_text",
+        "object": "상세화면 검색란",
+        "value": "테스트 중입니다."
+      },
+      {
+        "action": "set_text",
+        "object": "상세화면 메시지 전송",
+        "value": "테스트 중입니다."
+      }
+    ],
+    "주채널 사진 촬영 후 전송": [
+      {
+        "action": "click",
+        "object": "채널목록 주채널",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상세화면 첨부파일",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "첨부파일 사진촬영 메뉴",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "사진촬영 촬영 버튼",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "사진 촬영 후 선택 버튼",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
+      }
+    ]
+  }
 }
