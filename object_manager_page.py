@@ -1,8 +1,9 @@
+import html
 import re
 import xml.etree.ElementTree as ET
 from io import BytesIO
 
-from PySide6.QtCore import Qt, QMimeData, QSize, Signal
+from PySide6.QtCore import Qt, QMimeData, QSize, QTimer, Signal
 from PySide6.QtGui import QColor, QDrag, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -20,12 +21,25 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from qfluentwidgets import PrimaryPushButton, TogglePushButton
 import qtawesome as qta
 
 import object_store
 from device_panel import PROJECT_HANDLERS
-from ui_common import Palette, add_shadow, card_css, clear_layout, kfont, make_button, styled
+from ui_common import (
+    NavListButton,
+    Navy,
+    clear_layout,
+    kfont,
+    navy_button,
+    navy_card,
+    navy_card_header,
+    navy_input_css,
+    navy_list_css,
+    navy_mono_font,
+    navy_page_css,
+    navy_page_header,
+    styled,
+)
 
 BOUNDS_RE = re.compile(r"\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]")
 _OBJECT_MIME_TYPE = "application/x-mcx-object-name"
@@ -48,6 +62,12 @@ class _ObjectRowLabel(QLabel):
         if event.button() == Qt.LeftButton:
             self._press_pos = event.position().toPoint()
             self._dragging = False
+            # QLabel의 기본 구현은 마우스 눌림을 무시(ignore)합니다. 그러면 눌림이 부모인
+            # 목록 뷰로 넘어가면서 이후의 마우스 이동/뗌 이벤트도 뷰가 가져가고, 아래
+            # mouseMoveEvent가 아예 호출되지 않아 드래그가 시작되지 않았습니다.
+            # 여기서 직접 accept해서 이 라벨이 제스처를 끝까지 받도록 합니다.
+            event.accept()
+            return
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
@@ -64,11 +84,19 @@ class _ObjectRowLabel(QLabel):
             drag = QDrag(self)
             drag.setMimeData(mime)
             drag.exec(Qt.MoveAction)
+            event.accept()
+            return
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton and not self._dragging and self._press_pos is not None:
-            self.clicked.emit()
+        if event.button() == Qt.LeftButton and self._press_pos is not None:
+            was_click = not self._dragging
+            self._press_pos = None
+            self._dragging = False
+            event.accept()
+            if was_click:
+                self.clicked.emit()
+            return
         self._press_pos = None
         self._dragging = False
         super().mouseReleaseEvent(event)
@@ -103,6 +131,10 @@ class _SavedObjectList(QListWidget):
             event.ignore()
             return
         target_item = self.itemAt(event.position().toPoint())
+        if target_item is None and self.count():
+            # 목록 아래 빈 공간에 놓으면 맨 마지막 폴더로 보냅니다(아무 일도 안 일어나면
+            # 사용자는 옮겨졌는지 실패했는지 알 수 없어서).
+            target_item = self.item(self.count() - 1)
         folder = target_item.data(Qt.UserRole + 1) if target_item else None
         if not folder:
             event.ignore()
@@ -150,6 +182,9 @@ class ObjectManagerPage(QWidget):
     def __init__(self, panel_a, panel_b, parent=None):
         super().__init__(parent)
         self.setObjectName("objectManagerInterface")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        # 자식까지 물들이지 않도록 이 위젯 하나만 가리키는 id 선택자로 바닥색을 칠합니다.
+        self.setStyleSheet(navy_page_css("objectManagerInterface"))
         self.panel_a = panel_a
         self.panel_b = panel_b
         self._nodes = []
@@ -163,9 +198,18 @@ class ObjectManagerPage(QWidget):
         self._saved_checkboxes = {}
         self._collapsed_folders = set()
 
-        outer = QHBoxLayout(self)
-        outer.setContentsMargins(16, 16, 16, 16)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(24, 20, 24, 20)
         outer.setSpacing(16)
+
+        header, self._breadcrumb = navy_page_header(
+            "객체 관리", "단말 화면에서 UI 요소를 찾아 이름을 붙여 프로젝트별로 저장합니다."
+        )
+        outer.addWidget(header)
+
+        body = QHBoxLayout()
+        body.setSpacing(14)
+        outer.addLayout(body, 1)
 
         # 프로젝트 목록을 마지막에 만드는 이유: 그 안에서 첫 프로젝트를 자동 선택하며
         # _refresh_saved_list() 등이 다른 패널의 위젯(_saved_list 등)을 바로 건드리는데,
@@ -175,9 +219,9 @@ class ObjectManagerPage(QWidget):
         detail_panel = self._build_detail_and_saved_panel()
         project_list = self._build_project_list()
 
-        outer.addWidget(project_list, 2)
-        outer.addWidget(inspector_panel, 5)
-        outer.addWidget(detail_panel, 3)
+        body.addWidget(project_list, 2)
+        body.addWidget(inspector_panel, 5)
+        body.addWidget(detail_panel, 3)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -187,64 +231,58 @@ class ObjectManagerPage(QWidget):
 
     # ---------- 1단: 프로젝트 목록 ----------
     def _build_project_list(self):
-        self._project_list_card = styled(QFrame(), card_css())
+        self._project_list_card = navy_card()
         layout = QVBoxLayout(self._project_list_card)
-        layout.setContentsMargins(10, 14, 10, 14)
-        layout.setSpacing(6)
+        layout.setContentsMargins(14, 16, 14, 16)
+        layout.setSpacing(4)
 
-        title = QLabel("프로젝트")
-        title.setFont(kfont(12, True))
-        title.setStyleSheet(f"color:{Palette.text_sub};")
-        layout.addWidget(title)
+        header, self._project_count = navy_card_header("프로젝트", badge=0)
+        layout.addWidget(header)
 
         # 프로젝트 버튼들은 _refresh_project_buttons()가 매번 통째로 지우고 다시 그리므로,
         # 아래 기기 연결 섹션까지 같이 지워지지 않도록 별도의 내부 레이아웃에 담습니다.
+        # (그 안의 addStretch가 기기 섹션을 카드 아래쪽으로 밀어줍니다.)
         self._project_list_layout = QVBoxLayout()
-        self._project_list_layout.setSpacing(6)
-        layout.addLayout(self._project_list_layout)
+        self._project_list_layout.setSpacing(2)
+        layout.addLayout(self._project_list_layout, 1)
         self._refresh_project_buttons()
 
-        layout.addSpacing(10)
+        layout.addSpacing(6)
 
-        device_title = QLabel("기기")
-        device_title.setFont(kfont(12, True))
-        device_title.setStyleSheet(f"color:{Palette.text_sub};")
-        layout.addWidget(device_title)
+        device_header, _ = navy_card_header("기기")
+        layout.addWidget(device_header)
 
-        self._btn_connect_device = PrimaryPushButton(qta.icon("fa5s.plug", color="white"), "기기 연결")
-        self._btn_connect_device.setFixedHeight(30)
-        self._btn_connect_device.setFont(kfont(11, True))
-        self._btn_connect_device.setCursor(Qt.PointingHandCursor)
+        self._btn_connect_device = navy_button(
+            "기기 연결", kind="primary", height=32, icon_name="fa5s.plug"
+        )
         self._btn_connect_device.clicked.connect(lambda: self.panel_a.btn_connect.click())
         layout.addWidget(self._btn_connect_device)
 
         self._device_status_lbl = QLabel("연결된 단말 없음")
-        self._device_status_lbl.setFont(kfont(10))
-        self._device_status_lbl.setStyleSheet(f"color:{Palette.text_sub};")
+        self._device_status_lbl.setFont(kfont(9))
+        self._device_status_lbl.setStyleSheet(f"color:{Navy.text_muted}; padding-top:2px;")
         self._device_status_lbl.setWordWrap(True)
         layout.addWidget(self._device_status_lbl)
         self.panel_a.signals.device_ready.connect(self._on_device_ready)
 
-        return add_shadow(self._project_list_card)
+        return self._project_list_card
 
     def _on_device_ready(self, info):
         if info:
-            self._device_status_lbl.setText(f"단말 연결됨: {info.get('model', '')}")
-            self._device_status_lbl.setStyleSheet(f"color:{Palette.blue};")
+            self._device_status_lbl.setText(f"● 단말 연결됨: {info.get('model', '')}")
+            self._device_status_lbl.setStyleSheet(f"color:{Navy.accent}; padding-top:2px;")
         else:
             self._device_status_lbl.setText("연결된 단말 없음")
-            self._device_status_lbl.setStyleSheet(f"color:{Palette.text_sub};")
+            self._device_status_lbl.setStyleSheet(f"color:{Navy.text_muted}; padding-top:2px;")
 
     def _refresh_project_buttons(self):
         clear_layout(self._project_list_layout, keep=0)
         self._project_buttons = {}
+        self._project_count.setText(str(len(PROJECT_HANDLERS)))
         group = QButtonGroup(self._project_list_card)
         group.setExclusive(True)
         for proj_name in PROJECT_HANDLERS:
-            btn = TogglePushButton(proj_name)
-            btn.setFont(kfont(11, True))
-            btn.setFixedHeight(32)
-            btn.setCursor(Qt.PointingHandCursor)
+            btn = NavListButton(proj_name, height=34)
             btn.clicked.connect(lambda checked=False, p=proj_name: self._on_project_selected(p))
             group.addButton(btn)
             self._project_list_layout.addWidget(btn)
@@ -260,6 +298,7 @@ class ObjectManagerPage(QWidget):
 
     def _on_project_selected(self, proj_name):
         self._current_project = proj_name
+        self._breadcrumb.setText(proj_name)
         self._reset_edit_form()
         self._collapsed_folders = set()
         self._refresh_folder_combo()
@@ -267,53 +306,50 @@ class ObjectManagerPage(QWidget):
 
     # ---------- 2단: 단말 화면 + 요소 찾기 ----------
     def _build_inspector_panel(self):
-        card = styled(QFrame(), card_css())
+        card = navy_card()
         outer = QVBoxLayout(card)
-        outer.setContentsMargins(14, 14, 14, 14)
-        outer.setSpacing(10)
+        outer.setContentsMargins(16, 16, 16, 16)
+        outer.setSpacing(12)
 
-        toolbar = QHBoxLayout()
-        toolbar.addStretch(1)
-
-        btn_refresh = make_button(
-            "새로고침", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover,
-            height=28, icon_name="fa5s.sync-alt",
-        )
+        btn_refresh = navy_button("새로고침", kind="ghost", height=30, icon_name="fa5s.sync-alt")
         btn_refresh.clicked.connect(self._refresh_device)
-        toolbar.addWidget(btn_refresh)
-        outer.addLayout(toolbar)
+        header, _ = navy_card_header("단말 화면", actions=[btn_refresh])
+        outer.addWidget(header)
 
         # weditor처럼 현재 화면의 Activity와 선택한 요소의 resourceId를 화면
         # 미러링 위쪽에 항상 보이는 정보 바로 표시합니다. 복사해서 쓸 수 있게
         # 텍스트 선택도 가능하게 해둡니다.
-        info_bar = QFrame()
-        info_bar.setStyleSheet(f"background-color:#1C1C1E; border-radius:{Palette.radius}px;")
+        info_bar = styled(
+            QFrame(),
+            f"background-color:{Navy.navy}; border:none; border-radius:{Navy.radius_sm}px;",
+        )
         info_layout = QVBoxLayout(info_bar)
-        info_layout.setContentsMargins(10, 6, 10, 6)
-        info_layout.setSpacing(2)
+        info_layout.setContentsMargins(12, 8, 12, 8)
+        info_layout.setSpacing(3)
 
         self._activity_lbl = QLabel("Activity: -")
-        self._activity_lbl.setFont(kfont(10, True))
-        self._activity_lbl.setStyleSheet("color:#FFFFFF;")
+        self._activity_lbl.setFont(navy_mono_font(9))
+        self._activity_lbl.setStyleSheet("color:#E6ECF7; background:transparent;")
         self._activity_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
         info_layout.addWidget(self._activity_lbl)
 
         self._resource_id_lbl = QLabel("resourceId: -")
-        self._resource_id_lbl.setFont(kfont(10))
-        self._resource_id_lbl.setStyleSheet("color:#B7B7C2;")
+        self._resource_id_lbl.setFont(navy_mono_font(9))
+        self._resource_id_lbl.setStyleSheet("color:#9FB0CC; background:transparent;")
         self._resource_id_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
         info_layout.addWidget(self._resource_id_lbl)
 
         outer.addWidget(info_bar)
 
         body = QHBoxLayout()
-        body.setSpacing(10)
+        body.setSpacing(12)
         outer.addLayout(body, 1)
 
         self._screen_lbl = ScreenLabel("새로고침을 눌러 화면을 불러오세요.")
         self._screen_lbl.setAlignment(Qt.AlignCenter)
         self._screen_lbl.setStyleSheet(
-            f"background-color:#1C1C1E; color:{Palette.text_sub}; border-radius:{Palette.radius}px;"
+            f"background-color:{Navy.navy_pressed}; color:#8598B8; "
+            f"border-radius:{Navy.radius_sm}px;"
         )
         self._screen_lbl.setMinimumWidth(300)
         self._screen_lbl.setCursor(Qt.PointingHandCursor)
@@ -321,15 +357,20 @@ class ObjectManagerPage(QWidget):
         body.addWidget(self._screen_lbl, 5)
 
         list_col = QVBoxLayout()
-        list_col.setSpacing(6)
+        list_col.setSpacing(8)
         body.addLayout(list_col, 4)
 
         self._filter_edit = QLineEdit()
-        self._filter_edit.setPlaceholderText("🔍 resourceId / text로 필터")
+        self._filter_edit.setPlaceholderText("resourceId / text로 필터")
+        self._filter_edit.setFixedHeight(30)
+        self._filter_edit.setFont(kfont(10))
+        self._filter_edit.setStyleSheet(navy_input_css())
         self._filter_edit.textChanged.connect(self._apply_filter)
         list_col.addWidget(self._filter_edit)
 
         self._list = QListWidget()
+        self._list.setFont(navy_mono_font(9))
+        self._list.setStyleSheet(navy_list_css())
         self._list.currentRowChanged.connect(self._on_row_selected)
         list_col.addWidget(self._list, 1)
 
@@ -337,15 +378,13 @@ class ObjectManagerPage(QWidget):
 
     # ---------- 3단: 선택 요소 상세 + 이름 저장 + 저장된 객체 목록 ----------
     def _build_detail_and_saved_panel(self):
-        card = styled(QFrame(), card_css())
+        card = navy_card()
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(12, 14, 12, 14)
-        layout.setSpacing(6)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(8)
 
-        title = QLabel("선택한 요소")
-        title.setFont(kfont(12, True))
-        title.setStyleSheet(f"color:{Palette.text_sub};")
-        layout.addWidget(title)
+        header, _ = navy_card_header("선택한 요소")
+        layout.addWidget(header)
 
         self._detail_labels = {}
         for key, label_text in (
@@ -354,102 +393,104 @@ class ObjectManagerPage(QWidget):
             ("class_name", "class"),
         ):
             row = QHBoxLayout()
-            t = QLabel(f"{label_text}:")
-            t.setFont(kfont(10, True))
-            t.setFixedWidth(70)
-            t.setStyleSheet(f"color:{Palette.text_sub};")
+            row.setSpacing(6)
+            t = QLabel(label_text)
+            t.setFont(kfont(9, True))
+            t.setFixedWidth(66)
+            t.setAlignment(Qt.AlignRight | Qt.AlignTop)
+            t.setStyleSheet(f"color:{Navy.text_muted};")
+            # 값은 resourceId/클래스명처럼 그대로 복사해 쓰는 문자열이라 고정폭 글꼴로.
             v = QLabel("-")
-            v.setFont(kfont(10))
+            v.setFont(navy_mono_font(9))
             v.setWordWrap(True)
-            v.setStyleSheet(f"color:{Palette.text_main};")
+            v.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            v.setStyleSheet(f"color:{Navy.text};")
             row.addWidget(t)
             row.addWidget(v, 1)
             layout.addLayout(row)
             self._detail_labels[key] = v
 
         folder_row = QHBoxLayout()
-        folder_lbl = QLabel("폴더:")
-        folder_lbl.setFont(kfont(10, True))
-        folder_lbl.setStyleSheet(f"color:{Palette.text_sub};")
+        folder_row.setSpacing(6)
+        folder_lbl = QLabel("폴더")
+        folder_lbl.setFont(kfont(9, True))
+        folder_lbl.setFixedWidth(66)
+        folder_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        folder_lbl.setStyleSheet(f"color:{Navy.text_muted};")
         folder_row.addWidget(folder_lbl)
         self._folder_combo = QComboBox()
+        self._folder_combo.setFixedHeight(30)
+        self._folder_combo.setFont(kfont(10))
+        self._folder_combo.setStyleSheet(navy_input_css())
         folder_row.addWidget(self._folder_combo, 1)
-        btn_add_folder = make_button(
-            "", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover,
-            height=26, radius=6, icon_name="fa5s.folder-plus", icon_size=13,
+        btn_add_folder = navy_button(
+            "", kind="ghost", height=30, icon_name="fa5s.folder-plus", icon_size=13
         )
+        btn_add_folder.setFixedWidth(34)
         btn_add_folder.setToolTip("새 폴더 추가")
         btn_add_folder.clicked.connect(self._on_add_folder_clicked)
         folder_row.addWidget(btn_add_folder)
         layout.addLayout(folder_row)
 
-        name_row = QHBoxLayout()
         self._name_edit = QLineEdit()
         self._name_edit.setPlaceholderText("이 요소에 붙일 이름")
-        self._name_edit.setStyleSheet(
-            f"QLineEdit {{ background-color:#FFFFFF; color:{Palette.text_main}; "
-            f"border:1px solid {Palette.border}; border-radius:6px; padding:4px 8px; }}"
-        )
-        name_row.addWidget(self._name_edit, 1)
-        layout.addLayout(name_row)
+        self._name_edit.setFixedHeight(30)
+        self._name_edit.setFont(kfont(10))
+        self._name_edit.setStyleSheet(navy_input_css())
+        layout.addWidget(self._name_edit)
 
         self._editing_hint_lbl = QLabel("")
         self._editing_hint_lbl.setFont(kfont(9))
-        self._editing_hint_lbl.setStyleSheet(f"color:{Palette.accent};")
         self._editing_hint_lbl.setWordWrap(True)
+        self._editing_hint_lbl.setStyleSheet(
+            f"background-color:{Navy.accent_soft}; color:{Navy.accent}; border:none; "
+            f"border-left:3px solid {Navy.accent}; border-radius:{Navy.radius_sm}px; padding:7px 9px;"
+        )
+        self._editing_hint_lbl.setVisible(False)
         layout.addWidget(self._editing_hint_lbl)
 
         save_btn_row = QHBoxLayout()
-        self._btn_save = PrimaryPushButton(qta.icon("fa5s.save", color="white"), "이름으로 저장")
-        self._btn_save.setFixedHeight(30)
-        self._btn_save.setFont(kfont(11, True))
-        self._btn_save.setCursor(Qt.PointingHandCursor)
+        save_btn_row.setSpacing(6)
+        self._btn_save = navy_button(
+            "이름으로 저장", kind="primary", height=32, icon_name="fa5s.save"
+        )
         self._btn_save.clicked.connect(self._save_named_object)
         save_btn_row.addWidget(self._btn_save, 1)
-        btn_new = make_button(
-            "", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover,
-            height=30, radius=6, icon_name="fa5s.eraser", icon_size=13,
-        )
+        btn_new = navy_button("", kind="ghost", height=32, icon_name="fa5s.eraser", icon_size=13)
+        btn_new.setFixedWidth(36)
         btn_new.setToolTip("수정 취소하고 새로 만들기")
         btn_new.clicked.connect(self._reset_edit_form)
         save_btn_row.addWidget(btn_new)
         layout.addLayout(save_btn_row)
 
-        layout.addSpacing(10)
-        saved_title = QLabel("저장된 객체")
-        saved_title.setFont(kfont(12, True))
-        saved_title.setStyleSheet(f"color:{Palette.text_sub};")
-        layout.addWidget(saved_title)
+        layout.addSpacing(6)
+        saved_header, self._saved_count = navy_card_header("저장된 객체", badge=0)
+        layout.addWidget(saved_header)
 
         self._saved_list = _SavedObjectList()
+        self._saved_list.setFont(kfont(10))
+        self._saved_list.setStyleSheet(navy_list_css())
         self._saved_list.objectDroppedOnFolder.connect(self._on_object_dropped_on_folder)
         self._saved_list.itemClicked.connect(self._on_saved_list_item_clicked)
         layout.addWidget(self._saved_list, 1)
 
-        btn_delete = make_button(
-            "선택 삭제", Palette.danger_bg, Palette.danger, Palette.danger_bg_hover,
-            height=28, icon_name="fa5s.trash-alt",
-        )
+        btn_delete = navy_button("선택 삭제", kind="danger", height=30, icon_name="fa5s.trash-alt")
         btn_delete.clicked.connect(self._delete_selected_saved_object)
         layout.addWidget(btn_delete)
 
         copy_move_row = QHBoxLayout()
-        copy_move_row.setSpacing(4)
-        btn_copy = make_button(
-            "다른 프로젝트로 복사", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover,
-            height=28, icon_name="fa5s.copy",
+        copy_move_row.setSpacing(6)
+        btn_copy = navy_button(
+            "다른 프로젝트로 복사", kind="ghost", height=30, icon_name="fa5s.copy"
         )
         btn_copy.clicked.connect(lambda: self._copy_or_move_selected_saved_object(move=False))
-        btn_move = make_button(
-            "이동", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover,
-            height=28, icon_name="fa5s.share",
-        )
+        btn_move = navy_button("이동", kind="ghost", height=30, icon_name="fa5s.share")
         btn_move.clicked.connect(lambda: self._copy_or_move_selected_saved_object(move=True))
         copy_move_row.addWidget(btn_copy, 2)
         copy_move_row.addWidget(btn_move, 1)
         layout.addLayout(copy_move_row)
 
-        return add_shadow(card)
+        return card
 
     # ---------- 단말에서 화면/계층 가져오기 ----------
     def _current_panel(self):
@@ -534,6 +575,7 @@ class ObjectManagerPage(QWidget):
             self._editing_name = None
             self._name_edit.clear()
             self._editing_hint_lbl.setText("")
+            self._editing_hint_lbl.setVisible(False)
             self._btn_save.setText("이름으로 저장")
         self._detail_labels["resource_id"].setText(node["resource_id"] or "-")
         self._detail_labels["text"].setText(node["text"] or "-")
@@ -547,7 +589,7 @@ class ObjectManagerPage(QWidget):
         pixmap = self._pixmap_orig.copy()
         if highlight:
             painter = QPainter(pixmap)
-            painter.setPen(QPen(QColor(Palette.danger), 4))
+            painter.setPen(QPen(QColor(Navy.danger), 4))
             x1, y1, x2, y2 = highlight
             painter.drawRect(x1, y1, x2 - x1, y2 - y1)
             painter.end()
@@ -602,6 +644,7 @@ class ObjectManagerPage(QWidget):
         self._editing_name = None
         self._name_edit.clear()
         self._editing_hint_lbl.setText("")
+        self._editing_hint_lbl.setVisible(False)
         self._btn_save.setText("이름으로 저장")
 
     def _on_saved_list_item_clicked(self, item):
@@ -629,7 +672,10 @@ class ObjectManagerPage(QWidget):
         if self._editing_name == name:
             idx = self._folder_combo.findText(folder)
             self._folder_combo.setCurrentIndex(idx if idx >= 0 else 0)
-        self._refresh_saved_list()
+        # 이 핸들러는 드롭 처리 도중(=드래그를 시작한 행 라벨의 이벤트 처리 스택 안)에서
+        # 불립니다. 여기서 바로 목록을 다시 그리면 그 라벨이 통째로 삭제되므로, 드래그가
+        # 끝난 뒤로 미룹니다.
+        QTimer.singleShot(0, self._refresh_saved_list)
 
     def _on_saved_item_clicked(self, name):
         if not name or not self._current_project:
@@ -645,6 +691,7 @@ class ObjectManagerPage(QWidget):
             f"'{name}' 수정 중 — 이름/폴더를 바꾸고 저장하면 반영됩니다. "
             f"가리키는 요소 자체를 바꾸려면 왼쪽 화면에서 다시 골라주세요."
         )
+        self._editing_hint_lbl.setVisible(True)
         self._btn_save.setText("수정 저장")
 
         folder = object_store.object_folder(node)
@@ -697,6 +744,7 @@ class ObjectManagerPage(QWidget):
         self._saved_list.clear()
         self._saved_checkboxes = {}
         if not self._current_project:
+            self._saved_count.setText("0")
             return
         saved = object_store.list_objects(self._current_project)
 
@@ -704,15 +752,17 @@ class ObjectManagerPage(QWidget):
         for name, node in saved.items():
             by_folder.setdefault(object_store.object_folder(node), []).append((name, node))
 
+        self._saved_count.setText(str(len(saved)))
+
         for folder, items in by_folder.items():
             collapsed = folder in self._collapsed_folders
             arrow = "▶" if collapsed else "▼"
-            header = QListWidgetItem(f"{arrow} 📁 {folder}  ({len(items)})")
+            header = QListWidgetItem(f"{arrow}  {folder}  ({len(items)})")
             # 클릭(펼치기/접기)은 받아야 하니 Enabled는 켜두고, 파란 선택 표시만 안 뜨게
             # Selectable은 뺍니다.
             header.setFlags(Qt.ItemIsEnabled)
-            header.setFont(kfont(10, True))
-            header.setForeground(QColor(Palette.text_sub))
+            header.setFont(kfont(9, True))
+            header.setForeground(QColor(Navy.text_muted))
             header.setData(Qt.UserRole + 1, folder)
             self._saved_list.addItem(header)
 
@@ -721,6 +771,10 @@ class ObjectManagerPage(QWidget):
 
             for name, node in items:
                 hint = node.get("resource_id") or node.get("text") or node.get("class_name") or ""
+                # 긴 resourceId가 행 폭을 밀어버리지 않도록 앞쪽을 줄입니다
+                # (뒤쪽의 .../id/xxx 부분이 식별에 쓸모 있으므로 꼬리를 남깁니다).
+                if len(hint) > 40:
+                    hint = "…" + hint[-39:]
 
                 item = QListWidgetItem()
                 item.setData(Qt.UserRole, name)
@@ -740,14 +794,20 @@ class ObjectManagerPage(QWidget):
                 self._style_saved_checkbox(checkbox)
                 row_layout.addWidget(checkbox)
 
-                label = _ObjectRowLabel(f"{name}  —  {hint}", name)
+                # 이름은 진하게, 뒤에 붙는 resourceId/text 힌트는 흐리게 두 톤으로 보여줍니다.
+                label = _ObjectRowLabel(
+                    f"<span style='color:{Navy.text};'>{html.escape(name)}</span>"
+                    f"<span style='color:{Navy.text_muted};'>  {html.escape(hint)}</span>",
+                    name,
+                )
                 label.setFont(kfont(10))
-                label.setStyleSheet(f"color:{Palette.text_main};")
                 label.setCursor(Qt.PointingHandCursor)
                 label.clicked.connect(lambda n=name: self._on_saved_item_clicked(n))
                 row_layout.addWidget(label, 1)
 
-                item.setSizeHint(row.sizeHint())
+                # 목록 QSS의 item padding까지 감안해 높이에 여유를 주지 않으면 글자가 위아래로
+                # 잘립니다. 폭은 0으로 두어 긴 힌트 때문에 가로 스크롤바가 생기지 않게 합니다.
+                item.setSizeHint(QSize(0, row.sizeHint().height() + 10))
                 self._saved_list.setItemWidget(item, row)
                 self._saved_checkboxes[name] = checkbox
 
@@ -757,12 +817,15 @@ class ObjectManagerPage(QWidget):
             checkbox.setIcon(qta.icon("fa5s.check", color="white"))
             checkbox.setIconSize(QSize(11, 11))
             checkbox.setStyleSheet(
-                f"QPushButton {{ background-color:{Palette.text_sub}; border:2px solid {Palette.text_sub}; border-radius:3px; }}"
+                f"QPushButton {{ background-color:{Navy.navy}; border:2px solid {Navy.navy}; "
+                f"border-radius:4px; }}"
             )
         else:
             checkbox.setIcon(QIcon())
             checkbox.setStyleSheet(
-                f"QPushButton {{ background-color:white; border:2px solid {Palette.border}; border-radius:3px; }}"
+                f"QPushButton {{ background-color:{Navy.surface}; border:2px solid {Navy.border_strong}; "
+                f"border-radius:4px; }}"
+                f"QPushButton:hover {{ border-color:{Navy.accent}; }}"
             )
 
     def _checked_saved_object_names(self):

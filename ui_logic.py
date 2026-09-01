@@ -10,7 +10,7 @@ from object_manager_page import ObjectManagerPage
 from project_manager_page import ProjectManagerPage
 from scenario_builder_page import ScenarioBuilderPage
 from scenario_page import ScenarioLibraryPage
-from ui_common import Palette, load_custom_font, place_as_left_card
+from ui_common import Navy, load_custom_font, place_as_left_card
 
 # 하위 호환: 예전에 ui_logic에서 바로 이 이름들을 가져다 쓰던 코드(또는 향후 참조)를 위해
 # 그대로 재노출합니다. 실제 정의는 ui_common.py에 있습니다.
@@ -48,9 +48,10 @@ class App(FluentWindow):
 
     def __init__(self):
         setTheme(Theme.LIGHT)
-        setThemeColor(Palette.accent)
+        # qfluentwidgets가 그리는 사이드바 선택 표시/포커스 링 등이 이 색을 씁니다.
+        setThemeColor(Navy.accent)
         super().__init__()
-        self.setCustomBackgroundColor(Palette.bg, "#202020")
+        self.setCustomBackgroundColor(Navy.bg, Navy.navy_pressed)
 
         load_custom_font()
         # kfont()로 직접 폰트를 지정하는 위젯 밖에도, qfluentwidgets가 자체적으로
@@ -113,29 +114,42 @@ class App(FluentWindow):
     # 🎨 전역 스타일 (스크롤바 / 콤보박스 / 다이얼로그 등 기본 위젯 다듬기)
     # ==========================================
     def _global_qss(self):
+        """창 전체에 깔리는 기본 위젯 스타일. 각 화면(시나리오/객체 관리/시나리오 작성/
+        프로젝트 관리)은 ui_common의 Navy 헬퍼로 자기 배경과 위젯을 따로 칠하고,
+        여기서는 그 밑에 깔리는 창 껍데기(사이드바/타이틀바/스크롤바/기본 대화상자)를
+        같은 톤으로 맞춥니다."""
         return f"""
-            QMainWindow {{ background-color:{Palette.bg}; }}
-            QToolTip {{ background-color:#1C1C1E; color:white; border:none; padding:4px 8px; border-radius:3px; }}
+            QMainWindow {{ background-color:{Navy.bg}; }}
+            /* 사이드바: 흰 패널 + 오른쪽에 가는 경계선 (본문 바닥색과 구분) */
+            NavigationInterface {{
+                background-color:{Navy.surface}; border-right:1px solid {Navy.border};
+            }}
+            NavigationPanel {{ background-color:{Navy.surface}; }}
+            QToolTip {{
+                background-color:{Navy.navy}; color:#FFFFFF; border:none;
+                padding:5px 9px; border-radius:6px;
+            }}
             QScrollBar:vertical {{ background:transparent; width:10px; margin:0; }}
-            QScrollBar::handle:vertical {{ background:{Palette.neutral_hover}; border-radius:3px; min-height:24px; }}
-            QScrollBar::handle:vertical:hover {{ background:{Palette.accent}; }}
+            QScrollBar::handle:vertical {{ background:{Navy.border_strong}; border-radius:5px; min-height:24px; }}
+            QScrollBar::handle:vertical:hover {{ background:{Navy.text_muted}; }}
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height:0; }}
             QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background:none; }}
             QScrollBar:horizontal {{ background:transparent; height:10px; margin:0; }}
-            QScrollBar::handle:horizontal {{ background:{Palette.neutral_hover}; border-radius:3px; min-width:24px; }}
+            QScrollBar::handle:horizontal {{ background:{Navy.border_strong}; border-radius:5px; min-width:24px; }}
+            QScrollBar::handle:horizontal:hover {{ background:{Navy.text_muted}; }}
             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width:0; }}
             QComboBox {{
-                background-color:{Palette.bg}; border:1px solid {Palette.border}; border-radius:4px;
-                padding:4px 10px; color:{Palette.text_main};
+                background-color:{Navy.surface}; border:1px solid {Navy.border_strong}; border-radius:8px;
+                padding:5px 10px; color:{Navy.text};
             }}
-            QComboBox:hover {{ border-color:{Palette.accent}; }}
+            QComboBox:hover {{ border-color:{Navy.accent}; }}
             QComboBox::drop-down {{ border:none; width:22px; }}
             QComboBox QAbstractItemView {{
-                background-color:white; border:1px solid {Palette.border}; border-radius:3px;
-                selection-background-color:{Palette.neutral_hover}; selection-color:{Palette.text_main}; outline:none;
+                background-color:{Navy.surface}; border:1px solid {Navy.border}; border-radius:8px;
+                selection-background-color:{Navy.accent_soft}; selection-color:{Navy.navy}; outline:none;
             }}
-            QDialog {{ background-color:{Palette.panel}; }}
-            QLineEdit:focus {{ border:1px solid {Palette.accent}; }}
+            QDialog {{ background-color:{Navy.surface}; }}
+            QLineEdit:focus {{ border:1px solid {Navy.accent}; }}
         """
 
     # ==========================================

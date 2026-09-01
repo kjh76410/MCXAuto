@@ -8,9 +8,6 @@ from project_window import ProjectWindow
 from ui_common import RobotLauncherButton, place_as_left_card
 from ui_logic import App
 
-# 프로젝트 메뉴 박스에 돌려가며 쓸 색.
-PROJECT_COLORS = ["#7FA8E8", "#F0AA6E", "#EF9A96", "#7FD8C6", "#E29BDB"]
-
 
 def build_menu_items(open_admin, open_project):
     """런처를 펼칠 때마다 새로 만드는 메뉴 박스 목록.
@@ -19,18 +16,16 @@ def build_menu_items(open_admin, open_project):
     items = [{
         "label": "시나리오 추가",
         "icon": "fa5s.plus",
-        "color": RobotLauncherButton.QA_COLOR,
         "on_click": open_admin,
     }]
 
-    for i, proj in enumerate(project_config_store.list_projects()):
+    for proj in project_config_store.list_projects():
         name = proj.get("project_name")
         if not name:
             continue
         items.append({
+            # 아이콘 없이 프로젝트 이름만 (박스 폭을 글자에 다 내줍니다).
             "label": name,
-            "icon": "fa5s.folder",
-            "color": PROJECT_COLORS[i % len(PROJECT_COLORS)],
             "on_click": lambda p=name: open_project(p),
         })
 

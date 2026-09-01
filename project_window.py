@@ -19,7 +19,6 @@ import threading
 
 from PySide6.QtCore import Qt, QObject, Signal
 from PySide6.QtWidgets import (
-    QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -27,12 +26,19 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from qfluentwidgets import PushButton
-import qtawesome as qta
 
 import scenario_runner
 import scenario_store
-from ui_common import Palette, add_shadow, card_css, clear_layout, kfont, styled
+from ui_common import (
+    Navy,
+    clear_layout,
+    kfont,
+    navy_button,
+    navy_card,
+    navy_card_header,
+    navy_page_css,
+    styled,
+)
 
 
 class _RunSignals(QObject):
@@ -54,11 +60,17 @@ class ProjectWindow(QWidget):
         self._running = False
 
         self.setWindowTitle("MCX QA")
-        self.setStyleSheet(f"QWidget {{ background-color:{Palette.bg}; color:{Palette.text_main}; }}")
+        self.setObjectName("projectWindow")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        # 배경은 이 창 자체만 칠하고(자식까지 물들면 카드 안 빈 컨테이너에 회색이 덧칠됩니다),
+        # 글자색만 QWidget 전체에 기본값으로 깔아둡니다.
+        self.setStyleSheet(
+            navy_page_css("projectWindow") + f"QWidget {{ color:{Navy.text}; }}"
+        )
 
         outer = QHBoxLayout(self)
-        outer.setContentsMargins(10, 10, 10, 10)
-        outer.setSpacing(10)
+        outer.setContentsMargins(14, 14, 14, 14)
+        outer.setSpacing(12)
         outer.addWidget(self._build_dashboard(), 1)
         outer.addWidget(self._build_scenario_panel(), 0)
 
@@ -70,8 +82,8 @@ class ProjectWindow(QWidget):
         holder = QWidget()
         grid = QGridLayout(holder)
         grid.setContentsMargins(0, 0, 0, 0)
-        grid.setHorizontalSpacing(10)
-        grid.setVerticalSpacing(10)
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(12)
         grid.addWidget(self.panel.top_block, 0, 0, 1, 2)
         grid.addWidget(self.panel.left_column_widget, 1, 0)
         grid.addWidget(self.panel.right_column_widget, 1, 1)
@@ -80,31 +92,29 @@ class ProjectWindow(QWidget):
 
     # ---------- 오른쪽: 시나리오 목록 ----------
     def _build_scenario_panel(self):
-        card = styled(QFrame(), card_css())
+        card = navy_card()
         card.setFixedWidth(self.SCENARIO_PANEL_WIDTH)
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(12, 14, 12, 14)
+        layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(6)
 
-        title = QLabel("시나리오")
-        title.setFont(kfont(12, True))
-        title.setStyleSheet(f"color:{Palette.text_sub};")
-        layout.addWidget(title)
+        header, self._scenario_count = navy_card_header("시나리오", badge=0)
+        layout.addWidget(header)
 
         self._project_label = QLabel("-")
-        self._project_label.setFont(kfont(13, True))
-        self._project_label.setStyleSheet(f"color:{Palette.text_main};")
+        self._project_label.setFont(kfont(16, True))
+        self._project_label.setStyleSheet(f"color:{Navy.navy};")
         layout.addWidget(self._project_label)
 
         hint = QLabel("항목을 누르면 연결된 단말에서 바로 실행됩니다.")
         hint.setFont(kfont(9))
         hint.setWordWrap(True)
-        hint.setStyleSheet(f"color:{Palette.text_sub};")
+        hint.setStyleSheet(f"color:{Navy.text_muted}; padding-bottom:4px;")
         layout.addWidget(hint)
 
         self._scenario_layout = layout
         layout.addStretch(1)
-        return add_shadow(card)
+        return card
 
     # ---------- 프로젝트 전환 ----------
     def set_project(self, project_name):
@@ -118,18 +128,28 @@ class ProjectWindow(QWidget):
         clear_layout(self._scenario_layout, keep=3)
 
         saved = scenario_store.list_scenarios(self._project) if self._project else {}
+        self._scenario_count.setText(str(len(saved)))
         if not saved:
             empty = QLabel("저장된 시나리오가 없습니다.\n'시나리오 작성'에서 만들어 주세요.")
             empty.setFont(kfont(10))
             empty.setWordWrap(True)
-            empty.setStyleSheet(f"color:{Palette.text_sub};")
+            empty.setAlignment(Qt.AlignCenter)
+            styled(
+                empty,
+                f"background-color:{Navy.surface_alt}; color:{Navy.text_muted}; "
+                f"border:1px dashed {Navy.border_strong}; border-radius:{Navy.radius_sm}px; "
+                f"padding:16px 10px;",
+            )
             self._scenario_layout.addWidget(empty)
         else:
             for name, steps in saved.items():
-                btn = PushButton(qta.icon("fa5s.play", color=Palette.text_main), f"{name}  ({len(steps)}스텝)")
-                btn.setFont(kfont(11, True))
-                btn.setFixedHeight(32)
-                btn.setCursor(Qt.PointingHandCursor)
+                btn = navy_button(
+                    f"{name}   {len(steps)}스텝", kind="ghost", height=34, icon_name="fa5s.play"
+                )
+                # 실행 목록이라 항목이 여러 개 쌓입니다. 가운데 정렬보다 왼쪽 정렬이 읽기 좋습니다.
+                btn.setStyleSheet(
+                    btn.styleSheet() + "QPushButton { text-align:left; padding-left:12px; }"
+                )
                 btn.clicked.connect(lambda checked=False, n=name: self._run_scenario(n))
                 self._scenario_layout.addWidget(btn)
 

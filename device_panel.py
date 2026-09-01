@@ -46,13 +46,16 @@ from qfluentwidgets import PrimaryPushButton, TogglePushButton
 import adb_logic
 from file_manager import FileManager
 from ui_common import (
-    Palette,
+    Navy,
     kfont,
     styled,
-    add_shadow,
-    card_css,
-    make_button,
     clear_layout,
+    navy_button,
+    navy_card,
+    navy_card_css,
+    navy_input_css,
+    navy_mono_font,
+    navy_scrollbar_css,
     Signals,
     QtLogConsole,
     ClickableLabel,
@@ -202,7 +205,7 @@ class DevicePanel(QWidget):
         """예전 좌측 사이드바(280px 고정 세로 컬럼)를 두 패널이 나란히 들어갈 수 있도록
         압축한 상단 가로 헤더로 바꾼 버전입니다. 환경/WiFi/앱 설치·삭제/시나리오 실행 같은
         부차 기능은 ⚙ 관리 메뉴 하나로 몰아넣었습니다."""
-        frame = styled(QFrame(), f"background-color:{Palette.bg}; border-radius:{Palette.radius}px;")
+        frame = navy_card()
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(3)
@@ -214,7 +217,7 @@ class DevicePanel(QWidget):
         self.btn_connect.setFont(kfont(11, True))
         self.btn_connect.setCursor(Qt.PointingHandCursor)
         self.btn_manage = self._make_button(
-            "⚙ 관리", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover,
+            "⚙ 관리", Navy.surface_sunken, Navy.text, Navy.accent_soft,
             height=28, icon_name="fa5s.tools", icon_size=13,
         )
         self.btn_manage.clicked.connect(self._open_manage_menu)
@@ -277,7 +280,7 @@ class DevicePanel(QWidget):
     def _build_project_info_card(self):
         """프로젝트/네트워크/모델·HW·Android·OS·버전 정보를 미러링 카드와 내 정보
         배지 바로 아래에 보여줍니다(예전에는 상단 헤더에 있었습니다)."""
-        frame = styled(QFrame(), f"background-color:{Palette.bg}; border-radius:{Palette.radius}px;")
+        frame = navy_card()
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(3)
@@ -286,18 +289,18 @@ class DevicePanel(QWidget):
         top_row.setSpacing(8)
         self.lbl_project = QLabel(f"[{self.panel_label}] 프로젝트: 대기 중")
         self.lbl_project.setFont(kfont(13, True))
-        self.lbl_project.setStyleSheet(f"color:{Palette.blue};")
+        self.lbl_project.setStyleSheet(f"color:{Navy.accent};")
         top_row.addWidget(self.lbl_project)
         top_row.addStretch(1)
         self.lbl_network = QLabel("네트워크: -")
         self.lbl_network.setFont(kfont(10))
-        self.lbl_network.setStyleSheet(f"color:{Palette.text_main};")
+        self.lbl_network.setStyleSheet(f"color:{Navy.text};")
         top_row.addWidget(self.lbl_network)
         layout.addLayout(top_row)
 
         self.label = QLabel("단말을 연결해주세요.")
         self.label.setFont(kfont(10))
-        self.label.setStyleSheet(f"color:{Palette.text_sub};")
+        self.label.setStyleSheet(f"color:{Navy.text_sub};")
         layout.addWidget(self.label)
 
         info_row = QHBoxLayout()
@@ -310,7 +313,7 @@ class DevicePanel(QWidget):
         self.lbl_project_version = self.lbl_version  # 하위 호환: 예전 이름으로도 접근 가능
         for lbl in (self.lbl_model, self.lbl_hw_version, self.lbl_android_ver, self.lbl_os_build, self.lbl_version):
             lbl.setFont(kfont(9))
-            lbl.setStyleSheet(f"color:{Palette.text_main};")
+            lbl.setStyleSheet(f"color:{Navy.text};")
             info_row.addWidget(lbl)
         info_row.addStretch(1)
         layout.addLayout(info_row)
@@ -319,30 +322,30 @@ class DevicePanel(QWidget):
 
     def _build_my_id_chip(self):
         """내 정보(연결된 단말의 ID)를 미러링 카드 바로 아래에 작은 알약 배지로 보여줍니다."""
-        chip = styled(QFrame(), f"background-color:{Palette.neutral_bg}; border-radius:{Palette.radius}px;")
+        chip = styled(QFrame(), f"background-color:{Navy.surface_sunken}; border-radius:{Navy.radius_sm}px;")
         layout = QHBoxLayout(chip)
         layout.setContentsMargins(12, 6, 12, 6)
         layout.setSpacing(6)
 
         icon_lbl = QLabel()
-        icon_lbl.setPixmap(qta.icon("fa5s.user-circle", color=Palette.text_main).pixmap(QSize(13, 13)))
+        icon_lbl.setPixmap(qta.icon("fa5s.user-circle", color=Navy.text).pixmap(QSize(13, 13)))
         icon_lbl.setStyleSheet("background:transparent;")
         layout.addWidget(icon_lbl)
 
         self.my_id_label = QLabel("내 정보: 연결 대기")
         self.my_id_label.setFont(kfont(11, True))
-        self.my_id_label.setStyleSheet(f"color:{Palette.text_main}; background:transparent;")
+        self.my_id_label.setStyleSheet(f"color:{Navy.text}; background:transparent;")
         layout.addWidget(self.my_id_label)
 
         return chip
 
     def _build_mirror_card(self):
-        card = styled(QFrame(), card_css())
+        card = navy_card()
         outer = QVBoxLayout(card)
         outer.setContentsMargins(14, 8, 14, 8)
         outer.setSpacing(4)
 
-        btn_kwargs = dict(bg=Palette.neutral_bg, fg=Palette.text_main, hover=Palette.neutral_hover, height=25, radius=5)
+        btn_kwargs = dict(bg=Navy.surface_sunken, fg=Navy.text, hover=Navy.accent_soft, height=25, radius=5)
 
         top_nav = QHBoxLayout()
         top_nav.setSpacing(2)
@@ -355,13 +358,13 @@ class DevicePanel(QWidget):
         outer.addLayout(top_nav)
         outer.setAlignment(top_nav, Qt.AlignHCenter)
 
-        self.mirror_container = styled(QWidget(), "background-color:#1C1C1E;")
+        self.mirror_container = styled(QWidget(), f"background-color:{Navy.navy_pressed};")
         self.mirror_container.setFixedSize(self.phone_width, self.phone_height)
         self.mirror_container.setAttribute(Qt.WA_NativeWindow, True)
         self.lbl_placeholder = QLabel("대기 중", self.mirror_container)
         self.lbl_placeholder.setGeometry(0, 0, self.phone_width, self.phone_height)
         self.lbl_placeholder.setAlignment(Qt.AlignCenter)
-        self.lbl_placeholder.setStyleSheet(f"color:{Palette.text_sub}; background:transparent;")
+        self.lbl_placeholder.setStyleSheet(f"color:{Navy.text_sub}; background:transparent;")
         self.lbl_placeholder.setFont(kfont(11))
         outer.addWidget(self.mirror_container, 0, Qt.AlignHCenter)
 
@@ -379,7 +382,7 @@ class DevicePanel(QWidget):
         outer.addLayout(bottom_nav)
         outer.setAlignment(bottom_nav, Qt.AlignHCenter)
 
-        return add_shadow(card)
+        return card
 
     def _build_list_card(self):
         """시나리오 탭(Group/User List + 발신) 안에 들어가는 콘텐츠. tab_view 안에 얹히므로
@@ -401,7 +404,7 @@ class DevicePanel(QWidget):
         self.btn_tab_user.setFont(kfont(11, True))
         self.btn_tab_user.setCursor(Qt.PointingHandCursor)
         self.btn_tab_user.clicked.connect(lambda: self.switch_tab("user"))
-        self.btn_refresh = self._make_button("", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=28, radius=6, icon_name="fa5s.sync-alt")
+        self.btn_refresh = self._make_button("", Navy.surface_sunken, Navy.text, Navy.accent_soft, height=28, radius=6, icon_name="fa5s.sync-alt")
         self.btn_refresh.setFixedWidth(34)
         self.btn_refresh.clicked.connect(self.refresh_all_lists)
         header.addWidget(self.btn_tab_group, 1)
@@ -410,7 +413,7 @@ class DevicePanel(QWidget):
         layout.addLayout(header)
 
         mode_row = QHBoxLayout()
-        self.seg_mode_toggle = SegmentedButton(["통화", "메시지"], selected_color=Palette.neutral_hover, height=25, font=kfont(11, True))
+        self.seg_mode_toggle = SegmentedButton(["통화", "메시지"], selected_color=Navy.accent_soft, height=25, font=kfont(11, True))
         self.seg_mode_toggle.set("통화")
         self.seg_mode_toggle.changed.connect(self.on_mode_toggle_changed)
         mode_row.addWidget(self.seg_mode_toggle, 1)
@@ -431,15 +434,15 @@ class DevicePanel(QWidget):
         # 스타일시트 렌더링 경로를 타면서 둥근 모서리가 실제로 적용됩니다.
         circle_btn_css = f"""
             QPushButton {{
-                background-color: {Palette.accent};
+                background-color: {Navy.accent};
                 border: none;
                 border-radius: 22px;
             }}
             QPushButton:hover {{
-                background-color: {Palette.accent_hover};
+                background-color: {Navy.accent_hover};
             }}
             QPushButton:pressed {{
-                background-color: {Palette.accent_hover};
+                background-color: {Navy.accent_hover};
             }}
         """
         self.btn_group_call = CenteredIconPrimaryButton(qta.icon("fa5s.phone", color="white"), "")
@@ -489,9 +492,9 @@ class DevicePanel(QWidget):
         # PTT Floor State 패널은 제거되고 로그 화면이 그 자리를 채웁니다.
         # 발언권 상태를 추적하던 위젯들은 화면에는 그리지 않고 내부 상태 갱신용으로만 유지합니다.
         self.lbl_pulse_status = QLabel("대기")
-        self.pulse_canvas = PulseCanvas(color=Palette.blue)
+        self.pulse_canvas = PulseCanvas(color=Navy.accent)
 
-        monitor = styled(QFrame(), card_css())
+        monitor = navy_card()
         monitor_layout = QVBoxLayout(monitor)
         monitor_layout.setContentsMargins(12, 10, 12, 12)
         monitor_layout.setSpacing(4)
@@ -499,18 +502,18 @@ class DevicePanel(QWidget):
         monitor_header = QHBoxLayout()
         lbl_title = QLabel("Network & System Logs")
         lbl_title.setFont(kfont(12, True))
-        lbl_title.setStyleSheet(f"color:{Palette.text_main};")
+        lbl_title.setStyleSheet(f"color:{Navy.text};")
         monitor_header.addWidget(lbl_title)
         monitor_header.addStretch(1)
 
-        self.btn_toggle_log = TogglePushButton(qta.icon("fa5s.file-alt", color=Palette.text_main), "Logcat ON")
+        self.btn_toggle_log = TogglePushButton(qta.icon("fa5s.file-alt", color=Navy.text), "Logcat ON")
         self.btn_toggle_log.setFixedHeight(24)
         self.btn_toggle_log.setFont(kfont(11, True))
         self.btn_toggle_log.setCursor(Qt.PointingHandCursor)
         self.btn_toggle_log.setIconSize(QSize(14, 14))
         self.btn_toggle_log.setFixedWidth(120)
         self.btn_toggle_log.clicked.connect(self.toggle_log)
-        self.btn_toggle_pcap = TogglePushButton(qta.icon("fa5s.circle", color=Palette.text_main), "PCAP ON")
+        self.btn_toggle_pcap = TogglePushButton(qta.icon("fa5s.circle", color=Navy.text), "PCAP ON")
         self.btn_toggle_pcap.setFixedHeight(24)
         self.btn_toggle_pcap.setFont(kfont(11, True))
         self.btn_toggle_pcap.setCursor(Qt.PointingHandCursor)
@@ -523,8 +526,10 @@ class DevicePanel(QWidget):
 
         self.tab_view = QTabWidget()
         self.tab_view.setStyleSheet(
-            f"QTabBar::tab {{ background:{Palette.neutral_bg}; padding:5px 12px; border-radius:3px; margin:3px 2px; }}"
-            f"QTabBar::tab:selected {{ background:{Palette.neutral_hover}; color:{Palette.text_main}; }}"
+            f"QTabBar::tab {{ background:transparent; color:{Navy.text_sub}; font-weight:600; "
+            f"padding:5px 14px; border-radius:7px; margin:3px 2px; }}"
+            f"QTabBar::tab:hover {{ background:{Navy.surface_sunken}; color:{Navy.text}; }}"
+            f"QTabBar::tab:selected {{ background:{Navy.accent_soft}; color:{Navy.navy}; }}"
             f"QTabWidget::pane {{ border:none; }}"
         )
 
@@ -545,23 +550,24 @@ class DevicePanel(QWidget):
         self.entry_search = QLineEdit()
         self.entry_search.setPlaceholderText("🔍 터미널 로그 실시간 검색")
         self.entry_search.setFixedHeight(30)
-        self.entry_search.setStyleSheet(
-            f"QLineEdit {{ background-color:white; border:1px solid {Palette.border}; border-radius:4px; padding:0 10px; }}"
-        )
+        self.entry_search.setFont(kfont(10))
+        self.entry_search.setStyleSheet(navy_input_css())
         self.entry_search.textChanged.connect(self._filter_log)
         self.txt_log = QTextEdit()
         self.txt_log.setReadOnly(True)
-        self.txt_log.setFont(kfont(10))
+        # 터미널 로그라 딥네이비 바탕 + 고정폭 글꼴로(시나리오 작성 화면의 실행 로그와 같은 톤).
+        self.txt_log.setFont(navy_mono_font(9))
         self.txt_log.setStyleSheet(
-            f"QTextEdit {{ background-color:{Palette.bg}; color:{Palette.text_main}; "
-            f"border:1px solid {Palette.border}; border-radius:4px; }}"
+            f"QTextEdit {{ background-color:{Navy.navy_pressed}; color:#D8E2F2; "
+            f"border:none; border-radius:{Navy.radius_sm}px; padding:8px; }}"
+            + navy_scrollbar_css()
         )
         log_layout.addWidget(self.entry_search)
         log_layout.addWidget(self.txt_log, 1)
         self.tab_view.addTab(log_tab, "System Log")
 
         monitor_layout.addWidget(self.tab_view, 1)
-        layout.addWidget(add_shadow(monitor), 1)
+        layout.addWidget(monitor, 1)
 
         self.txt_log.append("[Terminal] 시스템 로그 출력을 대기 중입니다...")
         return col
@@ -572,24 +578,30 @@ class DevicePanel(QWidget):
     def _section_label(self, text):
         lbl = QLabel(text)
         lbl.setFont(kfont(12, True))
-        lbl.setStyleSheet(f"color:{Palette.text_main};")
+        lbl.setStyleSheet(f"color:{Navy.text};")
         return lbl
 
     def _hline(self):
         line = QFrame()
         line.setFixedHeight(1)
-        line.setStyleSheet(f"background-color:{Palette.border};")
+        line.setStyleSheet(f"background-color:{Navy.border};")
         return line
 
-    def _make_button(self, text, bg, fg, hover, height=26, radius=Palette.radius, icon_name=None, icon_size=14):
-        return make_button(text, bg, fg, hover, height, radius, icon_name, icon_size)
+    def _make_button(self, text, bg=None, fg=None, hover=None, height=26, radius=None,
+                     icon_name=None, icon_size=14):
+        """대시보드의 보조 버튼(캡쳐/촬영/새로고침/설정 적용 등)을 만드는 헬퍼.
+
+        bg/fg/hover/radius는 예전 QSS 버튼 시절의 시그니처와 호출부를 그대로 두려고
+        남겨둔 자리이고, 실제 모양은 Navy 고스트 버튼(흰 바탕 + 테두리) 하나로 통일합니다."""
+        return navy_button(text, kind="ghost", height=height,
+                           icon_name=icon_name, icon_size=icon_size)
 
     def _show_sip_placeholder(self):
         clear_layout(self.flow_layout, keep=0)
         self.flow_layout.addStretch(1)
         lbl = QLabel("단말을 연결하면 실시간 SIP/Call Flow가 이곳에 표시됩니다.")
         lbl.setFont(kfont(12))
-        lbl.setStyleSheet(f"color:{Palette.text_sub};")
+        lbl.setStyleSheet(f"color:{Navy.text_sub};")
         lbl.setAlignment(Qt.AlignCenter)
         self.flow_layout.insertWidget(0, lbl)
 
@@ -597,7 +609,7 @@ class DevicePanel(QWidget):
         clear_layout(self.feature_tag_layout, keep=0)
         lbl = QLabel("단말기를 연결하면 이곳에 프로젝트 지원 기능이 표시됩니다.")
         lbl.setFont(kfont(11))
-        lbl.setStyleSheet(f"color:{Palette.text_sub};")
+        lbl.setStyleSheet(f"color:{Navy.text_sub};")
         self.feature_tag_layout.addWidget(lbl)
 
     def _filter_log(self, text):
@@ -621,7 +633,7 @@ class DevicePanel(QWidget):
         cursor = self.txt_log.textCursor()
         cursor.movePosition(QTextCursor.End)
         fmt = QTextCharFormat()
-        fmt.setForeground(QColor(Palette.danger if is_error else Palette.text_main))
+        fmt.setForeground(QColor("#FF9DAF" if is_error else "#D8E2F2"))
         cursor.setCharFormat(fmt)
         cursor.insertText(text if text.endswith("\n") else text + "\n")
         self.txt_log.setTextCursor(cursor)
@@ -632,11 +644,11 @@ class DevicePanel(QWidget):
 
     def _add_flow_card_ui(self, event_type, title, detail, is_error):
         if is_error:
-            b_color, bg_col, badge_text = Palette.danger, Palette.danger_bg, "ERROR"
+            b_color, bg_col, badge_text = Navy.danger, Navy.danger_soft, "ERROR"
         elif event_type == "RX":
-            b_color, bg_col, badge_text = Palette.blue, Palette.tint_blue_bg, "RECV"
+            b_color, bg_col, badge_text = Navy.accent, Navy.accent_soft, "RECV"
         else:
-            b_color, bg_col, badge_text = Palette.blue, Palette.panel, "PROC"
+            b_color, bg_col, badge_text = Navy.accent, Navy.surface, "PROC"
 
         card = styled(QFrame(), f"background-color:{bg_col}; border:none; border-radius:4px;")
         row = QHBoxLayout(card)
@@ -650,11 +662,11 @@ class DevicePanel(QWidget):
         badge.setStyleSheet(f"background-color:{b_color}; color:white; border-radius:3px; padding:0 6px;")
         lbl_title = QLabel(title)
         lbl_title.setFont(kfont(12, True))
-        lbl_title.setStyleSheet(f"color:{Palette.text_main};")
+        lbl_title.setStyleSheet(f"color:{Navy.text};")
 
         lbl_detail = QLabel()
         lbl_detail.setFont(kfont(11))
-        lbl_detail.setStyleSheet(f"color:{Palette.danger if is_error else Palette.text_sub};")
+        lbl_detail.setStyleSheet(f"color:{Navy.danger if is_error else Navy.text_sub};")
         lbl_detail.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         lbl_detail.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         # 상세 내용은 한 행에 다 보이도록 줄바꿈 대신, 폭에 맞춰 말줄임(...)으로 잘라냅니다.
@@ -689,7 +701,7 @@ class DevicePanel(QWidget):
             self.project_name = FileManager.get_project_name(version_name)
 
             self.label.setText(f"연결됨: {model}")
-            self.label.setStyleSheet(f"color:{Palette.blue};")
+            self.label.setStyleSheet(f"color:{Navy.accent};")
             self.lbl_model.setText(f"모델: {model}")
             self.lbl_hw_version.setText(f"HW: {hw_version}")
             self.lbl_android_ver.setText(f"Android: {android_version}")
@@ -707,21 +719,21 @@ class DevicePanel(QWidget):
         else:
             self.current_uuid = None
             self.label.setText("연결된 단말 없음")
-            self.label.setStyleSheet(f"color:{Palette.text_sub};")
+            self.label.setStyleSheet(f"color:{Navy.text_sub};")
             self.lbl_model.setText("모델: -")
             self.lbl_hw_version.setText("HW: -")
             self.lbl_android_ver.setText("Android: -")
             self.lbl_os_build.setText("OS: -")
             self.lbl_version.setText("버전: -")
             self.lbl_network.setText("네트워크: -")
-            self.lbl_network.setStyleSheet(f"color:{Palette.text_main};")
+            self.lbl_network.setStyleSheet(f"color:{Navy.text};")
             self.lbl_project.setText(f"[{self.panel_label}] 프로젝트: 대기 중")
-            self.lbl_project.setStyleSheet(f"color:{Palette.blue};")
+            self.lbl_project.setStyleSheet(f"color:{Navy.accent};")
 
             self._reset_feature_tags()
             self.pulse_canvas.stop()
             self.lbl_pulse_status.setText("대기")
-            self.lbl_pulse_status.setStyleSheet(f"color:{Palette.text_sub};")
+            self.lbl_pulse_status.setStyleSheet(f"color:{Navy.text_sub};")
 
             self.mirror_container.setFixedSize(self.phone_width, self.phone_height)
             self.lbl_placeholder.setGeometry(0, 0, self.phone_width, self.phone_height)
@@ -753,7 +765,7 @@ class DevicePanel(QWidget):
         if self.current_uuid is None:
             return
         is_down = ("끊김" in status) or ("불가" in status)
-        color = Palette.danger if is_down else Palette.blue
+        color = Navy.danger if is_down else Navy.accent
         self.lbl_network.setText(f"네트워크: {status}")
         self.lbl_network.setStyleSheet(f"color:{color};")
 
@@ -783,11 +795,11 @@ class DevicePanel(QWidget):
     def set_ptt_active(self, active: bool):
         if active:
             self.lbl_pulse_status.setText("🔴 송신 중")
-            self.lbl_pulse_status.setStyleSheet(f"color:{Palette.danger};")
+            self.lbl_pulse_status.setStyleSheet(f"color:{Navy.danger};")
             self.pulse_canvas.start()
         else:
             self.lbl_pulse_status.setText("대기")
-            self.lbl_pulse_status.setStyleSheet(f"color:{Palette.text_sub};")
+            self.lbl_pulse_status.setStyleSheet(f"color:{Navy.text_sub};")
             self.pulse_canvas.stop()
 
     def _on_floor_state(self, state_text):
@@ -851,7 +863,7 @@ class DevicePanel(QWidget):
             g_layout.setSpacing(3)
             lbl = QLabel(f"{icon} {title}:")
             lbl.setFont(kfont(11, True))
-            lbl.setStyleSheet(f"color:{Palette.text_sub};")
+            lbl.setStyleSheet(f"color:{Navy.text_sub};")
             g_layout.addWidget(lbl)
             for f_name in active_features:
                 badge = QLabel(f_name)
@@ -888,7 +900,7 @@ class DevicePanel(QWidget):
         edit.setFixedSize(40, 24)
         edit.setAlignment(Qt.AlignCenter)
         edit.setValidator(QIntValidator(0, 999))
-        edit.setStyleSheet(f"border:1px solid {Palette.border}; border-radius:3px;")
+        edit.setStyleSheet(f"border:1px solid {Navy.border}; border-radius:3px;")
 
         def on_finish():
             if not edit.text() or edit.text() == "0":
@@ -899,7 +911,7 @@ class DevicePanel(QWidget):
 
     def _make_list_card(self, parent_layout, name, id_text, seg_call_values, seg_msg_values):
         """Group/User List에서 공통으로 쓰는 카드(체크박스 + 반복 횟수 + 이름/ID + 통화·메시지 방식) 생성."""
-        card = styled(QFrame(), card_css(radius=5))
+        card = navy_card(radius=8)
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(0, 0, 0, 0)
         card_layout.setSpacing(0)
@@ -922,11 +934,11 @@ class DevicePanel(QWidget):
         text_layout.setSpacing(0)
         lbl_name = ClickableLabel(name)
         lbl_name.setFont(kfont(12, True))
-        lbl_name.setStyleSheet(f"color:{Palette.text_main};")
+        lbl_name.setStyleSheet(f"color:{Navy.text};")
         lbl_name.setCursor(Qt.PointingHandCursor)
         lbl_id = ClickableLabel(id_text)
         lbl_id.setFont(kfont(11))
-        lbl_id.setStyleSheet(f"color:{Palette.text_sub};")
+        lbl_id.setStyleSheet(f"color:{Navy.text_sub};")
         lbl_id.setCursor(Qt.PointingHandCursor)
         text_layout.addWidget(lbl_name)
         text_layout.addWidget(lbl_id)
@@ -942,10 +954,10 @@ class DevicePanel(QWidget):
         action_layout = QHBoxLayout(action_row)
         action_layout.setContentsMargins(8, 0, 8, 6)
         seg_call = SegmentedButton(
-            seg_call_values, selected_color=Palette.accent, selected_text_color="white", height=22, font=kfont(10)
+            seg_call_values, selected_color=Navy.accent, selected_text_color="white", height=22, font=kfont(10)
         )
         seg_msg = SegmentedButton(
-            seg_msg_values, selected_color=Palette.accent, selected_text_color="white", height=22, font=kfont(10)
+            seg_msg_values, selected_color=Navy.accent, selected_text_color="white", height=22, font=kfont(10)
         )
         action_layout.addWidget(seg_call)
         action_layout.addWidget(seg_msg)
@@ -968,12 +980,12 @@ class DevicePanel(QWidget):
             checkbox.setIcon(qta.icon("fa5s.check", color="white"))
             checkbox.setIconSize(QSize(11, 11))
             checkbox.setStyleSheet(
-                f"QPushButton {{ background-color:{Palette.text_sub}; border:2px solid {Palette.text_sub}; border-radius:3px; }}"
+                f"QPushButton {{ background-color:{Navy.text_sub}; border:2px solid {Navy.text_sub}; border-radius:3px; }}"
             )
         else:
             checkbox.setIcon(QIcon())
             checkbox.setStyleSheet(
-                f"QPushButton {{ background-color:white; border:2px solid {Palette.border}; border-radius:3px; }}"
+                f"QPushButton {{ background-color:white; border:2px solid {Navy.border}; border-radius:3px; }}"
             )
 
     def refresh_group_list(self):
@@ -1014,7 +1026,7 @@ class DevicePanel(QWidget):
             h_layout.setContentsMargins(4, 10, 4, 4)
             lbl = QLabel(title)
             lbl.setFont(kfont(11, True))
-            lbl.setStyleSheet(f"color:{Palette.text_main};")
+            lbl.setStyleSheet(f"color:{Navy.text};")
             h_layout.addWidget(lbl)
             h_layout.addWidget(self._hline(), 1)
             self.group_list_layout.insertWidget(self.group_list_layout.count() - 1, header)
@@ -1022,7 +1034,7 @@ class DevicePanel(QWidget):
         def add_empty(message):
             lbl = QLabel(message)
             lbl.setFont(kfont(11))
-            lbl.setStyleSheet(f"color:{Palette.text_sub}; padding-left:8px;")
+            lbl.setStyleSheet(f"color:{Navy.text_sub}; padding-left:8px;")
             self.group_list_layout.insertWidget(self.group_list_layout.count() - 1, lbl)
 
         def create_section(title, group_list, empty_message=None):
@@ -1284,7 +1296,7 @@ class DevicePanel(QWidget):
             clear_layout(self.user_list_layout, keep=0)
             self.user_list_layout.addStretch(1)
             lbl = QLabel("이 프로젝트는 1:1 통화를 지원하지 않으므로\n유저 목록을 불러오지 않습니다.")
-            lbl.setStyleSheet(f"color:{Palette.text_sub};")
+            lbl.setStyleSheet(f"color:{Navy.text_sub};")
             lbl.setFont(kfont(13))
             lbl.setAlignment(Qt.AlignCenter)
             self.user_list_layout.insertWidget(0, lbl)
@@ -1493,7 +1505,7 @@ class DevicePanel(QWidget):
         dlg = QDialog(self)
         dlg.setWindowTitle(title)
         dlg.resize(320, 220)
-        dlg.setStyleSheet(f"QDialog {{ background-color:{Palette.panel}; }}")
+        dlg.setStyleSheet(f"QDialog {{ background-color:{Navy.surface}; }}")
         dlg.setWindowFlags(dlg.windowFlags() | Qt.WindowStaysOnTopHint)
         return dlg
 
@@ -1522,7 +1534,7 @@ class DevicePanel(QWidget):
         layout.addWidget(combo)
         layout.addSpacing(20)
 
-        btn_apply = self._make_button("✅ 설정 적용", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=30)
+        btn_apply = self._make_button("✅ 설정 적용", Navy.surface_sunken, Navy.text, Navy.accent_soft, height=30)
         btn_apply.clicked.connect(lambda: self.apply_settings(dlg, config_data, combo.currentText()))
         layout.addWidget(btn_apply)
 
@@ -1593,7 +1605,7 @@ class DevicePanel(QWidget):
         layout.addWidget(combo)
         layout.addSpacing(20)
 
-        btn_connect_wifi = self._make_button("✅ WiFi 연결", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=30)
+        btn_connect_wifi = self._make_button("✅ WiFi 연결", Navy.surface_sunken, Navy.text, Navy.accent_soft, height=30)
         btn_connect_wifi.clicked.connect(lambda: self.apply_wifi_settings(dlg, wifi_data, combo.currentText()))
         layout.addWidget(btn_connect_wifi)
 
@@ -1619,14 +1631,14 @@ class DevicePanel(QWidget):
             log_path = os.path.join(os.getcwd(), "logs", f"log_{self.panel_label}_{timestamp}.txt")
             self.log_proc, self.log_file = adb_logic.start_log_process(self.current_uuid, log_path)
             self.btn_toggle_log.setText("■ LOG OFF")
-            self.btn_toggle_log.setIcon(qta.icon("fa5s.file-alt", color=Palette.danger))
+            self.btn_toggle_log.setIcon(qta.icon("fa5s.file-alt", color=Navy.danger))
             self.btn_toggle_log.setChecked(True)
             self.is_log_on = True
         else:
             adb_logic.stop_process(self.log_proc)
             self.log_file.close()
             self.btn_toggle_log.setText("▶ LOG ON")
-            self.btn_toggle_log.setIcon(qta.icon("fa5s.file-alt", color=Palette.text_main))
+            self.btn_toggle_log.setIcon(qta.icon("fa5s.file-alt", color=Navy.text))
             self.btn_toggle_log.setChecked(False)
             self.is_log_on = False
 
@@ -1638,10 +1650,10 @@ class DevicePanel(QWidget):
         self.btn_toggle_pcap.setChecked(is_on)
         if is_on:
             self.btn_toggle_pcap.setText("■ PCAPdroid OFF")
-            self.btn_toggle_pcap.setIcon(qta.icon("fa5s.circle", color=Palette.danger))
+            self.btn_toggle_pcap.setIcon(qta.icon("fa5s.circle", color=Navy.danger))
         else:
             self.btn_toggle_pcap.setText("● PCAPdroid ON")
-            self.btn_toggle_pcap.setIcon(qta.icon("fa5s.circle", color=Palette.text_main))
+            self.btn_toggle_pcap.setIcon(qta.icon("fa5s.circle", color=Navy.text))
 
     def toggle_pcap(self):
         if not self.current_uuid:
@@ -1894,10 +1906,10 @@ class DevicePanel(QWidget):
         for category, items in menu_data.items():
             lbl = QLabel(category)
             lbl.setFont(kfont(13, True))
-            lbl.setStyleSheet(f"color:{Palette.blue};")
+            lbl.setStyleSheet(f"color:{Navy.accent};")
             content_layout.insertWidget(content_layout.count() - 1, lbl)
             for item in items:
-                btn = self._make_button(f"  {item}", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover, height=28, radius=4)
+                btn = self._make_button(f"  {item}", Navy.surface_sunken, Navy.text, Navy.accent_soft, height=28, radius=4)
                 btn.setStyleSheet(btn.styleSheet() + "QPushButton { text-align:left; padding-left:10px; }")
                 btn.clicked.connect(lambda checked=False, c=category, i=item: self.execute_action(c, i))
                 content_layout.insertWidget(content_layout.count() - 1, btn)
@@ -1934,7 +1946,9 @@ class ResultsPanel(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        styled(self, card_css())
+        # 카드 배경이 자식 위젯까지 번지지 않도록 id 선택자로 자기 자신만 칠합니다.
+        self.setObjectName("resultsPanel")
+        styled(self, f"QWidget#resultsPanel {{ {navy_card_css()} }}")
         self._build_ui()
 
     def _build_ui(self):
@@ -1945,19 +1959,17 @@ class ResultsPanel(QWidget):
         header = QHBoxLayout()
         lbl_title = QLabel("Test Results")
         lbl_title.setFont(kfont(13, True))
-        lbl_title.setStyleSheet(f"color:{Palette.text_main};")
+        lbl_title.setStyleSheet(f"color:{Navy.text};")
         header.addWidget(lbl_title)
         header.addStretch(1)
-        self.btn_import_results = make_button(
-            "가져오기", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover,
-            height=24, radius=5, icon_name="fa5s.file-import",
+        self.btn_import_results = navy_button(
+            "가져오기", kind="ghost", height=26, icon_name="fa5s.file-import", icon_size=12
         )
         self.btn_import_results.setFixedWidth(90)
         self.btn_import_results.clicked.connect(self.import_results_from_file)
         header.addWidget(self.btn_import_results)
-        self.btn_download_results = make_button(
-            "다운로드", Palette.neutral_bg, Palette.text_main, Palette.neutral_hover,
-            height=24, radius=5, icon_name="fa5s.download",
+        self.btn_download_results = navy_button(
+            "다운로드", kind="ghost", height=26, icon_name="fa5s.download", icon_size=12
         )
         self.btn_download_results.setFixedWidth(100)
         self.btn_download_results.clicked.connect(self.export_results_to_excel)
@@ -1985,15 +1997,15 @@ class ResultsPanel(QWidget):
         self.table_results.setStyleSheet(
             "QTableWidget {"
             f"  background-color:white; border:1px solid {excel_grid_color}; border-radius:0px;"
-            f"  gridline-color:{excel_grid_color}; color:{Palette.text_main};"
+            f"  gridline-color:{excel_grid_color}; color:{Navy.text};"
             "}"
             "QTableWidget::item {"
             "  padding:2px 8px; background-color:white;"
             f"  border-right:1px solid {excel_grid_color}; border-bottom:1px solid {excel_grid_color};"
             "}"
-            f"QTableWidget::item:selected {{ background-color:{Palette.tint_blue_bg}; color:{Palette.text_main}; }}"
+            f"QTableWidget::item:selected {{ background-color:{Navy.accent_soft}; color:{Navy.text}; }}"
             "QHeaderView::section {"
-            f"  background-color:{Palette.neutral_bg}; color:{Palette.text_main}; font-weight:600;"
+            f"  background-color:{Navy.surface_sunken}; color:{Navy.text}; font-weight:600;"
             "  border:none;"
             "  padding:2px 8px;"
             "}"
@@ -2020,9 +2032,9 @@ class ResultsPanel(QWidget):
     def _make_result_item(self, result):
         item = QTableWidgetItem(str(result))
         if "실패" in str(result) or "FAIL" in str(result).upper():
-            item.setForeground(QColor(Palette.danger))
+            item.setForeground(QColor(Navy.danger))
         elif "성공" in str(result) or "PASS" in str(result).upper():
-            item.setForeground(QColor(Palette.blue))
+            item.setForeground(QColor(Navy.accent))
         return item
 
     def add_result_row(self, tc_id, summary, result):

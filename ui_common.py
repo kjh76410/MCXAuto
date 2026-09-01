@@ -29,6 +29,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
+    QFrame,
     QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
@@ -186,6 +187,294 @@ def clear_layout(layout, keep=0):
         w = item.widget()
         if w is not None:
             w.deleteLater()
+
+
+# ==========================================
+# 🌐 [Navy Web Theme] — 웹 어드민 느낌의 네이비 톤
+# ==========================================
+class Navy:
+    """'웹 같은 느낌 + 네이비톤'으로 새로 입힌 화면들이 공통으로 쓰는 색/치수 토큰.
+
+    밝은 회청색 바닥(bg) 위에 흰 카드(surface)를 올리고, 제목·선택 상태·기본
+    버튼에만 진한 네이비(navy)를 쓰는 구성입니다. 지금은 모든 화면과 창 껍데기가
+    이 토큰을 쓰며, 아래의 Palette(예전 파스텔 라벤더)는 참조하는 코드가 없습니다."""
+
+    bg = "#F5F7FA"              # 페이지 바닥
+    surface = "#FFFFFF"         # 카드
+    surface_alt = "#F8FAFC"     # 카드 안에서 한 단 가라앉는 영역(코드 뷰 등)
+    surface_sunken = "#F1F5F9"  # hover / 연한 구분 배경
+    border = "#E3E8F0"
+    border_strong = "#CBD5E1"
+
+    navy = "#1B2A4A"            # 제목·기본 버튼
+    navy_hover = "#24375F"
+    navy_pressed = "#14203A"
+
+    accent = "#2E5AAC"          # 링크/활성 표시용 파랑
+    accent_hover = "#26509B"
+    accent_soft = "#EEF3FB"     # 선택된 행 배경
+    accent_soft_hover = "#E2EAF8"
+
+    text = "#1B2A4A"
+    text_sub = "#5A6B85"
+    text_muted = "#93A0B5"
+    text_on_navy = "#FFFFFF"
+
+    danger = "#C2405A"
+    danger_soft = "#FCF0F3"
+    success = "#1E8A60"
+
+    disabled_bg = "#E8EDF4"
+    disabled_fg = "#A8B4C6"
+
+    radius = 12
+    radius_sm = 8
+
+    mono_families = ["JetBrains Mono", "Cascadia Mono", "D2Coding", "Consolas"]
+
+
+def navy_card_css(bg=Navy.surface, border=Navy.border, radius=Navy.radius):
+    """그림자 없이 1px 테두리로만 떠 있는 평평한 카드(요즘 웹 어드민 스타일)."""
+    return f"background-color:{bg}; border:1px solid {border}; border-radius:{radius}px;"
+
+
+def navy_card(bg=Navy.surface, border=Navy.border, radius=Navy.radius):
+    """웹 어드민 카드 하나(QFrame).
+
+    스타일시트를 #navyCard로 좁혀두는 게 핵심입니다. 선택자 없이 그냥 주면 Qt가
+    카드 안의 자식 위젯들에게까지 같은 배경/테두리를 물려줘서, 속에 넣은 빈
+    컨테이너(QWidget)마다 네모 테두리가 생기고 버튼 색까지 덮어쓰입니다."""
+    card = QFrame()
+    card.setObjectName("navyCard")
+    return styled(card, f"QFrame#navyCard {{ {navy_card_css(bg, border, radius)} }}")
+
+
+def navy_mono_font(size=11, bold=False):
+    f = QFont()
+    f.setFamilies(Navy.mono_families)
+    f.setPointSize(size)
+    f.setBold(bold)
+    return f
+
+
+def navy_btn_css(kind="primary", radius=Navy.radius_sm, padding="0 14px"):
+    """웹 버튼 느낌의 QPushButton QSS.
+
+    primary : 단색 네이비 채움 (저장 등 주액션)
+    accent  : 파란 채움 (같은 화면에서 primary와 구분해야 하는 실행성 액션)
+    ghost   : 흰 바탕 + 테두리 (보조 액션)
+    quiet   : 배경 없이 글자만 (hover에서만 살짝)
+    danger  : 삭제성 액션
+    """
+    if kind == "accent":
+        bg, fg, hover, pressed, border = (
+            Navy.accent, Navy.text_on_navy, Navy.accent_hover, "#1F447F", "transparent")
+    elif kind == "ghost":
+        bg, fg, hover, pressed, border = (
+            Navy.surface, Navy.text, Navy.accent_soft, Navy.accent_soft_hover, Navy.border_strong)
+    elif kind == "quiet":
+        bg, fg, hover, pressed, border = (
+            "transparent", Navy.text_sub, Navy.surface_sunken, Navy.border, "transparent")
+    elif kind == "danger":
+        bg, fg, hover, pressed, border = (
+            Navy.danger_soft, Navy.danger, "#F8E2E7", "#F2D5DC", "#F0D2D9")
+    else:
+        bg, fg, hover, pressed, border = (
+            Navy.navy, Navy.text_on_navy, Navy.navy_hover, Navy.navy_pressed, "transparent")
+
+    return (
+        f"QPushButton {{ background-color:{bg}; color:{fg}; border:1px solid {border}; "
+        f"border-radius:{radius}px; padding:{padding}; font-weight:600; }}"
+        f"QPushButton:hover {{ background-color:{hover}; }}"
+        f"QPushButton:pressed {{ background-color:{pressed}; }}"
+        f"QPushButton:disabled {{ background-color:{Navy.disabled_bg}; color:{Navy.disabled_fg}; "
+        f"border-color:transparent; }}"
+    )
+
+
+def navy_button(text, kind="primary", height=32, icon_name=None, icon_color=None, icon_size=13):
+    btn = QPushButton(text)
+    btn.setFixedHeight(height)
+    btn.setFont(kfont(11, True))
+    btn.setCursor(Qt.PointingHandCursor)
+    btn.setStyleSheet(navy_btn_css(kind))
+    if icon_name:
+        default_icon_color = Navy.text_on_navy if kind == "primary" else Navy.navy
+        btn.setIcon(qta.icon(icon_name, color=icon_color or default_icon_color))
+        btn.setIconSize(QSize(icon_size, icon_size))
+    return btn
+
+
+class NavListButton(QPushButton):
+    """웹 사이드 메뉴의 목록 행처럼 생긴 토글 버튼.
+
+    글자는 왼쪽 정렬이고, 선택되면 연한 파랑 배경이 깔리면서 왼쪽에 네이비 막대가
+    생깁니다. border-left를 평소에도 3px(투명)로 잡아두고 색만 바꿔서, 선택할 때
+    글자가 옆으로 밀리지 않게 했습니다."""
+
+    def __init__(self, text, height=34, parent=None):
+        super().__init__(text, parent)
+        self.setCheckable(True)
+        self.setFixedHeight(height)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFont(kfont(11))
+        self.setStyleSheet(
+            f"QPushButton {{ background-color:transparent; color:{Navy.text_sub}; border:none; "
+            f"border-left:3px solid transparent; border-radius:{Navy.radius_sm}px; "
+            f"padding-left:10px; padding-right:8px; text-align:left; font-weight:500; }}"
+            f"QPushButton:hover {{ background-color:{Navy.surface_sunken}; color:{Navy.text}; }}"
+            f"QPushButton:checked {{ background-color:{Navy.accent_soft}; color:{Navy.navy}; "
+            f"border-left-color:{Navy.navy}; font-weight:700; }}"
+            f"QPushButton:checked:hover {{ background-color:{Navy.accent_soft_hover}; }}"
+        )
+
+
+def navy_pill(text, fg=Navy.accent, bg=Navy.accent_soft):
+    """개수 배지처럼 쓰는 작은 알약 라벨."""
+    lbl = QLabel(str(text))
+    lbl.setFont(kfont(9, True))
+    lbl.setAlignment(Qt.AlignCenter)
+    lbl.setMinimumWidth(22)
+    lbl.setFixedHeight(18)
+    return styled(lbl, f"background-color:{bg}; color:{fg}; border-radius:9px; padding:0 6px;")
+
+
+def navy_hline(color=Navy.border, thickness=1):
+    line = QWidget()
+    line.setFixedHeight(thickness)
+    return styled(line, f"background-color:{color}; border:none;")
+
+
+def navy_page_css(object_name):
+    """페이지 위젯 자기 자신만 칠하는 배경 QSS.
+
+    선택자 없이 배경색을 주면 Qt가 그 페이지 안의 자식 위젯까지 같이 칠해버려서,
+    카드 안 빈 컨테이너마다 배경이 덧씌워집니다. id 선택자로 좁혀둡니다."""
+    return f"#{object_name} {{ background-color:{Navy.bg}; }}"
+
+
+def navy_page_header(title_text, subtitle_text=None):
+    """페이지 맨 위 [큰 제목 + 설명 ......... 오른쪽 breadcrumb] 줄.
+    (holder, breadcrumb_label)을 돌려주며, breadcrumb 라벨은 화면 쪽에서 채웁니다."""
+    holder = QWidget()
+    row = QHBoxLayout(holder)
+    row.setContentsMargins(2, 0, 2, 0)
+    row.setSpacing(12)
+
+    col = QVBoxLayout()
+    col.setContentsMargins(0, 0, 0, 0)
+    col.setSpacing(2)
+
+    title = QLabel(title_text)
+    title.setFont(kfont(20, True))
+    title.setStyleSheet(f"color:{Navy.navy};")
+    col.addWidget(title)
+
+    if subtitle_text:
+        subtitle = QLabel(subtitle_text)
+        subtitle.setFont(kfont(10))
+        subtitle.setStyleSheet(f"color:{Navy.text_sub};")
+        col.addWidget(subtitle)
+
+    row.addLayout(col)
+    row.addStretch(1)
+
+    breadcrumb = QLabel("")
+    breadcrumb.setFont(kfont(10, True))
+    breadcrumb.setStyleSheet(f"color:{Navy.text_muted};")
+    row.addWidget(breadcrumb, 0, Qt.AlignVCenter)
+    return holder, breadcrumb
+
+
+def navy_card_header(text, badge=None, actions=None):
+    """카드 맨 위 [작은 제목 + 개수 배지 ... (오른쪽 버튼들)] + 밑줄 한 줄.
+    (header_widget, badge_label)을 돌려주고, badge=None이면 배지는 만들지 않습니다."""
+    holder = QWidget()
+    box = QVBoxLayout(holder)
+    box.setContentsMargins(0, 0, 0, 0)
+    box.setSpacing(10)
+
+    row = QHBoxLayout()
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(6)
+
+    title = QLabel(text)
+    font = kfont(10, True)
+    font.setLetterSpacing(QFont.AbsoluteSpacing, 0.6)
+    title.setFont(font)
+    title.setStyleSheet(f"color:{Navy.text_muted};")
+    row.addWidget(title)
+
+    badge_lbl = None
+    if badge is not None:
+        badge_lbl = navy_pill(badge)
+        row.addWidget(badge_lbl)
+    row.addStretch(1)
+    for widget in (actions or []):
+        row.addWidget(widget)
+
+    box.addLayout(row)
+    box.addWidget(navy_hline())
+    return holder, badge_lbl
+
+
+def navy_section_header(text):
+    """목록 안에서 묶음을 나누는 작은 구분 제목(라벨 + 남는 폭을 채우는 가는 선)."""
+    holder = QWidget()
+    row = QHBoxLayout(holder)
+    row.setContentsMargins(3, 10, 3, 4)
+    row.setSpacing(8)
+
+    lbl = QLabel(text)
+    font = kfont(9, True)
+    font.setLetterSpacing(QFont.AbsoluteSpacing, 0.5)
+    lbl.setFont(font)
+    lbl.setStyleSheet(f"color:{Navy.text_muted};")
+    row.addWidget(lbl)
+    row.addWidget(navy_hline(), 1)
+    return holder
+
+
+def navy_scrollbar_css():
+    """전역 QSS(ui_logic._global_qss의 예전 라벤더 톤) 위에 덮어씌우는 네이비 스크롤바.
+    위젯 단위 스타일시트에 이어붙여 씁니다."""
+    return (
+        f"QScrollBar:vertical {{ background:transparent; width:10px; margin:6px 4px 6px 0; }}"
+        f"QScrollBar::handle:vertical {{ background:{Navy.border_strong}; border-radius:5px; min-height:28px; }}"
+        f"QScrollBar::handle:vertical:hover {{ background:{Navy.text_muted}; }}"
+        f"QScrollBar:horizontal {{ background:transparent; height:10px; margin:0 6px 4px 6px; }}"
+        f"QScrollBar::handle:horizontal {{ background:{Navy.border_strong}; border-radius:5px; min-width:28px; }}"
+        f"QScrollBar::handle:horizontal:hover {{ background:{Navy.text_muted}; }}"
+        f"QScrollBar::add-line, QScrollBar::sub-line {{ width:0; height:0; }}"
+        f"QScrollBar::add-page, QScrollBar::sub-page {{ background:none; }}"
+    )
+
+
+def navy_input_css(radius=Navy.radius_sm):
+    """QLineEdit / QComboBox 공통 입력 상자 스타일."""
+    return (
+        f"QLineEdit, QComboBox {{ background-color:{Navy.surface}; color:{Navy.text}; "
+        f"border:1px solid {Navy.border_strong}; border-radius:{radius}px; padding:5px 10px; }}"
+        f"QLineEdit:hover, QComboBox:hover {{ border-color:{Navy.accent}; }}"
+        f"QLineEdit:focus, QComboBox:focus {{ border:1px solid {Navy.accent}; }}"
+        f"QLineEdit:disabled, QComboBox:disabled {{ background-color:{Navy.surface_sunken}; "
+        f"color:{Navy.text_muted}; border-color:{Navy.border}; }}"
+        f"QComboBox::drop-down {{ border:none; width:22px; }}"
+        f"QComboBox QAbstractItemView {{ background-color:{Navy.surface}; color:{Navy.text}; "
+        f"border:1px solid {Navy.border}; border-radius:{radius}px; outline:none; padding:2px; "
+        f"selection-background-color:{Navy.accent_soft}; selection-color:{Navy.navy}; }}"
+    )
+
+
+def navy_list_css(radius=Navy.radius_sm):
+    """QListWidget 목록 스타일(행 hover / 선택 표시까지)."""
+    return (
+        f"QListWidget {{ background-color:{Navy.surface}; color:{Navy.text}; "
+        f"border:1px solid {Navy.border}; border-radius:{radius}px; padding:4px; outline:none; }}"
+        f"QListWidget::item {{ padding:3px 8px; border-radius:6px; }}"
+        f"QListWidget::item:hover {{ background-color:{Navy.surface_sunken}; }}"
+        f"QListWidget::item:selected {{ background-color:{Navy.accent_soft}; color:{Navy.navy}; }}"
+    ) + navy_scrollbar_css()
 
 
 # ==========================================
@@ -377,9 +666,15 @@ def _paint_soft_shadow(painter, rect, radius, pad):
 
 
 class LauncherBadge(QWidget):
-    """런처 아이콘 옆으로 펼쳐지는 메뉴 박스 하나. 런처 아이콘과 같은 모양(살짝만
-    둥근 네모)이고, 라벨을 주면 아이콘 오른쪽에 글자까지 그려서 박스가 가로로
-    길어집니다. 프레임 없는 항상-위 위젯이라 화면 위에 독립적으로 떠 있습니다.
+    """런처 아이콘 옆으로 펼쳐지는 메뉴 박스 하나. 메인 런처 아이콘과 같은 56x56
+    정사각형(살짝만 둥근 네모)에 같은 네이비 배경을 쓰고, 라벨이 있으면 아이콘
+    아래에 흰 글씨로 적습니다. 프레임 없는 항상-위 위젯이라 화면 위에 독립적으로
+    떠 있습니다.
+
+    예전에는 글자를 아이콘 오른쪽에 붙여서 박스가 이름 길이만큼 가로로 늘어났는데,
+    메뉴가 여러 개일 때 길이가 제각각이라 메인 런처와 크기를 맞춰 정사각형으로
+    통일했습니다. 좁은 폭에 안 들어가는 이름은 잘라서 표시하고(툴팁에 전체 이름),
+    두 줄까지 접어 씁니다.
 
     QGraphicsDropShadowEffect는 반투명 최상위 창에서 Windows의
     UpdateLayeredWindowIndirect 오류를 내므로, 그림자는 paintEvent에서 직접 그립니다."""
@@ -388,27 +683,30 @@ class LauncherBadge(QWidget):
 
     CORNER_RATIO = 0.12
     SHADOW_PAD = 3
-    H_PADDING = 14        # 라벨이 있는 박스의 좌우 안쪽 여백
-    ICON_TEXT_GAP = 9
+    TEXT_H_PADDING = 4    # 글자가 박스 모서리에 닿지 않도록 두는 좌우 여백
+    ICON_TEXT_GAP = 3
+    TOP_PADDING_RATIO = 0.14
 
-    def __init__(self, text, color, size=56, icon_name="fa5s.link", show_label=True):
+    def __init__(self, text, color=None, size=56, icon_name=None, show_label=True):
         super().__init__(None)
         self._size = size
-        self._color = QColor(color)
+        self._color = QColor(color or Navy.navy)
         self._hover = False
         self._text = text
         self._show_label = bool(show_label and text)
-        self._font = kfont(10, True)
+        self._font = kfont(8, True)
 
-        icon_px = round(size * 0.42)
-        self._icon = qta.icon(icon_name, color="#FFFFFF").pixmap(QSize(icon_px, icon_px))
-        self._icon_px = icon_px
-
-        if self._show_label:
-            text_w = QFontMetrics(self._font).horizontalAdvance(text)
-            self._box_w = self.H_PADDING * 2 + icon_px + self.ICON_TEXT_GAP + text_w
+        # 아이콘 없이 이름만 보여주는 박스도 있습니다(icon_name=None). 그때는 글자가
+        # 박스 전체를 쓰므로 긴 이름도 좀 더 들어갑니다.
+        # 글자를 같이 넣는 박스는 아이콘을 조금 줄여 위쪽에 놓고 아래를 글자에 내줍니다.
+        if icon_name:
+            icon_px = round(size * (0.30 if self._show_label else 0.42))
+            self._icon = qta.icon(icon_name, color="#FFFFFF").pixmap(QSize(icon_px, icon_px))
         else:
-            self._box_w = size
+            icon_px = 0
+            self._icon = None
+        self._icon_px = icon_px
+        self._box_w = size
 
         pad = self.SHADOW_PAD
         # 그림자를 직접 그리므로 박스 바깥에 SHADOW_PAD 만큼 여백을 둔 크기로 만듭니다.
@@ -446,19 +744,47 @@ class LauncherBadge(QWidget):
         painter.drawRoundedRect(body, radius, radius)
 
         icon_px = self._icon_px
-        icon_y = pad + (self._size - icon_px) / 2
-        if self._show_label:
-            icon_x = pad + self.H_PADDING
-        else:
-            icon_x = pad + (self._box_w - icon_px) / 2
-        painter.drawPixmap(QRectF(icon_x, icon_y, icon_px, icon_px).toRect(), self._icon)
+        icon_x = pad + (self._box_w - icon_px) / 2
+        if not self._show_label:
+            if self._icon is not None:
+                painter.drawPixmap(
+                    QRectF(icon_x, pad + (self._size - icon_px) / 2, icon_px, icon_px).toRect(),
+                    self._icon,
+                )
+            return
 
-        if self._show_label:
-            text_x = icon_x + icon_px + self.ICON_TEXT_GAP
-            text_rect = QRectF(text_x, pad, body.right() - text_x, self._size)
-            painter.setFont(self._font)
-            painter.setPen(QColor("#FFFFFF"))
-            painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, self._text)
+        if self._icon is not None:
+            icon_y = pad + self._size * self.TOP_PADDING_RATIO
+            painter.drawPixmap(QRectF(icon_x, icon_y, icon_px, icon_px).toRect(), self._icon)
+            text_top = icon_y + icon_px + self.ICON_TEXT_GAP
+            text_align = Qt.AlignHCenter | Qt.AlignTop
+        else:
+            # 아이콘이 없으면 글자를 박스 한가운데에 놓습니다.
+            text_top = pad + 4
+            text_align = Qt.AlignCenter
+
+        text_rect = QRectF(
+            pad + self.TEXT_H_PADDING,
+            text_top,
+            self._box_w - self.TEXT_H_PADDING * 2,
+            body.bottom() - text_top - 2,
+        )
+        painter.setFont(self._font)
+        painter.setPen(QColor("#FFFFFF"))
+        # 두 줄까지만 쓰도록 미리 잘라둡니다. 안 자르면 넘치는 글자가 박스 밖에서
+        # 잘려 반 토막 난 글리프가 보입니다(전체 이름은 툴팁에 있습니다).
+        metrics = QFontMetrics(self._font)
+        max_lines = 2 if self._icon is not None else 3
+        elided = metrics.elidedText(
+            self._text, Qt.ElideRight, int(text_rect.width() * max_lines)
+        )
+        # TextWrapAnywhere까지 주는 이유: "450connect"처럼 띄어쓰기가 없는 이름은
+        # 단어 경계만 보는 줄바꿈으로는 줄이 안 나눠져 박스 밖으로 넣어나가 양쪽이 잘립니다.
+        painter.drawText(
+            text_rect,
+            text_align | Qt.TextWordWrap | Qt.TextWrapAnywhere,
+            elided,
+        )
 
 
 class RobotLauncherButton(QWidget):
@@ -474,12 +800,12 @@ class RobotLauncherButton(QWidget):
 
     open_main_requested = Signal()
 
-    QA_COLOR = "#9B92E8"
+    QA_COLOR = Navy.navy   # 메뉴 박스는 메인 런처와 같은 네이비로 통일
     BADGE_SIZE = 56
     BADGE_GAP = 3
     ANIM_MS = 180
 
-    ICON_BG_COLOR = "#1F2E56"
+    ICON_BG_COLOR = Navy.navy
     CORNER_RATIO = 0.12
     SHADOW_PAD = 4
 
@@ -536,7 +862,7 @@ class RobotLauncherButton(QWidget):
                 item.get("label", "?"),
                 item.get("color", self.QA_COLOR),
                 self.BADGE_SIZE,
-                icon_name=item.get("icon", "fa5s.link"),
+                icon_name=item.get("icon"),   # None이면 아이콘 없이 이름만
                 show_label=item.get("show_label", True),
             )
             handler = item.get("on_click")
