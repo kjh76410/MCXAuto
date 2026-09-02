@@ -59,7 +59,9 @@ class App(FluentWindow):
         # (기본값 Segoe UI/Microsoft YaHei/PingFang SC)을 따로 써서 Pretendard가
         # 안 먹었었습니다. 여기서도 Pretendard를 최우선으로 쓰도록 맞춰줍니다.
         setFontFamilies(["Pretendard", "Microsoft YaHei", "Segoe UI"])
-        self.setWindowTitle("MCX QA Automation Dashboard")
+        # 이 창은 항상 런처에서 작은 카드(팝업)로만 띄우므로(show_as_left_card),
+        # Fluent 타이틀바에 큰 제목 글자가 떠 있으면 어색해서 비워둡니다.
+        self.setWindowTitle("")
         self.resize(1960, 950)
         self.setStyleSheet(self._global_qss())
 
@@ -85,7 +87,6 @@ class App(FluentWindow):
 
         self.scenario_page = ScenarioLibraryPage()
         self.addSubInterface(self.scenario_page, FluentIcon.LIBRARY, "시나리오")
-        self.scenario_page.on_edit_builder_scenario = self._edit_scenario_in_builder
 
     # ==========================================
     # 🪟 런처(QA 박스)에서 열 때: 화면 왼쪽에 큰 카드처럼 배치
@@ -103,12 +104,6 @@ class App(FluentWindow):
             selector = getattr(target, "select_project", None)
             if callable(selector):
                 selector(project)
-
-    def _edit_scenario_in_builder(self, project_name, scenario_name):
-        """'시나리오' 화면에서 '시나리오 작성에서 편집' 버튼을 누르면 호출됩니다.
-        '시나리오 작성' 화면으로 전환하고 해당 시나리오를 편집기에 바로 불러옵니다."""
-        self.scenario_builder_page.load_scenario_for_edit(project_name, scenario_name)
-        self.switchTo(self.scenario_builder_page)
 
     # ==========================================
     # 🎨 전역 스타일 (스크롤바 / 콤보박스 / 다이얼로그 등 기본 위젯 다듬기)
