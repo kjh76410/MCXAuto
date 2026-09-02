@@ -45,6 +45,11 @@ BOUNDS_RE = re.compile(r"\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]")
 _OBJECT_MIME_TYPE = "application/x-mcx-object-name"
 
 
+def _bool_label(value):
+    # uiautomator2 .info/XML 속성 값과 그대로 맞춰서(둘 다 true/false) 보여줍니다.
+    return "true" if value else "false"
+
+
 class _ObjectRowLabel(QLabel):
     """저장된 객체 목록 한 줄의 라벨. 그냥 클릭하면 수정 모드로 불러오고,
     누른 채로 끌면 다른 폴더 위에 놓아서 옮길 수 있습니다(클릭/드래그는
@@ -100,6 +105,68 @@ class _ObjectRowLabel(QLabel):
         self._press_pos = None
         self._dragging = False
         super().mouseReleaseEvent(event)
+
+
+class _FolderHeaderRow(QWidget):
+    """저장된 객체 목록에서 폴더 한 줄. 평소엔 펼침/접힘 화살표와 이름만 보이다가,
+    마우스를 올리면 오른쪽에 수정/삭제 버튼이 나타납니다. 기본 폴더는 이름은
+    바꿀 수 있지만(계속 기본 폴더 역할은 유지) 삭제는 할 수 없어 삭제 버튼만
+    빠집니다."""
+
+    toggled = Signal()
+    editRequested = Signal(str)
+    deleteRequested = Signal(str)
+
+    def __init__(self, folder, label_text, can_edit=True, can_delete=True, parent=None):
+        super().__init__(parent)
+        self._folder = folder
+        self.setCursor(Qt.PointingHandCursor)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(6, 3, 6, 3)
+        layout.setSpacing(4)
+
+        self._label = QLabel(label_text)
+        self._label.setFont(kfont(9, True))
+        self._label.setStyleSheet(f"color:{Navy.text_muted};")
+        self._label.setToolTip(label_text)
+        layout.addWidget(self._label, 1)
+
+        self._can_edit = can_edit
+        self._can_delete = can_delete
+
+        self._btn_edit = navy_button("", kind="ghost", height=22, icon_name="fa5s.pen", icon_size=10)
+        self._btn_edit.setFixedWidth(24)
+        self._btn_edit.setToolTip("폴더 이름 수정")
+        self._btn_edit.clicked.connect(lambda: self.editRequested.emit(self._folder))
+        self._btn_edit.setVisible(False)
+        layout.addWidget(self._btn_edit)
+
+        self._btn_delete = navy_button("", kind="danger", height=22, icon_name="fa5s.trash-alt", icon_size=10)
+        self._btn_delete.setFixedWidth(24)
+        self._btn_delete.setToolTip("폴더 삭제 (하위 객체 포함)")
+        self._btn_delete.clicked.connect(lambda: self.deleteRequested.emit(self._folder))
+        self._btn_delete.setVisible(False)
+        layout.addWidget(self._btn_delete)
+
+    def enterEvent(self, event):
+        if self._can_edit:
+            self._btn_edit.setVisible(True)
+        if self._can_delete:
+            self._btn_delete.setVisible(True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._btn_edit.setVisible(False)
+        self._btn_delete.setVisible(False)
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            event.accept()
+            self.toggled.emit()
+            return
+        super().mousePressEvent(event)
 
 
 class _SavedObjectList(QListWidget):
@@ -390,7 +457,10 @@ class ObjectManagerPage(QWidget):
         for key, label_text in (
             ("resource_id", "resourceId"),
             ("text", "text"),
+            ("desc", "desc"),
             ("class_name", "class"),
+            ("checkable", "checkable"),
+            ("checked", "checked"),
         ):
             row = QHBoxLayout()
             row.setSpacing(6)
@@ -432,6 +502,27 @@ class ObjectManagerPage(QWidget):
         folder_row.addWidget(btn_add_folder)
         layout.addLayout(folder_row)
 
+        role_row = QHBoxLayout()
+        role_row.setSpacing(6)
+        role_lbl = QLabel("채널역할")
+        role_lbl.setFont(kfont(9, True))
+        role_lbl.setFixedWidth(66)
+        role_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        role_lbl.setStyleSheet(f"color:{Navy.text_muted};")
+        role_row.addWidget(role_lbl)
+        self._channel_role_combo = QComboBox()
+        self._channel_role_combo.setFixedHeight(30)
+        self._channel_role_combo.setFont(kfont(10))
+        self._channel_role_combo.setStyleSheet(navy_input_css())
+        self._channel_role_combo.addItems(["(없음)", "주채널", "부채널"])
+        self._channel_role_combo.setToolTip(
+            "이 요소가 채널마다 값이 달라지는 자리(예: 채널 이름)를 가리킬 때, "
+            "저장 당시 텍스트 대신 프로젝트 창에서 지정한 주채널/부채널의 실제 "
+            "채널명으로 실행 시점에 바꿔서 찾습니다."
+        )
+        role_row.addWidget(self._channel_role_combo, 1)
+        layout.addLayout(role_row)
+
         self._name_edit = QLineEdit()
         self._name_edit.setPlaceholderText("이 요소에 붙일 이름")
         self._name_edit.setFixedHeight(30)
@@ -464,14 +555,21 @@ class ObjectManagerPage(QWidget):
         layout.addLayout(save_btn_row)
 
         layout.addSpacing(6)
-        saved_header, self._saved_count = navy_card_header("저장된 객체", badge=0)
+        btn_add_folder_2 = navy_button(
+            "", kind="ghost", height=24, icon_name="fa5s.folder-plus", icon_size=11
+        )
+        btn_add_folder_2.setFixedWidth(26)
+        btn_add_folder_2.setToolTip("새 폴더 추가")
+        btn_add_folder_2.clicked.connect(self._on_add_folder_clicked)
+        saved_header, self._saved_count = navy_card_header(
+            "저장된 객체", badge=0, actions=[btn_add_folder_2]
+        )
         layout.addWidget(saved_header)
 
         self._saved_list = _SavedObjectList()
         self._saved_list.setFont(kfont(10))
         self._saved_list.setStyleSheet(navy_list_css())
         self._saved_list.objectDroppedOnFolder.connect(self._on_object_dropped_on_folder)
-        self._saved_list.itemClicked.connect(self._on_saved_list_item_clicked)
         layout.addWidget(self._saved_list, 1)
 
         btn_delete = navy_button("선택 삭제", kind="danger", height=30, icon_name="fa5s.trash-alt")
@@ -545,6 +643,12 @@ class ObjectManagerPage(QWidget):
                 "text": node.attrib.get("text", ""),
                 "class_name": node.attrib.get("class", ""),
                 "desc": node.attrib.get("content-desc", ""),
+                # 토글/체크박스/스위치류를 "지금 켜져 있나"로 판단하려면 이 두 값이
+                # 필요합니다(checkable=이 요소가 토글 가능한 종류인지,
+                # checked=지금 켜져 있는지). uiautomator2의 .info와 같은 키 이름을
+                # 그대로 씁니다.
+                "checkable": node.attrib.get("checkable", "false") == "true",
+                "checked": node.attrib.get("checked", "false") == "true",
                 "bounds": [x1, y1, x2, y2],
             })
         return nodes
@@ -574,12 +678,16 @@ class ObjectManagerPage(QWidget):
             # 화면에서 새 요소를 고르면 "수정" 모드는 종료하고 새로 만드는 흐름으로 돌아갑니다.
             self._editing_name = None
             self._name_edit.clear()
+            self._channel_role_combo.setCurrentIndex(0)
             self._editing_hint_lbl.setText("")
             self._editing_hint_lbl.setVisible(False)
             self._btn_save.setText("이름으로 저장")
         self._detail_labels["resource_id"].setText(node["resource_id"] or "-")
         self._detail_labels["text"].setText(node["text"] or "-")
+        self._detail_labels["desc"].setText(node.get("desc") or "-")
         self._detail_labels["class_name"].setText(node["class_name"] or "-")
+        self._detail_labels["checkable"].setText(_bool_label(node.get("checkable")))
+        self._detail_labels["checked"].setText(_bool_label(node.get("checked")))
         self._resource_id_lbl.setText(f"resourceId: {node['resource_id'] or '-'}")
         self._render_screenshot(highlight=node["bounds"])
 
@@ -643,28 +751,75 @@ class ObjectManagerPage(QWidget):
     def _reset_edit_form(self, checked=False):
         self._editing_name = None
         self._name_edit.clear()
+        self._channel_role_combo.setCurrentIndex(0)
         self._editing_hint_lbl.setText("")
         self._editing_hint_lbl.setVisible(False)
         self._btn_save.setText("이름으로 저장")
 
-    def _on_saved_list_item_clicked(self, item):
-        # 객체 행은 체크박스+라벨 위젯이 덮고 있어 이 시그널이 안 잡히고, 라벨 자체의
-        # clicked(-> _on_saved_item_clicked)로 따로 처리됩니다. 여기로 잡히는 건
-        # 위젯 없이 얹은 폴더 헤더뿐이라, 눌렸다는 것 자체가 곧 헤더 클릭입니다.
-        folder = item.data(Qt.UserRole + 1)
-        if not folder or item.data(Qt.UserRole) is not None:
-            return
+    def _on_folder_toggled(self, folder):
         if folder in self._collapsed_folders:
             self._collapsed_folders.discard(folder)
         else:
             self._collapsed_folders.add(folder)
-        self._refresh_saved_list()
+        # 이 시그널은 폴더 헤더 위젯 자신의 mousePressEvent 처리 도중에 옵니다.
+        # 여기서 바로 목록을 다시 그리면(clear()) 그 이벤트를 처리 중인 위젯 자신이
+        # 통째로 삭제되므로(-> _on_object_dropped_on_folder와 같은 문제), 지금 처리
+        # 중인 이벤트가 끝난 뒤로 미룹니다.
+        QTimer.singleShot(0, self._refresh_saved_list)
+
+    def _on_folder_edit_requested(self, folder):
+        if not self._current_project:
+            return
+        new_name, ok = QInputDialog.getText(self, "폴더 이름 수정", "새 폴더 이름:", text=folder)
+        new_name = (new_name or "").strip()
+        if not ok or not new_name or new_name == folder:
+            return
+        if not object_store.rename_folder(self._current_project, folder, new_name):
+            QMessageBox.warning(self, "수정 실패", "폴더 이름을 바꾸지 못했습니다.")
+            return
+        if folder in self._collapsed_folders:
+            self._collapsed_folders.discard(folder)
+            self._collapsed_folders.add(new_name)
+        self._refresh_folder_combo()
+        # 수정 버튼도 지금 지우려는 헤더 위젯 안에 있는 자식이라 위와 같은 이유로 미룹니다.
+        QTimer.singleShot(0, self._refresh_saved_list)
+
+    def _on_folder_delete_requested(self, folder):
+        if not self._current_project:
+            return
+        count = sum(
+            1
+            for node in object_store.list_objects(self._current_project).values()
+            if object_store.object_folder(node, self._current_project) == folder
+        )
+        msg = (
+            f"'{folder}' 폴더와 그 안의 객체 {count}개를 모두 삭제할까요?"
+            if count
+            else f"'{folder}' 폴더를 삭제할까요?"
+        )
+        ret = QMessageBox.question(
+            self, "폴더 삭제", msg, QMessageBox.Yes | QMessageBox.No,
+        )
+        if ret != QMessageBox.Yes:
+            return
+        was_editing_in_folder = self._editing_name is not None and object_store.object_folder(
+            object_store.list_objects(self._current_project).get(self._editing_name, {"folder": None}),
+            self._current_project,
+        ) == folder
+        object_store.delete_folder(self._current_project, folder)
+        self._collapsed_folders.discard(folder)
+        if was_editing_in_folder:
+            self._reset_edit_form()
+        self._refresh_folder_combo()
+        # 삭제 버튼도 지금 지우려는 헤더 위젯 안에 있는 자식이라 위 수정 버튼과 같은
+        # 이유로 미룹니다.
+        QTimer.singleShot(0, self._refresh_saved_list)
 
     def _on_object_dropped_on_folder(self, name, folder):
         if not self._current_project:
             return
         node = object_store.list_objects(self._current_project).get(name)
-        if node is None or object_store.object_folder(node) == folder:
+        if node is None or object_store.object_folder(node, self._current_project) == folder:
             return
         node = dict(node)
         node["folder"] = folder
@@ -694,13 +849,19 @@ class ObjectManagerPage(QWidget):
         self._editing_hint_lbl.setVisible(True)
         self._btn_save.setText("수정 저장")
 
-        folder = object_store.object_folder(node)
+        folder = object_store.object_folder(node, self._current_project)
         idx = self._folder_combo.findText(folder)
         self._folder_combo.setCurrentIndex(idx if idx >= 0 else 0)
 
+        role_idx = self._channel_role_combo.findText(node.get("channel_role") or "(없음)")
+        self._channel_role_combo.setCurrentIndex(role_idx if role_idx >= 0 else 0)
+
         self._detail_labels["resource_id"].setText(node.get("resource_id") or "-")
         self._detail_labels["text"].setText(node.get("text") or "-")
+        self._detail_labels["desc"].setText(node.get("desc") or "-")
         self._detail_labels["class_name"].setText(node.get("class_name") or "-")
+        self._detail_labels["checkable"].setText(_bool_label(node.get("checkable")))
+        self._detail_labels["checked"].setText(_bool_label(node.get("checked")))
 
     def _save_named_object(self):
         if not self._current_project:
@@ -710,7 +871,9 @@ class ObjectManagerPage(QWidget):
         if not name:
             QMessageBox.warning(self, "이름 필요", "저장할 이름을 입력해주세요.")
             return
-        folder = self._folder_combo.currentText() or object_store.DEFAULT_FOLDER
+        folder = self._folder_combo.currentText() or object_store.default_folder_name(self._current_project)
+        role = self._channel_role_combo.currentText()
+        channel_role = role if role in ("주채널", "부채널") else None
 
         if self._editing_name:
             existing = object_store.list_objects(self._current_project).get(self._editing_name)
@@ -721,6 +884,10 @@ class ObjectManagerPage(QWidget):
                 return
             node = dict(existing)
             node["folder"] = folder
+            if channel_role:
+                node["channel_role"] = channel_role
+            else:
+                node.pop("channel_role", None)
             if self._editing_name != name:
                 object_store.delete_object(self._current_project, self._editing_name)
             object_store.save_object(self._current_project, name, node)
@@ -732,6 +899,8 @@ class ObjectManagerPage(QWidget):
             node["package"] = self._current_package
             node["activity"] = self._current_activity
             node["folder"] = folder
+            if channel_role:
+                node["channel_role"] = channel_role
             object_store.save_object(self._current_project, name, node)
 
         self._reset_edit_form()
@@ -748,23 +917,34 @@ class ObjectManagerPage(QWidget):
             return
         saved = object_store.list_objects(self._current_project)
 
+        default_name = object_store.default_folder_name(self._current_project)
         by_folder = {folder: [] for folder in object_store.list_folders(self._current_project)}
         for name, node in saved.items():
-            by_folder.setdefault(object_store.object_folder(node), []).append((name, node))
+            by_folder.setdefault(object_store.object_folder(node, self._current_project), []).append((name, node))
 
         self._saved_count.setText(str(len(saved)))
 
         for folder, items in by_folder.items():
             collapsed = folder in self._collapsed_folders
             arrow = "▶" if collapsed else "▼"
-            header = QListWidgetItem(f"{arrow}  {folder}  ({len(items)})")
+            header = QListWidgetItem()
             # 클릭(펼치기/접기)은 받아야 하니 Enabled는 켜두고, 파란 선택 표시만 안 뜨게
-            # Selectable은 뺍니다.
+            # Selectable은 뺍니다. 실제 내용/상호작용은 아래 _FolderHeaderRow 위젯이 담당합니다.
             header.setFlags(Qt.ItemIsEnabled)
-            header.setFont(kfont(9, True))
-            header.setForeground(QColor(Navy.text_muted))
             header.setData(Qt.UserRole + 1, folder)
             self._saved_list.addItem(header)
+
+            header_row = _FolderHeaderRow(
+                folder, f"{arrow}  {folder}  ({len(items)})",
+                can_edit=True, can_delete=folder != default_name,
+            )
+            header_row.toggled.connect(lambda f=folder: self._on_folder_toggled(f))
+            header_row.editRequested.connect(self._on_folder_edit_requested)
+            header_row.deleteRequested.connect(self._on_folder_delete_requested)
+            # 아래 객체 행과 같은 이유로(목록 QSS의 item padding 때문에) 여유를 더 안 주면
+            # 글자가 위아래로 잘립니다.
+            header.setSizeHint(QSize(0, header_row.sizeHint().height() + 10))
+            self._saved_list.setItemWidget(header, header_row)
 
             if collapsed:
                 continue
@@ -775,6 +955,8 @@ class ObjectManagerPage(QWidget):
                 # (뒤쪽의 .../id/xxx 부분이 식별에 쓸모 있으므로 꼬리를 남깁니다).
                 if len(hint) > 40:
                     hint = "…" + hint[-39:]
+                if node.get("channel_role"):
+                    hint = f"[{node['channel_role']}] {hint}"
 
                 item = QListWidgetItem()
                 item.setData(Qt.UserRole, name)

@@ -1,7 +1,7 @@
 import threading
 import time
 
-from PySide6.QtCore import Qt, QObject, QSize, Signal
+from PySide6.QtCore import Qt, QObject, QSize, QTimer, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMessageBox,
+    QPlainTextEdit,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -44,6 +45,81 @@ ACTION_META = scenario_runner.ACTION_META
 
 class _RunSignals(QObject):
     log = Signal(str)
+
+
+class _ScenarioRowWidget(QWidget):
+    """'저장된 시나리오' 목록 한 줄. 평소엔 이름/스텝 수만 보이다가, 마우스를 올리면
+    오른쪽에 순서 이동/수정/삭제 버튼이 나타납니다(객체 관리 화면의 폴더 행과 같은
+    방식). 더블클릭해도 수정과 같이 편집기로 불러옵니다."""
+
+    editRequested = Signal(str)
+    deleteRequested = Signal(str)
+    moveRequested = Signal(str, int)  # (이름, -1: 위로 / +1: 아래로)
+
+    def __init__(self, name, label_text, can_move_up=True, can_move_down=True, parent=None):
+        super().__init__(parent)
+        self._name = name
+        self.setCursor(Qt.PointingHandCursor)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 3, 6, 3)
+        layout.setSpacing(4)
+
+        self._label = QLabel(label_text)
+        self._label.setFont(kfont(10))
+        self._label.setStyleSheet(f"color:{Navy.text};")
+        layout.addWidget(self._label, 1)
+
+        self._btn_up = navy_button("", kind="ghost", height=22, icon_name="fa5s.arrow-up", icon_size=10)
+        self._btn_up.setFixedWidth(22)
+        self._btn_up.setToolTip("위로 이동")
+        self._btn_up.setEnabled(can_move_up)
+        self._btn_up.clicked.connect(lambda: self.moveRequested.emit(self._name, -1))
+        self._btn_up.setVisible(False)
+        layout.addWidget(self._btn_up)
+
+        self._btn_down = navy_button("", kind="ghost", height=22, icon_name="fa5s.arrow-down", icon_size=10)
+        self._btn_down.setFixedWidth(22)
+        self._btn_down.setToolTip("아래로 이동")
+        self._btn_down.setEnabled(can_move_down)
+        self._btn_down.clicked.connect(lambda: self.moveRequested.emit(self._name, 1))
+        self._btn_down.setVisible(False)
+        layout.addWidget(self._btn_down)
+
+        self._btn_edit = navy_button("", kind="ghost", height=22, icon_name="fa5s.pen", icon_size=10)
+        self._btn_edit.setFixedWidth(24)
+        self._btn_edit.setToolTip("수정(편집기로 불러오기)")
+        self._btn_edit.clicked.connect(lambda: self.editRequested.emit(self._name))
+        self._btn_edit.setVisible(False)
+        layout.addWidget(self._btn_edit)
+
+        self._btn_delete = navy_button("", kind="danger", height=22, icon_name="fa5s.trash-alt", icon_size=10)
+        self._btn_delete.setFixedWidth(24)
+        self._btn_delete.setToolTip("삭제")
+        self._btn_delete.clicked.connect(lambda: self.deleteRequested.emit(self._name))
+        self._btn_delete.setVisible(False)
+        layout.addWidget(self._btn_delete)
+
+    def enterEvent(self, event):
+        self._btn_up.setVisible(True)
+        self._btn_down.setVisible(True)
+        self._btn_edit.setVisible(True)
+        self._btn_delete.setVisible(True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._btn_up.setVisible(False)
+        self._btn_down.setVisible(False)
+        self._btn_edit.setVisible(False)
+        self._btn_delete.setVisible(False)
+        super().leaveEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            event.accept()
+            self.editRequested.emit(self._name)
+            return
+        super().mouseDoubleClickEvent(event)
 
 
 class ScenarioBuilderPage(QWidget):
@@ -226,11 +302,38 @@ class ScenarioBuilderPage(QWidget):
         self._action_combo.currentIndexChanged.connect(self._on_action_changed)
         layout.addWidget(self._action_combo)
 
-        self._value_edit = QLineEdit()
-        self._value_edit.setFixedHeight(30)
+        # 재난망 문자처럼 실제 개행/탭이 섞인 긴 텍스트를 그대로 넣을 수 있어야 해서
+        # 한 줄짜리 QLineEdit 대신 여러 줄 입력이 되는 QPlainTextEdit을 씁니다.
+        self._value_edit = QPlainTextEdit()
+        self._value_edit.setFixedHeight(70)
         self._value_edit.setFont(kfont(10))
         self._value_edit.setStyleSheet(navy_input_css())
         layout.addWidget(self._value_edit)
+
+        # '토글 상태 맞추기'만 쓰는, 켜짐/꺼짐 중 하나를 고르는 콤보(오타 위험이 있는
+        # 자유 입력 대신). 값 입력칸과 자리를 같이 쓰고 동작에 따라 하나만 보입니다.
+        self._toggle_state_combo = QComboBox()
+        self._toggle_state_combo.setFixedHeight(30)
+        self._toggle_state_combo.setFont(kfont(10))
+        self._toggle_state_combo.setStyleSheet(navy_input_css())
+        self._toggle_state_combo.addItem("켜짐(on)으로 맞추기", "on")
+        self._toggle_state_combo.addItem("꺼짐(off)으로 맞추기", "off")
+        layout.addWidget(self._toggle_state_combo)
+
+        # '두 객체 값 같은지 확인' / '조건부 클릭'처럼 두 번째 객체가 필요한
+        # 동작에서만 쓰는 콤보. 왼쪽 ①목록에서 고른 객체가 첫 번째, 여기서 고른
+        # 객체가 두 번째입니다(라벨 문구는 동작에 따라 바뀝니다).
+        self._object2_label = QLabel()
+        self._object2_label.setFont(kfont(9, True))
+        self._object2_label.setStyleSheet(f"color:{Navy.text_muted};")
+        layout.addWidget(self._object2_label)
+
+        self._object2_combo = QComboBox()
+        self._object2_combo.setFixedHeight(30)
+        self._object2_combo.setFont(kfont(10))
+        self._object2_combo.setStyleSheet(navy_input_css())
+        layout.addWidget(self._object2_combo)
+
         self._on_action_changed(0)
 
         btn_add = navy_button("스텝 추가", kind="primary", height=32, icon_name="fa5s.plus")
@@ -241,28 +344,41 @@ class ScenarioBuilderPage(QWidget):
 
     def _on_action_changed(self, _index):
         key = self._action_combo.currentData()
-        _label, needs_object, needs_value, placeholder = ACTION_META[key]
+        _label, needs_object, needs_value, placeholder, needs_object2 = ACTION_META[key]
         self._object_list.setEnabled(needs_object)
         self._object_list.setStyleSheet(
             navy_list_css() if needs_object
             else navy_list_css() + f"QListWidget {{ background-color:{Navy.surface_sunken}; }}"
         )
-        self._value_edit.setEnabled(needs_value)
+
+        is_toggle = key == "toggle_state"
+        self._value_edit.setVisible(needs_value and not is_toggle)
+        self._value_edit.setEnabled(needs_value and not is_toggle)
         self._value_edit.setPlaceholderText(placeholder)
-        if not needs_value:
+        if not needs_value or is_toggle:
             self._value_edit.clear()
+        self._toggle_state_combo.setVisible(is_toggle)
+
+        self._object2_label.setVisible(needs_object2)
+        self._object2_combo.setVisible(needs_object2)
+        if needs_object2:
+            self._object2_label.setText(
+                "클릭할 객체(위 ① 확인 객체가 화면에 없을 때)"
+                if key == "click_if_missing" else "비교 대상(두 번째 객체)"
+            )
 
     def _refresh_object_list(self):
         self._object_list.clear()
         if not self._current_project:
             self._object_count.setText("0")
+            self._refresh_object2_combo({})
             return
         saved = object_store.list_objects(self._current_project)
         self._object_count.setText(str(len(saved)))
 
         by_folder = {folder: [] for folder in object_store.list_folders(self._current_project)}
         for name, node in saved.items():
-            by_folder.setdefault(object_store.object_folder(node), []).append((name, node))
+            by_folder.setdefault(object_store.object_folder(node, self._current_project), []).append((name, node))
 
         for folder, items in by_folder.items():
             collapsed = folder in self._collapsed_object_folders
@@ -312,6 +428,20 @@ class ScenarioBuilderPage(QWidget):
                 item.setSizeHint(QSize(0, row.sizeHint().height() + 6))
                 self._object_list.setItemWidget(item, row)
 
+        self._refresh_object2_combo(saved)
+
+    def _refresh_object2_combo(self, saved):
+        """'두 객체 값 같은지 확인'에서 두 번째 객체를 고르는 콤보. 폴더 구분 없이
+        이름만 쭉 나열합니다(비교 대상 하나 고르는 용도라 굳이 폴더까지는 필요 없음)."""
+        self._object2_combo.blockSignals(True)
+        current = self._object2_combo.currentData()
+        self._object2_combo.clear()
+        for name in saved:
+            self._object2_combo.addItem(name, name)
+        idx = self._object2_combo.findData(current)
+        self._object2_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self._object2_combo.blockSignals(False)
+
     def _on_object_list_item_clicked(self, item):
         """폴더 헤더를 누르면 그 폴더를 접거나 폅니다(객체 행 클릭은 그냥 선택)."""
         folder = item.data(Qt.UserRole + 1)
@@ -329,7 +459,7 @@ class ScenarioBuilderPage(QWidget):
             return
 
         key = self._action_combo.currentData()
-        _label, needs_object, needs_value, _placeholder = ACTION_META[key]
+        _label, needs_object, needs_value, _placeholder, needs_object2 = ACTION_META[key]
 
         obj_name = None
         if needs_object:
@@ -341,12 +471,35 @@ class ScenarioBuilderPage(QWidget):
                 return
             obj_name = item.data(Qt.UserRole)
 
-        value = self._value_edit.text().strip() if needs_value else ""
+        obj2_name = None
+        if needs_object2:
+            obj2_name = self._object2_combo.currentData()
+            if not obj2_name:
+                QMessageBox.warning(self, "비교 대상 미선택", "두 번째 객체를 골라주세요.")
+                return
+            # check_same은 자기 자신과 비교하면 항상 같다고만 나와 의미가 없고,
+            # click_if_missing도 '이 객체가 없으면 이 객체를 눌러라'는 애초에
+            # 불가능한 조합이라 둘 다 같은 객체 선택을 막습니다.
+            if obj2_name == obj_name:
+                QMessageBox.warning(self, "같은 객체", "서로 다른 두 객체를 골라주세요.")
+                return
+
+        if key == "toggle_state":
+            value = self._toggle_state_combo.currentData() or "on"
+        else:
+            # set_text는 재난망 문자처럼 앞뒤 개행/공백까지 실제로 보내는 값의
+            # 일부일 수 있어 그대로 두고, timeout/대기 시간처럼 숫자를 쓰는
+            # 값들만 정리해줍니다.
+            raw_value = self._value_edit.toPlainText() if needs_value else ""
+            value = raw_value if key == "set_text" else raw_value.strip()
         if key == "set_text" and not value:
             QMessageBox.warning(self, "값 필요", "입력할 텍스트를 적어주세요.")
             return
 
-        self._steps.append({"action": key, "object": obj_name, "value": value})
+        step = {"action": key, "object": obj_name, "value": value}
+        if needs_object2:
+            step["object2"] = obj2_name
+        self._steps.append(step)
         self._refresh_step_list()
 
     # ---------- 3단: 작성 중인 스텝 + 저장/불러오기/실행 ----------
@@ -359,7 +512,7 @@ class ScenarioBuilderPage(QWidget):
         saved_header, self._saved_count = navy_card_header("저장된 시나리오", badge=0)
         layout.addWidget(saved_header)
 
-        saved_hint = QLabel("항목을 더블클릭하면 아래 편집기로 불러옵니다.")
+        saved_hint = QLabel("행에 마우스를 올리면 나오는 수정/삭제 버튼(더블클릭도 수정)을 쓰세요.")
         saved_hint.setFont(kfont(9))
         saved_hint.setStyleSheet(f"color:{Navy.text_muted};")
         layout.addWidget(saved_hint)
@@ -367,19 +520,34 @@ class ScenarioBuilderPage(QWidget):
         self._saved_list = QListWidget()
         self._saved_list.setFont(kfont(10))
         self._saved_list.setStyleSheet(navy_list_css())
-        self._saved_list.itemDoubleClicked.connect(self._load_selected_scenario)
         layout.addWidget(self._saved_list, 1)
-
-        btn_delete_saved = navy_button(
-            "선택한 저장본 삭제", kind="danger", height=28, icon_name="fa5s.trash-alt"
-        )
-        btn_delete_saved.clicked.connect(self._delete_selected_scenario)
-        layout.addWidget(btn_delete_saved)
 
         layout.addSpacing(6)
 
-        step_header, self._step_count = navy_card_header("작성 중인 시나리오", badge=0)
+        btn_add_step_hdr = navy_button(
+            "", kind="ghost", height=24, icon_name="fa5s.plus", icon_size=11
+        )
+        btn_add_step_hdr.setFixedWidth(26)
+        btn_add_step_hdr.setToolTip("위 ①②에서 고른 객체+동작으로 스텝 추가")
+        btn_add_step_hdr.clicked.connect(self._add_step)
+
+        step_header, self._step_count = navy_card_header(
+            "작성 중인 시나리오", badge=0, actions=[btn_add_step_hdr]
+        )
         layout.addWidget(step_header)
+
+        name_save_row = QHBoxLayout()
+        name_save_row.setSpacing(6)
+        self._name_edit = QLineEdit()
+        self._name_edit.setPlaceholderText("이 시나리오의 이름")
+        self._name_edit.setFixedHeight(32)
+        self._name_edit.setFont(kfont(10))
+        self._name_edit.setStyleSheet(navy_input_css())
+        name_save_row.addWidget(self._name_edit, 1)
+        btn_save = navy_button("저장", kind="primary", height=32, icon_name="fa5s.save")
+        btn_save.clicked.connect(self._save_scenario)
+        name_save_row.addWidget(btn_save)
+        layout.addLayout(name_save_row)
 
         self._step_list = QListWidget()
         self._step_list.setFont(kfont(10))
@@ -405,22 +573,11 @@ class ScenarioBuilderPage(QWidget):
 
         layout.addSpacing(6)
 
-        save_row = QHBoxLayout()
-        save_row.setSpacing(6)
-        self._name_edit = QLineEdit()
-        self._name_edit.setPlaceholderText("이 시나리오의 이름")
-        self._name_edit.setFixedHeight(32)
-        self._name_edit.setFont(kfont(10))
-        self._name_edit.setStyleSheet(navy_input_css())
-        save_row.addWidget(self._name_edit, 1)
-        btn_save = navy_button("저장", kind="primary", height=32, icon_name="fa5s.save")
-        btn_save.clicked.connect(self._save_scenario)
-        save_row.addWidget(btn_save)
-        # 실행은 저장과 성격이 달라(단말에 실제 동작을 보냄) 파란 액센트로 구분합니다.
+        # 실행은 저장과 성격이 달라(단말에 실제 동작을 보냄) 파란 액센트로 구분하고,
+        # 위로 옮긴 이름+저장과 떨어뜨려 둡니다.
         btn_run = navy_button("실행", kind="accent", height=32, icon_name="fa5s.play")
         btn_run.clicked.connect(self._run_scenario)
-        save_row.addWidget(btn_run)
-        layout.addLayout(save_row)
+        layout.addWidget(btn_run)
 
         # 실행 로그는 터미널처럼 읽히도록 딥네이비 바탕 + 고정폭 글꼴.
         self._log_edit = QTextEdit()
@@ -483,14 +640,52 @@ class ScenarioBuilderPage(QWidget):
             return
         saved = scenario_store.list_scenarios(self._current_project)
         self._saved_count.setText(str(len(saved)))
-        for name, steps in saved.items():
-            item = QListWidgetItem(f"{name}   {len(steps)}스텝")
+        names = list(saved.keys())
+        for i, (name, steps) in enumerate(saved.items()):
+            item = QListWidgetItem()
             item.setData(Qt.UserRole, name)
             self._saved_list.addItem(item)
 
-    def _load_selected_scenario(self, item):
-        name = item.data(Qt.UserRole)
+            row = _ScenarioRowWidget(
+                name, f"{name}   {len(steps)}스텝",
+                can_move_up=i > 0, can_move_down=i < len(names) - 1,
+            )
+            row.editRequested.connect(self._edit_scenario_by_name)
+            row.deleteRequested.connect(self._delete_scenario_by_name)
+            row.moveRequested.connect(self._move_scenario_by_name)
+            # 목록 QSS의 item padding까지 감안해 여유를 안 주면 글자가 위아래로
+            # 잘립니다(객체 관리 화면 폴더 행에서 겪은 것과 같은 문제).
+            item.setSizeHint(QSize(0, row.sizeHint().height() + 10))
+            self._saved_list.setItemWidget(item, row)
+
+    def _edit_scenario_by_name(self, name):
+        if not self._current_project:
+            return
         self._load_scenario_into_editor(name)
+
+    def _delete_scenario_by_name(self, name):
+        if not self._current_project:
+            return
+        ret = QMessageBox.question(
+            self, "삭제 확인", f"'{name}' 시나리오를 삭제할까요?",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if ret != QMessageBox.Yes:
+            return
+        scenario_store.delete_scenario(self._current_project, name)
+        # 삭제 버튼이 지금 지우려는 행 위젯 자신의 자식이라, 여기서 바로 목록을
+        # 다시 그리면(clear()) 그 이벤트를 처리 중인 위젯이 통째로 삭제됩니다
+        # (객체 관리 화면의 폴더 행과 같은 이유). 지금 처리 중인 이벤트가 끝난
+        # 뒤로 미룹니다.
+        QTimer.singleShot(0, self._refresh_saved_scenarios)
+
+    def _move_scenario_by_name(self, name, direction):
+        if not self._current_project:
+            return
+        scenario_store.move_scenario(self._current_project, name, direction)
+        # 이동 버튼도 지금 다시 그리려는 행 위젯 안에 있는 자식이라 삭제와 같은
+        # 이유로 미룹니다.
+        QTimer.singleShot(0, self._refresh_saved_scenarios)
 
     def _load_scenario_into_editor(self, name):
         saved = scenario_store.list_scenarios(self._current_project)
@@ -518,14 +713,6 @@ class ScenarioBuilderPage(QWidget):
         self._on_project_selected(project_name)
         self._load_scenario_into_editor(scenario_name)
 
-    def _delete_selected_scenario(self):
-        item = self._saved_list.currentItem()
-        if not item or not self._current_project:
-            return
-        name = item.data(Qt.UserRole)
-        scenario_store.delete_scenario(self._current_project, name)
-        self._refresh_saved_scenarios()
-
     # ---------- 실행 ----------
     def _append_log(self, text):
         self._log_edit.append(text)
@@ -545,13 +732,14 @@ class ScenarioBuilderPage(QWidget):
 
         self._log_edit.clear()
         steps_snapshot = [dict(step) for step in self._steps]
+        channel_roles = dict(panel.channel_roles)
         threading.Thread(
             target=self._run_worker,
-            args=(panel.current_uuid, self._current_project, steps_snapshot),
+            args=(panel.current_uuid, self._current_project, steps_snapshot, channel_roles),
             daemon=True,
         ).start()
 
-    def _run_worker(self, uuid, project, steps):
+    def _run_worker(self, uuid, project, steps, channel_roles):
         scenario_runner.run_scenario(
-            uuid, project, steps, on_log=self._run_signals.log.emit
+            uuid, project, steps, on_log=self._run_signals.log.emit, channel_roles=channel_roles
         )

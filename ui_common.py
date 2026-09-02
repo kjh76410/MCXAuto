@@ -451,13 +451,13 @@ def navy_scrollbar_css():
 
 
 def navy_input_css(radius=Navy.radius_sm):
-    """QLineEdit / QComboBox 공통 입력 상자 스타일."""
+    """QLineEdit / QComboBox / QPlainTextEdit 공통 입력 상자 스타일."""
     return (
-        f"QLineEdit, QComboBox {{ background-color:{Navy.surface}; color:{Navy.text}; "
+        f"QLineEdit, QComboBox, QPlainTextEdit {{ background-color:{Navy.surface}; color:{Navy.text}; "
         f"border:1px solid {Navy.border_strong}; border-radius:{radius}px; padding:5px 10px; }}"
-        f"QLineEdit:hover, QComboBox:hover {{ border-color:{Navy.accent}; }}"
-        f"QLineEdit:focus, QComboBox:focus {{ border:1px solid {Navy.accent}; }}"
-        f"QLineEdit:disabled, QComboBox:disabled {{ background-color:{Navy.surface_sunken}; "
+        f"QLineEdit:hover, QComboBox:hover, QPlainTextEdit:hover {{ border-color:{Navy.accent}; }}"
+        f"QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus {{ border:1px solid {Navy.accent}; }}"
+        f"QLineEdit:disabled, QComboBox:disabled, QPlainTextEdit:disabled {{ background-color:{Navy.surface_sunken}; "
         f"color:{Navy.text_muted}; border-color:{Navy.border}; }}"
         f"QComboBox::drop-down {{ border:none; width:22px; }}"
         f"QComboBox QAbstractItemView {{ background-color:{Navy.surface}; color:{Navy.text}; "
@@ -487,6 +487,7 @@ class Signals(QObject):
     floor_state = Signal(str)
     device_ready = Signal(object)
     pcap_state = Signal(bool)
+    groups_ready = Signal(list)
 
 
 class QtLogConsole:

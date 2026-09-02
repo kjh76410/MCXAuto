@@ -126,6 +126,11 @@ MESSAGE_TYPE_LABELS = {
 PINNED_TEST_GROUP_PROJECTS = ("재난망", "재난망_LM75")
 PINNED_TEST_GROUP_IDS = ["82900110115", "82900110119", "82900110120", "82900110121"]
 
+# 미러링 카드의 "테스트 데이터 복사" 버튼이 이 폴더(프로젝트 루트의 data/) 안의
+# 파일들을 단말의 Download 폴더로 그대로(하위 폴더 없이 파일만) 복사합니다.
+TEST_DATA_DIR = "data"
+DEVICE_DOWNLOAD_DIR = "/sdcard/Download"
+
 
 class DevicePanel(QWidget):
     """단말기 한 대를 담당하는 패널. 미러링/그룹·유저 리스트/SIP Flow/로그 등
@@ -169,6 +174,15 @@ class DevicePanel(QWidget):
         self.all_cards = []
         self.user_ui_registry = {}
 
+        # 시나리오에서 "주채널"/"부채널" 같은 역할로 저장된 객체를, 실제 채널명을
+        # 몰라도 재사용할 수 있게 한다. 채널명/번호는 단말 연결 후 그룹 목록을
+        # 읽어야 알 수 있으므로, 여기 값은 그룹 목록을 새로고침할 때마다 갱신되고
+        # 프로젝트 창(project_window)의 주채널/부채널 드롭다운에서 사용자가 직접
+        # 지정한다. scenario_runner.run_scenario에 그대로 넘겨 실행 시점에
+        # 객체의 channel_role을 실제 채널명으로 바꿔치기하는 데 쓴다.
+        self.all_groups = []
+        self.channel_roles = {"주채널": None, "부채널": None, "공통통화그룹": None}
+
         self.log_console = QtLogConsole(self)
 
         self.signals = Signals()
@@ -186,25 +200,20 @@ class DevicePanel(QWidget):
     # 레이아웃 구성
     # ==========================================
     def _build_panel_ui(self):
-        """이 패널(A 또는 B) 하나만으로 자기 완결적인 위젯 트리를 만드는 대신, 조각(상단
-        헤더/배너, 미러링+리스트 컬럼, 로그카드 컬럼)만 만들어 self.top_block /
-        self.left_column_widget / self.right_column_widget 로 들고 있습니다. 실제 화면
-        배치(그리드에 두 패널을 나란히 놓고, 로그카드 두 개 아래에 결과표를 하나만 병합해
-        붙이는 것)는 App(ui_logic.py)이 담당합니다."""
-        self.top_block = QWidget()
-        top_layout = QVBoxLayout(self.top_block)
-        top_layout.setContentsMargins(0, 0, 0, 0)
-        top_layout.setSpacing(10)
-        top_layout.addWidget(self._build_header())
+        """이 패널(A 또는 B) 하나만으로 자기 완결적인 위젯 트리를 만드는 대신, 조각(미러링+
+        헤더+리스트 컬럼, 로그카드 컬럼)만 만들어 self.left_column_widget /
+        self.right_column_widget 로 들고 있습니다. 실제 화면 배치(그리드에 두 패널을
+        나란히 놓고, 로그카드 두 개 아래에 결과표를 하나만 병합해 붙이는 것)는
+        App(ui_logic.py)이 담당합니다."""
         self._build_top_banner()
 
         self.left_column_widget = self._build_left_column()
         self.right_column_widget = self._build_right_column()
 
     def _build_header(self):
-        """예전 좌측 사이드바(280px 고정 세로 컬럼)를 두 패널이 나란히 들어갈 수 있도록
-        압축한 상단 가로 헤더로 바꾼 버전입니다. 환경/WiFi/앱 설치·삭제/시나리오 실행 같은
-        부차 기능은 ⚙ 관리 메뉴 하나로 몰아넣었습니다."""
+        """기기 연결/관리 버튼. 예전엔 좌우 폭 전체에 걸쳐 버튼이 늘어나 보였는데,
+        지금은 왼쪽 컬럼(미러링 카드) 폭에 맞춰 좁게 두고, 버튼도 폭을 억지로
+        채우지 않고 내용물 크기만큼만 차지하도록 가운데 정렬합니다."""
         frame = navy_card()
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(10, 8, 10, 8)
@@ -221,9 +230,10 @@ class DevicePanel(QWidget):
             height=28, icon_name="fa5s.tools", icon_size=13,
         )
         self.btn_manage.clicked.connect(self._open_manage_menu)
-        btn_row.addWidget(self.btn_connect, 1)
-        btn_row.addWidget(self.btn_manage, 1)
+        btn_row.addWidget(self.btn_connect)
+        btn_row.addWidget(self.btn_manage)
         layout.addLayout(btn_row)
+        layout.setAlignment(btn_row, Qt.AlignHCenter)
 
         return frame
 
@@ -269,6 +279,8 @@ class DevicePanel(QWidget):
         col_layout.setSpacing(10)
         col.setFixedWidth(340)
 
+        col_layout.addWidget(self._build_header())
+
         # 🔥 미러링 카드는 컬럼 폭에 맞춰 늘리지 않고 내용물(작은 화면) 크기만큼만 차지하도록
         # AlignHCenter로 추가합니다. 그래야 카드 배경이 남는 여백 없이 딱 붙습니다.
         col_layout.addWidget(self._build_mirror_card(), 0, Qt.AlignHCenter)
@@ -285,26 +297,23 @@ class DevicePanel(QWidget):
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(3)
 
-        top_row = QHBoxLayout()
-        top_row.setSpacing(8)
+        # 컬럼 폭이 좁아(340px) 한 줄에 다 몰아넣으면 겹치거나 잘려서, 항목마다
+        # 한 줄씩 세로로 쌓습니다.
         self.lbl_project = QLabel(f"[{self.panel_label}] 프로젝트: 대기 중")
         self.lbl_project.setFont(kfont(13, True))
         self.lbl_project.setStyleSheet(f"color:{Navy.accent};")
-        top_row.addWidget(self.lbl_project)
-        top_row.addStretch(1)
+        layout.addWidget(self.lbl_project)
+
         self.lbl_network = QLabel("네트워크: -")
         self.lbl_network.setFont(kfont(10))
         self.lbl_network.setStyleSheet(f"color:{Navy.text};")
-        top_row.addWidget(self.lbl_network)
-        layout.addLayout(top_row)
+        layout.addWidget(self.lbl_network)
 
         self.label = QLabel("단말을 연결해주세요.")
         self.label.setFont(kfont(10))
         self.label.setStyleSheet(f"color:{Navy.text_sub};")
         layout.addWidget(self.label)
 
-        info_row = QHBoxLayout()
-        info_row.setSpacing(10)
         self.lbl_model = QLabel("모델: -")
         self.lbl_hw_version = QLabel("HW: -")
         self.lbl_android_ver = QLabel("Android: -")
@@ -314,9 +323,7 @@ class DevicePanel(QWidget):
         for lbl in (self.lbl_model, self.lbl_hw_version, self.lbl_android_ver, self.lbl_os_build, self.lbl_version):
             lbl.setFont(kfont(9))
             lbl.setStyleSheet(f"color:{Navy.text};")
-            info_row.addWidget(lbl)
-        info_row.addStretch(1)
-        layout.addLayout(info_row)
+            layout.addWidget(lbl)
 
         return frame
 
@@ -382,11 +389,18 @@ class DevicePanel(QWidget):
         outer.addLayout(bottom_nav)
         outer.setAlignment(bottom_nav, Qt.AlignHCenter)
 
+        btn_copy_test_data = self._make_button(
+            "테스트 데이터 복사", icon_name="fa5s.file-import", **btn_kwargs,
+        )
+        btn_copy_test_data.setToolTip(f"'{TEST_DATA_DIR}' 폴더의 파일들을 단말의 Download 폴더로 복사합니다.")
+        btn_copy_test_data.clicked.connect(self.copy_test_data_to_device)
+        outer.addWidget(btn_copy_test_data)
+
         return card
 
     def _build_list_card(self):
-        """시나리오 탭(Group/User List + 발신) 안에 들어가는 콘텐츠. tab_view 안에 얹히므로
-        (예전처럼 미러링 옆에 따로 뜨는 카드가 아니라) 카드 배경/그림자 없이 만듭니다."""
+        """반복시나리오 탭(Group/User List + 반복 횟수 + 발신) 안에 들어가는 콘텐츠. tab_view 안에
+        얹히므로(예전처럼 미러링 옆에 따로 뜨는 카드가 아니라) 카드 배경/그림자 없이 만듭니다."""
         card = QWidget()
         layout = QVBoxLayout(card)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -533,7 +547,7 @@ class DevicePanel(QWidget):
             f"QTabWidget::pane {{ border:none; }}"
         )
 
-        self.tab_view.addTab(self._build_list_card(), "시나리오")
+        self.tab_view.addTab(self._build_list_card(), "반복시나리오")
 
         sip_tab = QWidget()
         sip_layout = QVBoxLayout(sip_tab)
@@ -729,6 +743,10 @@ class DevicePanel(QWidget):
             self.lbl_network.setStyleSheet(f"color:{Navy.text};")
             self.lbl_project.setText(f"[{self.panel_label}] 프로젝트: 대기 중")
             self.lbl_project.setStyleSheet(f"color:{Navy.accent};")
+
+            self.all_groups = []
+            self.channel_roles = {"주채널": None, "부채널": None, "공통통화그룹": None}
+            self.signals.groups_ready.emit([])
 
             self._reset_feature_tags()
             self.pulse_canvas.stop()
@@ -1005,6 +1023,9 @@ class DevicePanel(QWidget):
             for g in groups:
                 if any(g.get("id", "").startswith(pid) for pid in PINNED_TEST_GROUP_IDS):
                     g["type"] = "PreArranged Group"
+
+        self.all_groups = groups
+        self.signals.groups_ready.emit(groups)
 
         my_info = FileManager.parse_my_info(path)
         self.my_id_label.setText(f"내 정보: {my_info}")
@@ -1477,6 +1498,52 @@ class DevicePanel(QWidget):
             print(f"🚨 설치 프로세스 오류: {e.stderr}")
         except Exception as e:
             print(f"🚨 알 수 없는 오류 발생: {e}")
+
+    def copy_test_data_to_device(self):
+        """프로젝트 루트의 data/ 폴더에 있는 테스트용 파일들(이미지/문서/apk 등)을
+        전부 단말의 Download 폴더로 복사합니다. adb push로 폴더째 넘기면
+        Download/data/ 하위 폴더가 생겨버려서, 파일 하나하나를 Download 바로
+        아래로 push합니다."""
+        if not self.current_uuid:
+            self.safe_log_insert("⚠️ 단말기가 연결되지 않았습니다!")
+            return
+        if not os.path.isdir(TEST_DATA_DIR):
+            self.safe_log_insert(f"⚠️ 테스트 데이터 폴더를 찾을 수 없습니다: {TEST_DATA_DIR}")
+            return
+        threading.Thread(
+            target=self._copy_test_data_worker, args=(self.current_uuid,), daemon=True
+        ).start()
+
+    def _copy_test_data_worker(self, uuid):
+        files = sorted(
+            f for f in os.listdir(TEST_DATA_DIR) if os.path.isfile(os.path.join(TEST_DATA_DIR, f))
+        )
+        if not files:
+            self.safe_log_insert(f"⚠️ '{TEST_DATA_DIR}' 폴더가 비어 있습니다.", is_error=True)
+            return
+
+        self.safe_log_insert(f"📂 테스트 데이터 {len(files)}개를 단말 Download 폴더로 복사합니다...")
+        ok_count = 0
+        for name in files:
+            local_path = os.path.join(TEST_DATA_DIR, name)
+            remote_path = f"{DEVICE_DOWNLOAD_DIR}/{name}"
+            try:
+                result = subprocess.run(
+                    ["adb", "-s", uuid, "push", local_path, remote_path],
+                    capture_output=True, text=True,
+                )
+                if result.returncode == 0:
+                    ok_count += 1
+                else:
+                    self.safe_log_insert(f"❌ '{name}' 복사 실패: {result.stderr.strip()}", is_error=True)
+            except Exception as e:
+                self.safe_log_insert(f"❌ '{name}' 복사 중 오류: {e}", is_error=True)
+
+        fail_count = len(files) - ok_count
+        self.safe_log_insert(
+            f"✅ 테스트 데이터 복사 완료 (성공 {ok_count}개 / 실패 {fail_count}개)",
+            is_error=fail_count > 0,
+        )
 
     def run_uninstall_app(self):
         if not self.current_uuid:
