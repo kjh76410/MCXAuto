@@ -1,12 +1,13 @@
 import threading
 import time
 
-from PySide6.QtCore import Qt, QObject, QSize, QTimer, Signal
-from PySide6.QtGui import QColor
+from PySide6.QtCore import Qt, QMimeData, QObject, QSize, QTimer, Signal
+from PySide6.QtGui import QColor, QDrag
 from PySide6.QtWidgets import (
-    QButtonGroup,
+    QApplication,
     QComboBox,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -24,9 +25,8 @@ import scenario_runner
 import scenario_store
 from device_panel import PROJECT_HANDLERS
 from ui_common import (
-    NavListButton,
+    FolderHeaderRow,
     Navy,
-    clear_layout,
     kfont,
     navy_button,
     navy_card,
@@ -37,12 +37,15 @@ from ui_common import (
     navy_page_css,
     navy_page_header,
     navy_scrollbar_css,
-    navy_section_header,
 )
 
 # 동작 정의와 실제 실행 로직은 화면과 분리해 scenario_runner에 모아뒀습니다
 # (프로젝트 창의 시나리오 목록에서도 같은 엔진으로 실행합니다).
 ACTION_META = scenario_runner.ACTION_META
+
+# 저장된 시나리오를 폴더 사이로 끌어다 옮길 때 쓰는 드래그 페이로드 형식
+# (객체 관리 화면의 _OBJECT_MIME_TYPE과 같은 방식).
+_SCENARIO_MIME_TYPE = "application/x-mcx-scenario-name"
 
 
 class _RunSignals(QObject):
@@ -52,7 +55,11 @@ class _RunSignals(QObject):
 class _ScenarioRowWidget(QWidget):
     """'저장된 시나리오' 목록 한 줄. 평소엔 이름/스텝 수만 보이다가, 마우스를 올리면
     오른쪽에 순서 이동/수정/삭제 버튼이 나타납니다(객체 관리 화면의 폴더 행과 같은
-    방식). 더블클릭해도 수정과 같이 편집기로 불러옵니다."""
+    방식). 더블클릭해도 수정과 같이 편집기로 불러옵니다.
+
+    누른 채로 끌면 다른 폴더 줄 위에 놓아서 그 폴더로 옮길 수 있습니다(드롭은
+    _SavedScenarioList가 받습니다). 오른쪽 버튼들은 자기 마우스 이벤트를 직접
+    받으므로 드래그에 걸리지 않습니다."""
 
     editRequested = Signal(str)
     deleteRequested = Signal(str)
@@ -61,6 +68,8 @@ class _ScenarioRowWidget(QWidget):
     def __init__(self, name, label_text, can_move_up=True, can_move_down=True, parent=None):
         super().__init__(parent)
         self._name = name
+        self._press_pos = None
+        self._dragging = False
         self.setCursor(Qt.PointingHandCursor)
 
         layout = QHBoxLayout(self)
@@ -116,6 +125,43 @@ class _ScenarioRowWidget(QWidget):
         self._btn_delete.setVisible(False)
         super().leaveEvent(event)
 
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._press_pos = event.position().toPoint()
+            self._dragging = False
+            # 눌림을 여기서 accept하지 않으면 부모인 목록 뷰로 넘어가고, 이후의
+            # 마우스 이동도 뷰가 가져가서 아래 mouseMoveEvent가 아예 안 불립니다
+            # (객체 관리 화면의 _ObjectRowLabel에서 겪은 것과 같은 문제).
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if (
+            self._press_pos is not None
+            and not self._dragging
+            and event.buttons() & Qt.LeftButton
+            and (event.position().toPoint() - self._press_pos).manhattanLength()
+            >= QApplication.startDragDistance()
+        ):
+            self._dragging = True
+            mime = QMimeData()
+            mime.setData(_SCENARIO_MIME_TYPE, self._name.encode("utf-8"))
+            drag = QDrag(self)
+            drag.setMimeData(mime)
+            drag.exec(Qt.MoveAction)
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton and self._press_pos is not None:
+            self._press_pos = None
+            self._dragging = False
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton:
             event.accept()
@@ -124,11 +170,56 @@ class _ScenarioRowWidget(QWidget):
         super().mouseDoubleClickEvent(event)
 
 
+class _SavedScenarioList(QListWidget):
+    """저장된 시나리오 목록. 행이 setItemWidget으로 덮여 있어 Qt 기본 드래그는 못
+    먹으므로(드래그 시작은 _ScenarioRowWidget이 직접 함), 드롭만 여기서 받아서
+    놓인 위치의 폴더로 옮깁니다(객체 관리 화면의 _SavedObjectList와 같은 방식)."""
+
+    scenarioDroppedOnFolder = Signal(str, str)  # (시나리오 이름, 옮길 폴더)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat(_SCENARIO_MIME_TYPE):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasFormat(_SCENARIO_MIME_TYPE):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        mime = event.mimeData()
+        if not mime.hasFormat(_SCENARIO_MIME_TYPE):
+            event.ignore()
+            return
+        target_item = self.itemAt(event.position().toPoint())
+        if target_item is None and self.count():
+            # 목록 아래 빈 공간에 놓으면 맨 마지막 폴더로 보냅니다(아무 일도 안
+            # 일어나면 옮겨졌는지 실패했는지 알 수 없어서).
+            target_item = self.item(self.count() - 1)
+        folder = target_item.data(Qt.UserRole + 1) if target_item else None
+        if not folder:
+            event.ignore()
+            return
+        name = bytes(mime.data(_SCENARIO_MIME_TYPE)).decode("utf-8")
+        event.acceptProposedAction()
+        self.scenarioDroppedOnFolder.emit(name, folder)
+
+
 class ScenarioBuilderPage(QWidget):
     """객체 관리에서 이름 붙여 저장해둔 객체들을 골라 클릭/입력/대기 같은 동작을
     순서대로 쌓아서 코드 한 줄 없이 시나리오를 만드는 화면.
-    [프로젝트 목록] - [저장된 객체 + 동작 선택] - [작성 중인 스텝 목록 + 저장/불러오기/실행]
-    3단 구성입니다. 실행은 연결된 단말(A/B)에 그대로 실제 동작을 보냅니다."""
+
+    [저장된 객체 + 동작 선택] : [저장된 시나리오 + 작성 중인 스텝] 두 칸을 4:6으로
+    쓰고, 프로젝트 선택과 기기 연결은 맨 위 제목 줄에 둡니다(예전에는 프로젝트
+    목록이 왼쪽 세 번째 칸을 차지했습니다).
+    실행은 연결된 단말(A/B)에 그대로 실제 동작을 보냅니다."""
 
     def __init__(self, panel_a, panel_b, parent=None):
         super().__init__(parent)
@@ -140,9 +231,9 @@ class ScenarioBuilderPage(QWidget):
         self.panel_b = panel_b
         self._current_project = None
         self._steps = []
-        self._project_buttons = {}
-        # 객체 목록에서 접어둔 폴더 이름들 (객체 관리 화면과 같은 방식)
+        # 목록에서 접어둔 폴더 이름들 (객체 관리 화면과 같은 방식)
         self._collapsed_object_folders = set()
+        self._collapsed_scenario_folders = set()
 
         self._run_signals = _RunSignals()
         self._run_signals.log.connect(self._append_log)
@@ -155,7 +246,9 @@ class ScenarioBuilderPage(QWidget):
         outer.setSpacing(16)
 
         header, self._breadcrumb = navy_page_header(
-            "시나리오 작성", "저장해둔 객체를 골라 동작을 쌓아 올리면 코드 없이 시나리오가 됩니다."
+            "시나리오 작성",
+            "저장해둔 객체를 골라 동작을 쌓아 올리면 코드 없이 시나리오가 됩니다.",
+            actions=self._build_header_actions(),
         )
         outer.addWidget(header)
 
@@ -163,61 +256,68 @@ class ScenarioBuilderPage(QWidget):
         body.setSpacing(14)
         outer.addLayout(body, 1)
 
-        # 프로젝트 목록을 마지막에 만드는 이유: 그 안에서 첫 프로젝트를 자동 선택하며
-        # _refresh_object_list()/_refresh_step_list()/_refresh_saved_scenarios()가 다른
-        # 패널의 위젯(_object_list, _step_list, _saved_list 등)을 바로 건드리는데, 그
-        # 위젯들은 아래 두 패널을 먼저 만들어야 존재합니다. 화면상 배치는 addWidget 순서
-        # (project -> add-step -> step)로 그대로 유지됩니다.
-        add_step_panel = self._build_add_step_panel()
-        step_panel = self._build_step_panel()
-        project_list = self._build_project_list()
+        # 프로젝트를 고르면 _refresh_object_list()/_refresh_step_list()/
+        # _refresh_saved_scenarios()가 두 패널 안의 위젯(_object_list, _step_list,
+        # _saved_list 등)을 바로 건드리므로, 패널을 먼저 다 만든 뒤에 드롭다운을
+        # 채웁니다(채우면서 첫 프로젝트가 자동 선택됩니다).
+        body.addWidget(self._build_add_step_panel(), 4)
+        body.addWidget(self._build_step_panel(), 6)
 
-        body.addWidget(project_list, 2)
-        body.addWidget(add_step_panel, 3)
-        body.addWidget(step_panel, 5)
+        self._refresh_project_combo()
 
     def showEvent(self, event):
         super().showEvent(event)
         # "프로젝트 관리" 화면에서 새 프로젝트를 추가하고 돌아왔을 때도 목록이
         # 최신 상태로 보이도록 이 화면이 다시 보일 때마다 새로고침합니다.
-        self._refresh_project_buttons()
+        self._refresh_project_combo()
 
-    # ---------- 1단: 프로젝트 목록 ----------
-    def _build_project_list(self):
-        self._project_list_card = navy_card()
-        layout = QVBoxLayout(self._project_list_card)
-        layout.setContentsMargins(14, 16, 14, 16)
-        layout.setSpacing(4)
+    # ---------- 제목 줄: 프로젝트 선택 + 기기 연결 ----------
+    def _build_header_actions(self):
+        """제목 "시나리오 작성" 바로 옆에 붙는 [프로젝트 드롭다운] [기기 연결] [연결 상태].
 
-        header, self._project_count = navy_card_header("프로젝트", badge=0)
-        layout.addWidget(header)
-
-        # 프로젝트 버튼들은 _refresh_project_buttons()가 매번 통째로 지우고 다시 그리므로,
-        # 아래 기기 연결 섹션까지 같이 지워지지 않도록 별도의 내부 레이아웃에 담습니다.
-        # (그 안의 addStretch가 기기 섹션을 카드 아래쪽으로 밀어줍니다.)
-        self._project_list_layout = QVBoxLayout()
-        self._project_list_layout.setSpacing(2)
-        layout.addLayout(self._project_list_layout, 1)
-        self._refresh_project_buttons()
-
-        layout.addSpacing(6)
-
-        device_header, _ = navy_card_header("기기")
-        layout.addWidget(device_header)
+        예전에는 왼쪽에 프로젝트 목록 카드가 한 칸을 차지했지만, 본문을 저장된 객체와
+        저장된 시나리오 두 칸(4:6)에 다 내주려고 제목 줄로 옮겼습니다."""
+        self._project_combo = QComboBox()
+        self._project_combo.setFixedHeight(32)
+        self._project_combo.setMinimumWidth(200)
+        self._project_combo.setFont(kfont(10))
+        self._project_combo.setStyleSheet(navy_input_css())
+        self._project_combo.currentIndexChanged.connect(self._on_project_combo_changed)
 
         self._btn_connect_device = navy_button(
             "기기 연결", kind="primary", height=32, icon_name="fa5s.plug"
         )
         self._btn_connect_device.clicked.connect(self._on_connect_device_clicked)
-        layout.addWidget(self._btn_connect_device)
 
         self._device_status_lbl = QLabel("연결된 단말 없음")
         self._device_status_lbl.setFont(kfont(9))
-        self._device_status_lbl.setStyleSheet(f"color:{Navy.text_muted}; padding-top:2px;")
-        self._device_status_lbl.setWordWrap(True)
-        layout.addWidget(self._device_status_lbl)
+        self._device_status_lbl.setStyleSheet(f"color:{Navy.text_muted};")
 
-        return self._project_list_card
+        return [self._project_combo, self._btn_connect_device, self._device_status_lbl]
+
+    def _refresh_project_combo(self):
+        """등록된 프로젝트로 드롭다운을 다시 채웁니다. 국내/해외가 섞여 있으면 항목
+        앞에 지역을 붙여 구분합니다(드롭다운에는 구분선을 넣을 자리가 없습니다).
+        고르고 있던 프로젝트는 유지하고, 없으면 첫 번째를 자동으로 고릅니다."""
+        self._project_combo.blockSignals(True)
+        self._project_combo.clear()
+        groups = project_config_store.group_projects_by_region(list(PROJECT_HANDLERS.keys()))
+        for group_label, proj_names in groups:
+            for proj_name in proj_names:
+                label = f"[{group_label}] {proj_name}" if group_label else proj_name
+                self._project_combo.addItem(label, proj_name)
+        idx = self._project_combo.findData(self._current_project)
+        self._project_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self._project_combo.blockSignals(False)
+
+        selected = self._project_combo.currentData()
+        if selected and selected != self._current_project:
+            self._on_project_selected(selected)
+
+    def _on_project_combo_changed(self, _index):
+        proj_name = self._project_combo.currentData()
+        if proj_name:
+            self._on_project_selected(proj_name)
 
     def _on_connect_device_clicked(self):
         # 실제 기기 탐색/연결 로직은 panel_a에 이미 연결돼 있는 버튼(App.check_devices)을
@@ -227,45 +327,21 @@ class ScenarioBuilderPage(QWidget):
     def _on_device_a_ready(self, info):
         if info:
             self._device_status_lbl.setText(f"● A 단말 연결됨: {info.get('model', '')}")
-            self._device_status_lbl.setStyleSheet(f"color:{Navy.accent}; padding-top:2px;")
+            self._device_status_lbl.setStyleSheet(f"color:{Navy.accent};")
         else:
             self._device_status_lbl.setText("연결된 단말 없음")
-            self._device_status_lbl.setStyleSheet(f"color:{Navy.text_muted}; padding-top:2px;")
+            self._device_status_lbl.setStyleSheet(f"color:{Navy.text_muted};")
 
     def _on_device_b_ready(self, info):
         if info:
             self._device_status_lbl.setText(f"● B 단말 연결됨: {info.get('model', '')}")
-            self._device_status_lbl.setStyleSheet(f"color:{Navy.accent}; padding-top:2px;")
-
-    def _refresh_project_buttons(self):
-        clear_layout(self._project_list_layout, keep=0)
-        self._project_buttons = {}
-        self._project_count.setText(str(len(PROJECT_HANDLERS)))
-        group = QButtonGroup(self._project_list_card)
-        group.setExclusive(True)
-        groups = project_config_store.group_projects_by_region(list(PROJECT_HANDLERS.keys()))
-        for group_label, proj_names in groups:
-            if group_label:
-                self._project_list_layout.addWidget(navy_section_header(group_label))
-            for proj_name in proj_names:
-                btn = NavListButton(proj_name, height=34)
-                btn.clicked.connect(lambda checked=False, p=proj_name: self._on_project_selected(p))
-                group.addButton(btn)
-                self._project_list_layout.addWidget(btn)
-                self._project_buttons[proj_name] = btn
-        self._project_list_layout.addStretch(1)
-
-        if self._current_project in self._project_buttons:
-            self._project_buttons[self._current_project].setChecked(True)
-        elif PROJECT_HANDLERS:
-            first_project = next(iter(PROJECT_HANDLERS))
-            self._project_buttons[first_project].setChecked(True)
-            self._on_project_selected(first_project)
+            self._device_status_lbl.setStyleSheet(f"color:{Navy.accent};")
 
     def _on_project_selected(self, proj_name):
         self._current_project = proj_name
         self._breadcrumb.setText(proj_name)
         self._collapsed_object_folders = set()
+        self._collapsed_scenario_folders = set()
         self._steps = []
         self._refresh_step_list()
         self._refresh_object_list()
@@ -393,8 +469,9 @@ class ScenarioBuilderPage(QWidget):
             # 접기/펼치기 클릭은 받아야 하니 Enabled는 켜두고, 선택 표시만 안 뜨게
             # Selectable은 뺍니다(객체 관리 화면과 같은 방식).
             header.setFlags(Qt.ItemIsEnabled)
-            header.setFont(kfont(9, True))
-            header.setForeground(QColor(Navy.text_muted))
+            # 폴더 이름은 옅은 회색이면 잘 안 보여서 본문 색(진한 네이비)으로 씁니다.
+            header.setFont(kfont(11, True))
+            header.setForeground(QColor(Navy.text))
             header.setData(Qt.UserRole + 1, folder)
             self._object_list.addItem(header)
 
@@ -515,17 +592,30 @@ class ScenarioBuilderPage(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(8)
 
-        saved_header, self._saved_count = navy_card_header("저장된 시나리오", badge=0)
+        btn_add_folder = navy_button(
+            "", kind="ghost", height=24, icon_name="fa5s.folder-plus", icon_size=11
+        )
+        btn_add_folder.setFixedWidth(26)
+        btn_add_folder.setToolTip("새 폴더 추가")
+        btn_add_folder.clicked.connect(self._on_add_folder_clicked)
+        saved_header, self._saved_count = navy_card_header(
+            "저장된 시나리오", badge=0, actions=[btn_add_folder]
+        )
         layout.addWidget(saved_header)
 
-        saved_hint = QLabel("행에 마우스를 올리면 나오는 수정/삭제 버튼(더블클릭도 수정)을 쓰세요.")
+        saved_hint = QLabel(
+            "시나리오를 폴더 줄로 끌어다 놓으면 옮겨집니다. 폴더 줄을 누르면 접히고, "
+            "행에 마우스를 올리면 수정/삭제 버튼이 나옵니다(더블클릭도 수정)."
+        )
         saved_hint.setFont(kfont(9))
+        saved_hint.setWordWrap(True)
         saved_hint.setStyleSheet(f"color:{Navy.text_muted};")
         layout.addWidget(saved_hint)
 
-        self._saved_list = QListWidget()
+        self._saved_list = _SavedScenarioList()
         self._saved_list.setFont(kfont(10))
         self._saved_list.setStyleSheet(navy_list_css())
+        self._saved_list.scenarioDroppedOnFolder.connect(self._on_scenario_dropped_on_folder)
         layout.addWidget(self._saved_list, 1)
 
         layout.addSpacing(6)
@@ -541,6 +631,29 @@ class ScenarioBuilderPage(QWidget):
             "작성 중인 시나리오", badge=0, actions=[btn_add_step_hdr]
         )
         layout.addWidget(step_header)
+
+        # 저장할 때 어느 폴더에 넣을지. 위 "저장된 시나리오" 목록이 이 폴더 기준으로
+        # 묶여서 보입니다(수정으로 불러오면 그 시나리오의 폴더로 맞춰집니다).
+        folder_row = QHBoxLayout()
+        folder_row.setSpacing(6)
+        folder_lbl = QLabel("폴더")
+        folder_lbl.setFont(kfont(9, True))
+        folder_lbl.setFixedWidth(30)
+        folder_lbl.setStyleSheet(f"color:{Navy.text_muted};")
+        folder_row.addWidget(folder_lbl)
+        self._folder_combo = QComboBox()
+        self._folder_combo.setFixedHeight(30)
+        self._folder_combo.setFont(kfont(10))
+        self._folder_combo.setStyleSheet(navy_input_css())
+        folder_row.addWidget(self._folder_combo, 1)
+        btn_add_folder_2 = navy_button(
+            "", kind="ghost", height=30, icon_name="fa5s.folder-plus", icon_size=13
+        )
+        btn_add_folder_2.setFixedWidth(34)
+        btn_add_folder_2.setToolTip("새 폴더 추가")
+        btn_add_folder_2.clicked.connect(self._on_add_folder_clicked)
+        folder_row.addWidget(btn_add_folder_2)
+        layout.addLayout(folder_row)
 
         name_save_row = QHBoxLayout()
         name_save_row.setSpacing(6)
@@ -636,33 +749,151 @@ class ScenarioBuilderPage(QWidget):
             QMessageBox.warning(self, "이름 필요", "저장할 시나리오 이름을 입력해주세요.")
             return
 
-        scenario_store.save_scenario(self._current_project, name, self._steps)
+        folder = self._folder_combo.currentText() or scenario_store.default_folder_name(
+            self._current_project
+        )
+        scenario_store.save_scenario(self._current_project, name, self._steps, folder=folder)
         self._refresh_saved_scenarios()
+
+    # ---------- 저장된 시나리오 폴더 ----------
+    def _refresh_folder_combo(self):
+        self._folder_combo.blockSignals(True)
+        current = self._folder_combo.currentText()
+        self._folder_combo.clear()
+        if self._current_project:
+            self._folder_combo.addItems(scenario_store.list_folders(self._current_project))
+        idx = self._folder_combo.findText(current)
+        self._folder_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self._folder_combo.blockSignals(False)
+
+    def _on_add_folder_clicked(self):
+        if not self._current_project:
+            QMessageBox.warning(self, "프로젝트 미선택", "먼저 위에서 프로젝트를 선택해주세요.")
+            return
+        name, ok = QInputDialog.getText(
+            self, "폴더 추가", "새 폴더 이름 (기능/화면별로 시나리오를 묶어둘 이름):"
+        )
+        if not ok or not name.strip():
+            return
+        scenario_store.add_folder(self._current_project, name.strip())
+        self._refresh_saved_scenarios()
+        idx = self._folder_combo.findText(name.strip())
+        if idx >= 0:
+            self._folder_combo.setCurrentIndex(idx)
+
+    def _on_folder_toggled(self, folder):
+        if folder in self._collapsed_scenario_folders:
+            self._collapsed_scenario_folders.discard(folder)
+        else:
+            self._collapsed_scenario_folders.add(folder)
+        # 이 시그널은 폴더 헤더 위젯 자신의 mousePressEvent 처리 도중에 옵니다.
+        # 여기서 바로 목록을 다시 그리면 이벤트를 처리 중인 위젯이 삭제되므로 미룹니다.
+        QTimer.singleShot(0, self._refresh_saved_scenarios)
+
+    def _on_folder_edit_requested(self, folder):
+        if not self._current_project:
+            return
+        new_name, ok = QInputDialog.getText(self, "폴더 이름 수정", "새 폴더 이름:", text=folder)
+        new_name = (new_name or "").strip()
+        if not ok or not new_name or new_name == folder:
+            return
+        if not scenario_store.rename_folder(self._current_project, folder, new_name):
+            QMessageBox.warning(self, "수정 실패", "폴더 이름을 바꾸지 못했습니다.")
+            return
+        if folder in self._collapsed_scenario_folders:
+            self._collapsed_scenario_folders.discard(folder)
+            self._collapsed_scenario_folders.add(new_name)
+        # 수정 버튼도 다시 그리려는 헤더 위젯 안에 있는 자식이라 위와 같은 이유로 미룹니다.
+        QTimer.singleShot(0, self._refresh_saved_scenarios)
+
+    def _on_folder_delete_requested(self, folder):
+        if not self._current_project:
+            return
+        count = sum(
+            1
+            for name in scenario_store.list_scenarios(self._current_project)
+            if scenario_store.scenario_folder(self._current_project, name) == folder
+        )
+        msg = (
+            f"{folder!r} 폴더와 그 안의 시나리오 {count}개를 모두 삭제할까요?"
+            if count
+            else f"{folder!r} 폴더를 삭제할까요?"
+        )
+        ret = QMessageBox.question(self, "폴더 삭제", msg, QMessageBox.Yes | QMessageBox.No)
+        if ret != QMessageBox.Yes:
+            return
+        scenario_store.delete_folder(self._current_project, folder)
+        self._collapsed_scenario_folders.discard(folder)
+        QTimer.singleShot(0, self._refresh_saved_scenarios)
+
+    def _on_scenario_dropped_on_folder(self, name, folder):
+        if not self._current_project:
+            return
+        if scenario_store.scenario_folder(self._current_project, name) == folder:
+            return
+        scenario_store.set_scenario_folder(self._current_project, name, folder)
+        # 이 시그널은 끌던 행 위젯의 드래그 처리 도중에 옵니다. 여기서 바로 목록을
+        # 다시 그리면 그 위젯이 통째로 삭제되므로 미룹니다.
+        QTimer.singleShot(0, self._refresh_saved_scenarios)
 
     def _refresh_saved_scenarios(self):
         self._saved_list.clear()
+        self._refresh_folder_combo()
         if not self._current_project:
             self._saved_count.setText("0")
             return
         saved = scenario_store.list_scenarios(self._current_project)
         self._saved_count.setText(str(len(saved)))
-        names = list(saved.keys())
-        for i, (name, steps) in enumerate(saved.items()):
-            item = QListWidgetItem()
-            item.setData(Qt.UserRole, name)
-            self._saved_list.addItem(item)
 
-            row = _ScenarioRowWidget(
-                name, f"{name}   {len(steps)}스텝",
-                can_move_up=i > 0, can_move_down=i < len(names) - 1,
+        default_name = scenario_store.default_folder_name(self._current_project)
+        by_folder = {folder: [] for folder in scenario_store.list_folders(self._current_project)}
+        for name, steps in saved.items():
+            folder = scenario_store.scenario_folder(self._current_project, name)
+            by_folder.setdefault(folder, []).append((name, steps))
+
+        for folder, items in by_folder.items():
+            collapsed = folder in self._collapsed_scenario_folders
+            arrow = "▶" if collapsed else "▼"
+            header = QListWidgetItem()
+            # 접기/펼치기 클릭은 받아야 하니 Enabled는 켜두고, 파란 선택 표시만 안 뜨게
+            # Selectable은 뺍니다. 실제 내용/상호작용은 FolderHeaderRow가 담당합니다.
+            header.setFlags(Qt.ItemIsEnabled)
+            header.setData(Qt.UserRole + 1, folder)
+            self._saved_list.addItem(header)
+
+            header_row = FolderHeaderRow(
+                folder, f"{arrow}  {folder}  ({len(items)})",
+                can_edit=True, can_delete=folder != default_name,
+                delete_tooltip="폴더 삭제 (하위 시나리오 포함)",
             )
-            row.editRequested.connect(self._edit_scenario_by_name)
-            row.deleteRequested.connect(self._delete_scenario_by_name)
-            row.moveRequested.connect(self._move_scenario_by_name)
-            # 목록 QSS의 item padding까지 감안해 여유를 안 주면 글자가 위아래로
-            # 잘립니다(객체 관리 화면 폴더 행에서 겪은 것과 같은 문제).
-            item.setSizeHint(QSize(0, row.sizeHint().height() + 10))
-            self._saved_list.setItemWidget(item, row)
+            header_row.toggled.connect(lambda f=folder: self._on_folder_toggled(f))
+            header_row.editRequested.connect(self._on_folder_edit_requested)
+            header_row.deleteRequested.connect(self._on_folder_delete_requested)
+            header.setSizeHint(QSize(0, header_row.sizeHint().height() + 10))
+            self._saved_list.setItemWidget(header, header_row)
+
+            if collapsed:
+                continue
+
+            for i, (name, steps) in enumerate(items):
+                item = QListWidgetItem()
+                item.setData(Qt.UserRole, name)
+                item.setData(Qt.UserRole + 1, folder)
+                self._saved_list.addItem(item)
+
+                # 순서 이동은 같은 폴더 안에서만 이뤄지므로(scenario_store.move_scenario),
+                # 위/아래 버튼도 폴더 안에서의 자리를 기준으로 켜고 끕니다.
+                row = _ScenarioRowWidget(
+                    name, f"{name}   {len(steps)}스텝",
+                    can_move_up=i > 0, can_move_down=i < len(items) - 1,
+                )
+                row.editRequested.connect(self._edit_scenario_by_name)
+                row.deleteRequested.connect(self._delete_scenario_by_name)
+                row.moveRequested.connect(self._move_scenario_by_name)
+                # 목록 QSS의 item padding까지 감안해 여유를 안 주면 글자가 위아래로
+                # 잘립니다(객체 관리 화면 폴더 행에서 겪은 것과 같은 문제).
+                item.setSizeHint(QSize(0, row.sizeHint().height() + 10))
+                self._saved_list.setItemWidget(item, row)
 
     def _edit_scenario_by_name(self, name):
         if not self._current_project:
@@ -700,23 +931,33 @@ class ScenarioBuilderPage(QWidget):
             return
         self._steps = [dict(step) for step in steps]
         self._name_edit.setText(name)
+        folder = scenario_store.scenario_folder(self._current_project, name)
+        idx = self._folder_combo.findText(folder)
+        self._folder_combo.setCurrentIndex(idx if idx >= 0 else 0)
         self._refresh_step_list()
 
     def select_project(self, project_name):
         """런처 메뉴처럼 바깥에서 특정 프로젝트를 골라 이 화면을 열 때 씁니다.
-        해당 프로젝트 버튼을 눌린 상태로 만들고 목록들을 그 프로젝트 기준으로 새로 채웁니다."""
-        if project_name not in self._project_buttons:
+        제목 줄 드롭다운을 그 프로젝트로 맞추고 목록들을 새로 채웁니다.
+
+        이미 그 프로젝트가 골라져 있으면 setCurrentIndex는 시그널을 안 보내므로,
+        어느 쪽이든 목록이 새로 채워지도록 _on_project_selected를 직접 부릅니다."""
+        idx = self._project_combo.findData(project_name)
+        if idx < 0:
             return False
-        self._project_buttons[project_name].setChecked(True)
+        self._project_combo.blockSignals(True)
+        self._project_combo.setCurrentIndex(idx)
+        self._project_combo.blockSignals(False)
         self._on_project_selected(project_name)
         return True
 
     def load_scenario_for_edit(self, project_name, scenario_name):
         """'시나리오' 목록 화면 등 다른 화면에서 특정 프로젝트의 저장된 시나리오를
         바로 편집할 수 있도록, 해당 프로젝트를 선택하고 스텝 편집기에 불러옵니다."""
-        if project_name in self._project_buttons:
-            self._project_buttons[project_name].setChecked(True)
-        self._on_project_selected(project_name)
+        if not self.select_project(project_name):
+            # 드롭다운에 없는 프로젝트라도(핸들러 미등록 등) 목록만은 그 프로젝트
+            # 기준으로 맞춰줍니다.
+            self._on_project_selected(project_name)
         self._load_scenario_into_editor(scenario_name)
 
     # ---------- 실행 ----------

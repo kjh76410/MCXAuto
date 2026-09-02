@@ -45,6 +45,7 @@ import qtawesome as qta
 from qfluentwidgets import PrimaryPushButton, TogglePushButton
 
 import adb_logic
+import scenario_runner
 from file_manager import FileManager
 from ui_common import (
     Navy,
@@ -183,11 +184,7 @@ class DevicePanel(QWidget):
         # 지정한다. scenario_runner.run_scenario에 그대로 넘겨 실행 시점에
         # 객체의 channel_role을 실제 채널명으로 바꿔치기하는 데 쓴다.
         self.all_groups = []
-        self.channel_roles = {
-            "주채널": None, "부채널": None,
-            "일반그룹": None, "일반그룹 SRTP": None,
-            "공통통화그룹": None, "공통통화그룹 SRTP": None,
-        }
+        self.channel_roles = scenario_runner.empty_channel_roles()
 
         self.log_console = QtLogConsole(self)
 
@@ -309,7 +306,7 @@ class DevicePanel(QWidget):
         return col
 
     def _build_project_info_card(self):
-        """네트워크/모델·HW·Android·OS·버전 정보를 미러링 카드와 내 정보 배지
+        """네트워크/모델·HW·Android·OS·버전 정보를 미러링 카드와 단말 정보 배지
         바로 아래에 보여줍니다(예전에는 상단 헤더에 있었습니다). 프로젝트 이름은
         더 이상 여기 반복해서 보여주지 않고, 기기 연결 버튼 위(_build_header)에
         한 번만 표시합니다."""
@@ -359,11 +356,13 @@ class DevicePanel(QWidget):
         )
         for row_idx, (key_text, value_lbl) in enumerate(rows):
             key_lbl = QLabel(key_text)
-            key_lbl.setFont(kfont(9))
-            key_lbl.setStyleSheet(f"color:{Navy.text_muted}; background:transparent;")
+            # 원래 kfont(9)(=8pt) + text_muted(#93A0B5)라 흰 배경에서 대비가 거의
+            # 없었습니다. 한 단계 키우고 한 톤 진한 text_sub로 바꿉니다.
+            key_lbl.setFont(kfont(10))
+            key_lbl.setStyleSheet(f"color:{Navy.text_sub}; background:transparent;")
             grid.addWidget(key_lbl, row_idx, 0)
 
-            value_lbl.setFont(kfont(9, True))
+            value_lbl.setFont(kfont(10, True))
             value_lbl.setStyleSheet(f"color:{Navy.text}; background:transparent;")
             value_lbl.setWordWrap(True)
             grid.addWidget(value_lbl, row_idx, 1)
@@ -373,23 +372,39 @@ class DevicePanel(QWidget):
         return frame
 
     def _build_my_id_chip(self):
-        """내 정보(연결된 단말의 ID)를 미러링 카드 바로 아래에 작은 알약 배지로 보여줍니다."""
+        """연결된 단말의 이름/번호를 미러링 카드 바로 아래에 작은 배지로 보여줍니다.
+
+        왼쪽 컬럼이 340px밖에 안 돼서 "단말 이름 : ...  단말 번호 : ..."을 한 줄로
+        붙이면 잘리기 때문에, 이름과 번호를 두 줄로 나눠 놓습니다."""
         chip = styled(QFrame(), f"background-color:{Navy.surface_sunken}; border-radius:{Navy.radius_sm}px;")
         layout = QHBoxLayout(chip)
         layout.setContentsMargins(12, 6, 12, 6)
         layout.setSpacing(6)
 
         icon_lbl = QLabel()
-        icon_lbl.setPixmap(qta.icon("fa5s.user-circle", color=Navy.text).pixmap(QSize(13, 13)))
+        icon_lbl.setPixmap(qta.icon("fa5s.mobile-alt", color=Navy.text).pixmap(QSize(13, 13)))
         icon_lbl.setStyleSheet("background:transparent;")
-        layout.addWidget(icon_lbl)
+        layout.addWidget(icon_lbl, 0, Qt.AlignTop)
 
-        self.my_id_label = QLabel("내 정보: 연결 대기")
-        self.my_id_label.setFont(kfont(11, True))
-        self.my_id_label.setStyleSheet(f"color:{Navy.text}; background:transparent;")
-        layout.addWidget(self.my_id_label)
+        text_col = QVBoxLayout()
+        text_col.setContentsMargins(0, 0, 0, 0)
+        text_col.setSpacing(2)
+        self.lbl_device_name = QLabel()
+        self.lbl_device_number = QLabel()
+        for lbl in (self.lbl_device_name, self.lbl_device_number):
+            lbl.setFont(kfont(11, True))
+            lbl.setStyleSheet(f"color:{Navy.text}; background:transparent;")
+            text_col.addWidget(lbl)
+        layout.addLayout(text_col)
 
+        self.set_device_info()
         return chip
+
+    def set_device_info(self, name=None, number=None):
+        """단말 정보 배지를 갱신합니다. 인자 없이 부르면 '연결 대기' 상태로 되돌립니다."""
+        placeholder = "연결 대기"
+        self.lbl_device_name.setText(f"단말 이름 : {name or placeholder}")
+        self.lbl_device_number.setText(f"단말 번호 : {number or placeholder}")
 
     def _build_mirror_card(self):
         card = navy_card()
@@ -397,7 +412,8 @@ class DevicePanel(QWidget):
         outer.setContentsMargins(14, 8, 14, 8)
         outer.setSpacing(4)
 
-        btn_kwargs = dict(bg=Navy.surface_sunken, fg=Navy.text, hover=Navy.accent_soft, height=25, radius=5)
+        # height 25는 9pt 글자 기준이라 위아래가 눌려 보였습니다. 28로 조금 키웁니다.
+        btn_kwargs = dict(bg=Navy.surface_sunken, fg=Navy.text, hover=Navy.accent_soft, height=28, radius=5)
 
         top_nav = QHBoxLayout()
         top_nav.setSpacing(2)
@@ -790,13 +806,11 @@ class DevicePanel(QWidget):
             self.lbl_network.setStyleSheet(f"color:{Navy.text}; background:transparent;")
             self.lbl_project.setText("프로젝트: 대기 중")
             self.lbl_project.setStyleSheet(f"color:{Navy.accent}; background:transparent;")
+            # 예전엔 배지를 안 지워서, 단말을 빼도 직전 단말의 정보가 남아 있었습니다.
+            self.set_device_info()
 
             self.all_groups = []
-            self.channel_roles = {
-                "주채널": None, "부채널": None,
-                "일반그룹": None, "일반그룹 SRTP": None,
-                "공통통화그룹": None, "공통통화그룹 SRTP": None,
-            }
+            self.channel_roles = scenario_runner.empty_channel_roles()
             self.signals.groups_ready.emit([])
 
             self._reset_feature_tags()
@@ -1078,8 +1092,7 @@ class DevicePanel(QWidget):
         self.all_groups = groups
         self.signals.groups_ready.emit(groups)
 
-        my_info = FileManager.parse_my_info(path)
-        self.my_id_label.setText(f"내 정보: {my_info}")
+        self.set_device_info(*FileManager.parse_my_info_parts(path))
 
         self.all_cards = []
         self.group_check_vars = {}

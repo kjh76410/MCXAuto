@@ -6,7 +6,8 @@
 
 단말 A 대시보드(미러링/리스트/로그) 하나로 이루어져 있고, 그 안의 Network &
 System Logs 카드(tab_view)에 "시나리오" 탭을 맨 앞에 끼워 넣어 이 프로젝트의
-저장된 시나리오 목록(+ 주채널/부채널 지정)을 보여줍니다("반복시나리오" 탭엔
+저장된 시나리오 목록(시나리오 작성 화면에서 나눈 폴더별로 묶어서 + 주채널/부채널
+지정)을 보여줍니다("반복시나리오" 탭엔
 원래 있던 Group/User List + 반복 발신이 그대로 있습니다).
 
 대시보드 위젯은 DevicePanel이 만들어 둔 조각(left_column_widget / right_column_widget,
@@ -21,7 +22,7 @@ left_column_widget 맨 위, 미러링 카드 바로 위에 붙어 있습니다).
 
 import threading
 
-from PySide6.QtCore import Qt, QObject, Signal
+from PySide6.QtCore import Qt, QObject, QTimer, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -33,6 +34,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import project_config_store
 import scenario_runner
 import scenario_store
 
@@ -43,6 +45,15 @@ COMMON_CALL_GROUP_PROJECTS = ("재난망", "재난망_LM75")
 # 재난망/재난망_LM75에만 있는 채널 역할들(위 COMMON_CALL_GROUP_PROJECTS 프로젝트일
 # 때만 채널 지정 드롭다운에 행을 보여줍니다).
 DISASTER_ONLY_CHANNEL_ROLES = ("일반그룹", "일반그룹 SRTP", "공통통화그룹", "공통통화그룹 SRTP")
+
+# 해외 프로젝트(project_config.json의 region == "해외")에만 있는 채널 역할들.
+OVERSEAS_ONLY_CHANNEL_ROLES = ("Chat group", "PreArranged group", "Private")
+
+# 항상 보이는 역할(주채널/부채널) + 조건부 역할 순서. scenario_runner.CHANNEL_ROLES와
+# 같은 집합이어야 하며(안 그러면 시나리오의 "찾기" 동작이 지정할 곳 없는 역할을
+# 참조하게 됩니다), 아래 assert로 어긋나면 바로 알 수 있게 해둡니다.
+ALL_CHANNEL_ROLES = ("주채널", "부채널", *DISASTER_ONLY_CHANNEL_ROLES, *OVERSEAS_ONLY_CHANNEL_ROLES)
+assert set(ALL_CHANNEL_ROLES) == set(scenario_runner.CHANNEL_ROLES)
 from ui_common import (
     Navy,
     clear_layout,
@@ -74,6 +85,8 @@ class ProjectWindow(QWidget):
         self._run_signals.result.connect(self._on_run_result)
         self._running = False
         self._scenario_result_labels = {}
+        # 시나리오 목록에서 접어둔 폴더 이름들(시나리오 작성 화면과 같은 방식).
+        self._collapsed_scenario_folders = set()
 
         self.setWindowTitle("MCX QA")
         self.setObjectName("projectWindow")
@@ -156,38 +169,65 @@ class ProjectWindow(QWidget):
         읽어야 알 수 있어서(단말 연결 전엔 비어 있음), 패널의 groups_ready
         시그널로 매번 다시 채웁니다. DISASTER_ONLY_CHANNEL_ROLES는 재난망/
         재난망_LM75에만 있는 개념이라, 그 두 프로젝트일 때만 행을 보여줍니다
-        (set_project에서 _update_channel_row_visibility로 토글)."""
+        (set_project에서 _update_channel_row_visibility로 토글).
+
+        제목 줄("채널 지정")을 누르면 드롭다운 묶음 전체를 접었다 펼 수 있습니다."""
         section = QWidget()
         layout = QVBoxLayout(section)
         layout.setContentsMargins(0, 0, 0, 8)
         layout.setSpacing(4)
 
-        title = QLabel("채널 지정")
-        title.setFont(kfont(9, True))
-        title.setStyleSheet(f"color:{Navy.text_muted};")
-        layout.addWidget(title)
+        # 역할이 많은 프로젝트(재난망 6줄, 해외 5줄)에서는 이 영역만으로 카드가 꽉 차서
+        # 정작 실행할 시나리오 목록이 밀립니다. 한 번 골라두면 계속 볼 일이 없는
+        # 설정이라, 제목 줄을 눌러 접었다 펼 수 있게 했습니다.
+        self._channel_toggle = navy_button("", kind="quiet", height=24)
+        self._channel_toggle.setFont(kfont(9, True))
+        self._channel_toggle.setStyleSheet(
+            self._channel_toggle.styleSheet()
+            + f"QPushButton {{ text-align:left; padding-left:2px; color:{Navy.text_muted}; }}"
+        )
+        self._channel_toggle.clicked.connect(self._toggle_channel_section)
+        layout.addWidget(self._channel_toggle)
+
+        rows_holder = QWidget()
+        rows_layout = QVBoxLayout(rows_holder)
+        rows_layout.setContentsMargins(0, 0, 0, 0)
+        rows_layout.setSpacing(4)
+        self._channel_rows_holder = rows_holder
+        layout.addWidget(rows_holder)
 
         self._channel_combos = {}
         self._channel_rows = {}
-        for role in ("주채널", "부채널", *DISASTER_ONLY_CHANNEL_ROLES):
+        for role in ALL_CHANNEL_ROLES:
             row = QWidget()
             row_layout = QHBoxLayout(row)
             row_layout.setContentsMargins(0, 0, 0, 0)
             row_layout.setSpacing(6)
             lbl = QLabel(role)
             lbl.setFont(kfont(9))
-            # "공통통화그룹 SRTP"처럼 길어진 역할 이름도 안 잘리도록 넉넉히 잡습니다
-            # (기존 60px은 "주채널"/"부채널" 두 글자 기준이라 SRTP 역할엔 부족했습니다).
-            lbl.setFixedWidth(96)
+            # "공통통화그룹 SRTP"/"PreArranged group"처럼 길어진 역할 이름도 안 잘리도록
+            # 넉넉히 잡습니다(원래 60px은 "주채널"/"부채널" 두 글자 기준이었습니다).
+            lbl.setFixedWidth(118)
             lbl.setStyleSheet(f"color:{Navy.text};")
             row_layout.addWidget(lbl)
             combo = self._make_channel_combo()
             row_layout.addWidget(combo, 1)
-            layout.addWidget(row)
+            rows_layout.addWidget(row)
             self._channel_combos[role] = combo
             self._channel_rows[role] = row
 
+        self._channel_section_open = True
+        self._update_channel_toggle()
         return section
+
+    def _toggle_channel_section(self):
+        self._channel_section_open = not self._channel_section_open
+        self._update_channel_toggle()
+
+    def _update_channel_toggle(self):
+        arrow = "▼" if self._channel_section_open else "▶"
+        self._channel_toggle.setText(f"{arrow}  채널 지정")
+        self._channel_rows_holder.setVisible(self._channel_section_open)
 
     def _make_channel_combo(self):
         combo = QComboBox()
@@ -224,11 +264,26 @@ class ProjectWindow(QWidget):
             self.panel.channel_roles[role] = self._combo_channel_value(combo)
 
     def _update_channel_row_visibility(self):
-        show_disaster_roles = self._project in COMMON_CALL_GROUP_PROJECTS
-        for role in DISASTER_ONLY_CHANNEL_ROLES:
-            self._channel_rows[role].setVisible(show_disaster_roles)
-            if not show_disaster_roles:
-                self.panel.channel_roles[role] = None
+        """지금 프로젝트에 해당하는 채널 역할 행만 남깁니다.
+        재난망 전용(DISASTER_ONLY_CHANNEL_ROLES)은 프로젝트 이름으로, 해외 전용
+        (OVERSEAS_ONLY_CHANNEL_ROLES)은 project_config.json의 region으로 판단합니다."""
+        region = project_config_store.get_project_region(self._project) if self._project else None
+        visibility = {
+            DISASTER_ONLY_CHANNEL_ROLES: self._project in COMMON_CALL_GROUP_PROJECTS,
+            OVERSEAS_ONLY_CHANNEL_ROLES: region == "해외",
+        }
+        for roles, visible in visibility.items():
+            for role in roles:
+                self._channel_rows[role].setVisible(visible)
+                if not visible:
+                    # 숨긴 행은 콤보까지 "(미지정)"으로 되돌립니다. 값을 남겨두면
+                    # 다음 groups_ready 때 _refresh_channel_combos가 콤보 값을 보고
+                    # channel_roles를 다시 채워, 안 보이는 역할이 되살아납니다.
+                    combo = self._channel_combos[role]
+                    combo.blockSignals(True)
+                    combo.setCurrentIndex(0)
+                    combo.blockSignals(False)
+                    self.panel.channel_roles[role] = None
 
     # ---------- 프로젝트 전환 ----------
     def set_project(self, project_name):
@@ -258,32 +313,75 @@ class ProjectWindow(QWidget):
             )
             self._scenario_layout.addWidget(empty)
         else:
+            # 시나리오 작성 화면에서 나눠둔 폴더 그대로 묶어서 보여줍니다. 폴더 줄을
+            # 누르면 그 폴더만 접히고(여기서는 실행만 하므로 폴더 이름 수정/삭제는
+            # 넣지 않습니다), 폴더가 기본 폴더 하나뿐이면 줄 자체를 생략합니다.
+            by_folder = {folder: [] for folder in scenario_store.list_folders(self._project)}
             for name, steps in saved.items():
-                row = QWidget()
-                row_layout = QHBoxLayout(row)
-                row_layout.setContentsMargins(0, 0, 0, 0)
-                row_layout.setSpacing(6)
+                folder = scenario_store.scenario_folder(self._project, name)
+                by_folder.setdefault(folder, []).append((name, steps))
 
-                btn = navy_button(
-                    f"{name}   {len(steps)}스텝", kind="ghost", height=34, icon_name="fa5s.play"
-                )
-                # 실행 목록이라 항목이 여러 개 쌓입니다. 가운데 정렬보다 왼쪽 정렬이 읽기 좋습니다.
-                btn.setStyleSheet(
-                    btn.styleSheet() + "QPushButton { text-align:left; padding-left:12px; }"
-                )
-                btn.clicked.connect(lambda checked=False, n=name: self._run_scenario(n))
-                row_layout.addWidget(btn, 1)
-
-                result_lbl = QLabel("")
-                result_lbl.setFont(kfont(10, True))
-                result_lbl.setFixedWidth(40)
-                result_lbl.setAlignment(Qt.AlignCenter)
-                row_layout.addWidget(result_lbl)
-                self._scenario_result_labels[name] = result_lbl
-
-                self._scenario_layout.addWidget(row)
+            single_folder = len(by_folder) <= 1
+            for folder, items in by_folder.items():
+                if not single_folder:
+                    self._scenario_layout.addWidget(self._make_folder_header(folder, len(items)))
+                    if folder in self._collapsed_scenario_folders:
+                        continue
+                for name, steps in items:
+                    self._scenario_layout.addWidget(self._make_scenario_row(name, steps))
 
         self._scenario_layout.addStretch(1)
+
+    def _make_folder_header(self, folder, count):
+        """시나리오 목록 안의 폴더 구분 줄. 누르면 그 폴더를 접었다 폅니다."""
+        arrow = "▶" if folder in self._collapsed_scenario_folders else "▼"
+        btn = navy_button(f"{arrow}  {folder}  ({count})", kind="quiet", height=26)
+        # 다른 화면의 폴더 줄과 같은 이유로 옅은 회색 대신 본문 색을 씁니다.
+        btn.setFont(kfont(11, True))
+        btn.setStyleSheet(
+            btn.styleSheet()
+            + f"QPushButton {{ text-align:left; padding-left:2px; color:{Navy.text}; }}"
+        )
+        btn.clicked.connect(lambda checked=False, f=folder: self._toggle_scenario_folder(f))
+        return btn
+
+    def _toggle_scenario_folder(self, folder):
+        if folder in self._collapsed_scenario_folders:
+            self._collapsed_scenario_folders.discard(folder)
+        else:
+            self._collapsed_scenario_folders.add(folder)
+        # 누른 버튼 자신이 지워지는 자리라, 지금 처리 중인 클릭이 끝난 뒤로 미룹니다.
+        QTimer.singleShot(0, self.refresh_scenarios)
+
+    def _make_scenario_row(self, name, steps):
+        """[시나리오 이름 + 스텝 수 (누르면 실행)] [PASS/FAIL] 한 줄."""
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(6)
+
+        btn = navy_button(
+            f"{name}   {len(steps)}스텝", kind="ghost", height=34, icon_name="fa5s.play"
+        )
+        # 목록에서 제일 많이 읽는 글자라 버튼 기본(11)보다 한 단계 크게 씁니다.
+        # (굵은 글씨가 뭉개지던 문제는 ui_common.kfont가 진짜 굵은 자족을 골라
+        # 쓰게 되면서 해결됐습니다.)
+        btn.setFont(kfont(12, True))
+        # 실행 목록이라 항목이 여러 개 쌓입니다. 가운데 정렬보다 왼쪽 정렬이 읽기 좋습니다.
+        btn.setStyleSheet(
+            btn.styleSheet() + "QPushButton { text-align:left; padding-left:12px; }"
+        )
+        btn.clicked.connect(lambda checked=False, n=name: self._run_scenario(n))
+        row_layout.addWidget(btn, 1)
+
+        result_lbl = QLabel("")
+        result_lbl.setFont(kfont(10, True))
+        result_lbl.setFixedWidth(40)
+        result_lbl.setAlignment(Qt.AlignCenter)
+        row_layout.addWidget(result_lbl)
+        self._scenario_result_labels[name] = result_lbl
+
+        return row
 
     def showEvent(self, event):
         super().showEvent(event)

@@ -72,6 +72,15 @@ FONT_FAMILY = "Noto Sans KR"
 
 
 def load_custom_font():
+    """폰트가 안 깔린 PC를 위해 번들해 둔 NotoSansKR-Regular.ttf를 등록합니다.
+
+    이미 시스템에 FONT_FAMILY가 깔려 있으면 등록하지 않습니다. Regular 하나뿐인
+    파일을 등록하면 Qt가 그 패밀리를 Regular만 가진 것으로 덮어써서, 시스템에 같이
+    깔려 있던 진짜 Bold 자족까지 가려집니다. 그러면 굵은 글씨가 전부 '가짜 볼드'로
+    그려져 작은 크기에서 뭉개집니다(자세한 건 아래 kfont 주석)."""
+    if FONT_FAMILY in QFontDatabase.families():
+        return
+
     if getattr(sys, "frozen", False):
         base_path = sys._MEIPASS
     else:
@@ -83,10 +92,60 @@ def load_custom_font():
 
 FONT_SCALE = 0.85
 
+# 굵은 글씨에 진짜 굵은 자족(Bold/Medium)을 쓰기 위한 장치.
+#
+# 쓸 수 있는 자족이 없는데 setBold(True)를 하면 Qt가 획을 옆으로 덧그려 '가짜 볼드'를
+# 만듭니다. FONT_SCALE 때문에 8~10pt까지 작아진 글자에서는 획끼리 붙고 속공간이 메워져
+# 뭉개지고 흐릿해 보입니다(작은 버튼 글자, 단말 정보 카드 등).
+#
+# FONT_FAMILY("Noto Sans KR")에 진짜 Bold가 있는지는 실행 환경마다 다릅니다. 시스템에
+# Noto Sans KR 전체 굵기가 깔려 있으면 있고, assets/fonts의 Regular 하나만 등록된
+# 상태(폰트 미설치 PC, 빌드 배포본)면 없습니다. 그래서 고정하지 않고 실행 시점에
+# 확인해서 정합니다.
+#
+# 아래는 FONT_FAMILY에 Bold가 없을 때 대신 쓸 (패밀리, setBold를 걸어야 하는지) 후보로,
+# 앞에서부터 시스템에 있는 첫 번째를 씁니다.
+BOLD_FAMILY_CANDIDATES = (
+    # Noto Sans KR의 진짜 Medium 자족. 자폭이 Regular와 같아 레이아웃이 그대로입니다.
+    # 굵기가 패밀리 자체에 들어 있어서 setBold를 또 걸면 안 됩니다(다시 가짜 볼드).
+    ("Noto Sans KR Medium", False),
+    # Noto 굵은 자족이 하나도 없는 PC용 대비책. 윈도우에 항상 있고 진짜 Bold가 있습니다.
+    ("Malgun Gothic", True),
+)
+
+_UNRESOLVED = object()
+_bold_family = _UNRESOLVED
+
+
+def _has_real_bold(family):
+    return any(QFontDatabase.bold(family, style) for style in QFontDatabase.styles(family))
+
+
+def _bold_font_family():
+    """굵은 글씨에 쓸 (패밀리, setBold 여부).
+
+    QFontDatabase는 QApplication이 만들어진 뒤에만 쓸 수 있어서(=import 시점엔 못 씀)
+    처음 필요할 때 한 번만 찾아 캐시합니다. 아무 후보도 없으면 FONT_FAMILY + 가짜
+    볼드로 떨어집니다(예전 동작)."""
+    global _bold_family
+    if _bold_family is _UNRESOLVED:
+        if _has_real_bold(FONT_FAMILY):
+            # 이게 제일 좋습니다. 같은 패밀리의 진짜 Bold(700)를 그대로 씁니다.
+            _bold_family = (FONT_FAMILY, True)
+        else:
+            available = set(QFontDatabase.families())
+            _bold_family = next(
+                ((fam, needs_bold) for fam, needs_bold in BOLD_FAMILY_CANDIDATES if fam in available),
+                (FONT_FAMILY, True),
+            )
+    return _bold_family
+
 
 def kfont(size, bold=False):
-    f = QFont(FONT_FAMILY, max(8, round(size * FONT_SCALE)))
-    f.setBold(bold)
+    family, synthesize_bold = _bold_font_family() if bold else (FONT_FAMILY, False)
+
+    f = QFont(family, max(8, round(size * FONT_SCALE)))
+    f.setBold(synthesize_bold)
     # 예전에 쓰던 Pretendard-Regular.otf(자체 힌팅 명령이 없는 CFF 윤곽선)에서, 작은
     # 크기에서 "그"의 "ㅡ" 같은 얇은 가로 획이 그리드 피팅 과정에서 통째로 사라지는
     # 문제가 있었습니다. 안티앨리어싱 전략만으로는 부족해서(그리드 피팅 자체가 얇은
@@ -291,9 +350,11 @@ def navy_btn_css(kind="primary", radius=Navy.radius_sm, padding="0 14px"):
         bg, fg, hover, pressed, border = (
             Navy.navy, Navy.text_on_navy, Navy.navy_hover, Navy.navy_pressed, "transparent")
 
+    # 굵기는 navy_button이 setFont(kfont(..., True))로 정합니다. 여기서 font-weight를
+    # 또 지정하면 QSS가 이겨서, kfont가 골라둔 진짜 굵은 자족 대신 가짜 볼드가 그려집니다.
     return (
         f"QPushButton {{ background-color:{bg}; color:{fg}; border:1px solid {border}; "
-        f"border-radius:{radius}px; padding:{padding}; font-weight:600; }}"
+        f"border-radius:{radius}px; padding:{padding}; }}"
         f"QPushButton:hover {{ background-color:{hover}; }}"
         f"QPushButton:pressed {{ background-color:{pressed}; }}"
         f"QPushButton:disabled {{ background-color:{Navy.disabled_bg}; color:{Navy.disabled_fg}; "
@@ -362,9 +423,12 @@ def navy_page_css(object_name):
     return f"#{object_name} {{ background-color:{Navy.bg}; }}"
 
 
-def navy_page_header(title_text, subtitle_text=None):
-    """페이지 맨 위 [큰 제목 + 설명 ......... 오른쪽 breadcrumb] 줄.
-    (holder, breadcrumb_label)을 돌려주며, breadcrumb 라벨은 화면 쪽에서 채웁니다."""
+def navy_page_header(title_text, subtitle_text=None, actions=None):
+    """페이지 맨 위 [큰 제목 + 설명] [actions...] ......... [오른쪽 breadcrumb] 줄.
+    (holder, breadcrumb_label)을 돌려주며, breadcrumb 라벨은 화면 쪽에서 채웁니다.
+
+    actions는 제목 바로 오른쪽에 붙일 위젯들입니다(예: 프로젝트 선택 드롭다운,
+    기기 연결 버튼). 제목과 세로 가운데를 맞춰 붙습니다."""
     holder = QWidget()
     row = QHBoxLayout(holder)
     row.setContentsMargins(2, 0, 2, 0)
@@ -386,6 +450,8 @@ def navy_page_header(title_text, subtitle_text=None):
         col.addWidget(subtitle)
 
     row.addLayout(col)
+    for widget in (actions or []):
+        row.addWidget(widget, 0, Qt.AlignVCenter)
     row.addStretch(1)
 
     breadcrumb = QLabel("")
@@ -427,6 +493,73 @@ def navy_card_header(text, badge=None, actions=None):
     return holder, badge_lbl
 
 
+class FolderHeaderRow(QWidget):
+    """폴더로 묶은 목록(저장된 객체 / 저장된 시나리오)에서 폴더 한 줄.
+
+    평소엔 펼침/접힘 화살표와 이름만 보이다가, 마우스를 올리면 오른쪽에 수정/삭제
+    버튼이 나타납니다. 기본 폴더는 이름은 바꿀 수 있지만(계속 기본 폴더 역할은
+    유지) 삭제는 못 하므로, 부르는 쪽에서 can_delete=False를 줍니다."""
+
+    toggled = Signal()
+    editRequested = Signal(str)
+    deleteRequested = Signal(str)
+
+    def __init__(self, folder, label_text, can_edit=True, can_delete=True,
+                 delete_tooltip="폴더 삭제 (하위 항목 포함)", parent=None):
+        super().__init__(parent)
+        self._folder = folder
+        self.setCursor(Qt.PointingHandCursor)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(6, 3, 6, 3)
+        layout.setSpacing(4)
+
+        self._label = QLabel(label_text)
+        # 폴더 이름은 목록을 훑을 때 제일 먼저 읽는 글자입니다. 예전엔 text_muted
+        # (#93A0B5)라 흰 배경에서 대비가 거의 없어 잘 안 보였습니다.
+        # (FONT_SCALE 0.85 때문에 9와 10은 둘 다 8pt로 떨어집니다. 한 단계 키우려면 11.)
+        self._label.setFont(kfont(11, True))
+        self._label.setStyleSheet(f"color:{Navy.text};")
+        self._label.setToolTip(label_text)
+        layout.addWidget(self._label, 1)
+
+        self._can_edit = can_edit
+        self._can_delete = can_delete
+
+        self._btn_edit = navy_button("", kind="ghost", height=22, icon_name="fa5s.pen", icon_size=10)
+        self._btn_edit.setFixedWidth(24)
+        self._btn_edit.setToolTip("폴더 이름 수정")
+        self._btn_edit.clicked.connect(lambda: self.editRequested.emit(self._folder))
+        self._btn_edit.setVisible(False)
+        layout.addWidget(self._btn_edit)
+
+        self._btn_delete = navy_button("", kind="danger", height=22, icon_name="fa5s.trash-alt", icon_size=10)
+        self._btn_delete.setFixedWidth(24)
+        self._btn_delete.setToolTip(delete_tooltip)
+        self._btn_delete.clicked.connect(lambda: self.deleteRequested.emit(self._folder))
+        self._btn_delete.setVisible(False)
+        layout.addWidget(self._btn_delete)
+
+    def enterEvent(self, event):
+        if self._can_edit:
+            self._btn_edit.setVisible(True)
+        if self._can_delete:
+            self._btn_delete.setVisible(True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._btn_edit.setVisible(False)
+        self._btn_delete.setVisible(False)
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            event.accept()
+            self.toggled.emit()
+            return
+        super().mousePressEvent(event)
+
+
 def navy_section_header(text):
     """목록 안에서 묶음을 나누는 작은 구분 제목(라벨 + 남는 폭을 채우는 가는 선)."""
     holder = QWidget()
@@ -435,10 +568,11 @@ def navy_section_header(text):
     row.setSpacing(8)
 
     lbl = QLabel(text)
-    font = kfont(9, True)
+    # 묶음 이름도 폴더 이름과 같은 이유로 옅은 회색(text_muted) 대신 본문 색을 씁니다.
+    font = kfont(11, True)
     font.setLetterSpacing(QFont.AbsoluteSpacing, 0.5)
     lbl.setFont(font)
-    lbl.setStyleSheet(f"color:{Navy.text_muted};")
+    lbl.setStyleSheet(f"color:{Navy.text};")
     row.addWidget(lbl)
     row.addWidget(navy_hline(), 1)
     return holder

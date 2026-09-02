@@ -7,7 +7,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetricsF
 from PySide6.QtWidgets import (
     QButtonGroup,
+    QComboBox,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QMessageBox,
     QVBoxLayout,
@@ -29,6 +31,7 @@ from ui_common import (
     navy_card,
     navy_card_header,
     navy_hline,
+    navy_input_css,
     navy_mono_font,
     navy_page_css,
     navy_page_header,
@@ -39,8 +42,8 @@ from ui_common import (
 
 class ScenarioLibraryPage(QWidget):
     """프로젝트별로 저장된 시나리오(핸들러 메서드)를 관리하는 화면.
-    맨 위 페이지 헤더(제목 + 현재 위치) 아래로 [프로젝트 목록] - [시나리오 목록] -
-    [코드 보기/수정] 3단 구성이고, 시나리오를 고르면 오른쪽에 실제 소스 코드가 뜨고
+    맨 위 페이지 헤더(제목 + 프로젝트 드롭다운 + 현재 위치) 아래로 [시나리오 목록] -
+    [코드 보기/수정] 두 칸이고, 시나리오를 고르면 오른쪽에 실제 소스 코드가 뜨고
     편집 후 저장하면 해당 config_handlers 파일에 바로 반영됩니다.
 
     보이는 스타일은 ui_common.Navy 토큰(밝은 회청색 바닥 + 흰 카드 + 네이비 액센트)을
@@ -54,7 +57,6 @@ class ScenarioLibraryPage(QWidget):
         # 자식까지 물들이지 않도록 이 위젯 하나만 가리키는 id 선택자로 바닥색을 칠합니다.
         self.setStyleSheet(navy_page_css("scenarioInterface"))
 
-        self._project_buttons = {}
         self._scenario_buttons = {}
         self._current_project = None
         self._current = None  # (module, handler_cls, method_name, file_path, start_line, line_count)
@@ -72,17 +74,14 @@ class ScenarioLibraryPage(QWidget):
         body.setSpacing(14)
         outer.addLayout(body, 1)
 
-        # 프로젝트 목록을 마지막에 만드는 이유: 그 안에서 첫 프로젝트를 자동 선택하며
-        # _on_project_selected()가 시나리오 목록/코드 패널의 위젯을 바로 건드리는데, 그
-        # 위젯들은 아래 두 패널을 먼저 만들어야 존재합니다. 화면상 배치는 addWidget 순서
-        # (project -> scenario list -> code)로 그대로 유지됩니다.
+        # 프로젝트를 고르면 _on_project_selected()가 시나리오 목록/코드 패널의 위젯을
+        # 바로 건드리므로, 두 패널을 먼저 다 만든 뒤에 드롭다운을 채웁니다(채우면서
+        # 첫 프로젝트가 자동 선택됩니다).
         self._scenario_list_card, self._scenario_list_layout = self._build_scenario_list()
-        code_panel = self._build_code_panel()
-        project_list = self._build_project_list()
-
-        body.addWidget(project_list, 2)
         body.addWidget(self._scenario_list_card, 3)
-        body.addWidget(code_panel, 7)
+        body.addWidget(self._build_code_panel(), 7)
+
+        self._refresh_project_combo()
 
     # ---------- 공통: 카드 껍데기 / 카드 헤더 ----------
     @staticmethod
@@ -92,55 +91,68 @@ class ScenarioLibraryPage(QWidget):
     # ---------- 페이지 헤더 ----------
     def _build_page_header(self):
         header, self._breadcrumb = navy_page_header(
-            "시나리오", "프로젝트별로 저장된 시나리오 코드를 확인하고 바로 수정합니다."
+            "시나리오",
+            "프로젝트별로 저장된 시나리오 코드를 확인하고 바로 수정합니다.",
+            actions=[self._build_project_combo()],
         )
         return header
+
+    def _build_project_combo(self):
+        """제목 "시나리오" 바로 옆에 붙는 프로젝트 선택 드롭다운.
+        예전에는 왼쪽에 프로젝트 목록 카드가 한 칸을 차지했지만, 다른 화면들(객체
+        관리/시나리오 작성)과 같은 방식으로 제목 줄로 옮겼습니다."""
+        self._project_combo = QComboBox()
+        self._project_combo.setFixedHeight(32)
+        self._project_combo.setMinimumWidth(200)
+        self._project_combo.setFont(kfont(10))
+        self._project_combo.setStyleSheet(navy_input_css())
+        self._project_combo.currentIndexChanged.connect(self._on_project_combo_changed)
+        return self._project_combo
+
+    def _refresh_project_combo(self):
+        """등록된 프로젝트로 드롭다운을 다시 채웁니다. 국내/해외가 섞여 있으면 항목
+        앞에 지역을 붙여 구분합니다(드롭다운에는 구분선을 넣을 자리가 없습니다).
+        고르고 있던 프로젝트는 유지하고, 없으면 첫 번째를 자동으로 고릅니다."""
+        self._project_combo.blockSignals(True)
+        self._project_combo.clear()
+        groups = project_config_store.group_projects_by_region(list(PROJECT_HANDLERS.keys()))
+        for group_label, proj_names in groups:
+            for proj_name in proj_names:
+                label = f"[{group_label}] {proj_name}" if group_label else proj_name
+                self._project_combo.addItem(label, proj_name)
+        idx = self._project_combo.findData(self._current_project)
+        self._project_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self._project_combo.blockSignals(False)
+
+        selected = self._project_combo.currentData()
+        if selected and selected != self._current_project:
+            self._on_project_selected(selected)
+
+    def _on_project_combo_changed(self, _index):
+        proj_name = self._project_combo.currentData()
+        if proj_name:
+            self._on_project_selected(proj_name)
+
+    def select_project(self, project_name):
+        """런처 메뉴처럼 바깥에서 특정 프로젝트를 골라 이 화면을 열 때 씁니다
+        (ui_logic.show_as_left_card가 있으면 불러줍니다).
+
+        이미 그 프로젝트가 골라져 있으면 setCurrentIndex는 시그널을 안 보내므로,
+        어느 쪽이든 목록이 새로 채워지도록 _on_project_selected를 직접 부릅니다."""
+        idx = self._project_combo.findData(project_name)
+        if idx < 0:
+            return False
+        self._project_combo.blockSignals(True)
+        self._project_combo.setCurrentIndex(idx)
+        self._project_combo.blockSignals(False)
+        self._on_project_selected(project_name)
+        return True
 
     def _update_breadcrumb(self, scenario=None):
         parts = [p for p in (self._current_project, scenario) if p]
         self._breadcrumb.setText("  ›  ".join(parts))
 
-    # ---------- 1단: 저장된 프로젝트 목록 ----------
-    def _build_project_list(self):
-        self._project_list_card = self._build_card()
-        layout = QVBoxLayout(self._project_list_card)
-        layout.setContentsMargins(14, 16, 14, 16)
-        layout.setSpacing(4)
-
-        header, self._project_count = navy_card_header("프로젝트", badge=0)
-        layout.addWidget(header)
-
-        self._project_list_layout = layout
-        self._refresh_project_buttons()
-
-        return self._project_list_card
-
-    def _refresh_project_buttons(self):
-        clear_layout(self._project_list_layout, keep=1)  # keep=1: 카드 헤더
-        self._project_buttons = {}
-        self._project_count.setText(str(len(PROJECT_HANDLERS)))
-        group = QButtonGroup(self._project_list_card)
-        group.setExclusive(True)
-        groups = project_config_store.group_projects_by_region(list(PROJECT_HANDLERS.keys()))
-        for group_label, proj_names in groups:
-            if group_label:
-                self._project_list_layout.addWidget(navy_section_header(group_label))
-            for proj_name in proj_names:
-                btn = NavListButton(proj_name, height=34)
-                btn.clicked.connect(lambda checked=False, p=proj_name: self._on_project_selected(p))
-                group.addButton(btn)
-                self._project_list_layout.addWidget(btn)
-                self._project_buttons[proj_name] = btn
-        self._project_list_layout.addStretch(1)
-
-        if self._current_project in self._project_buttons:
-            self._project_buttons[self._current_project].setChecked(True)
-        elif PROJECT_HANDLERS:
-            first_project = next(iter(PROJECT_HANDLERS))
-            self._project_buttons[first_project].setChecked(True)
-            self._on_project_selected(first_project)
-
-    # ---------- 2단: 선택한 프로젝트의 시나리오 목록 ----------
+    # ---------- 왼쪽: 선택한 프로젝트의 시나리오 목록 ----------
     def _build_scenario_list(self):
         card = self._build_card()
         layout = QVBoxLayout(card)
@@ -153,8 +165,22 @@ class ScenarioLibraryPage(QWidget):
         btn_refresh.setFixedWidth(30)
         btn_refresh.setToolTip("시나리오 목록 새로고침")
         btn_refresh.clicked.connect(self._on_refresh_scenario_list_clicked)
+
+        self._btn_copy_scenario = navy_button(
+            "", kind="ghost", height=26, icon_name="fa5s.copy", icon_size=12
+        )
+        self._btn_copy_scenario.setFixedWidth(30)
+        self._btn_copy_scenario.setToolTip(
+            "선택한 시나리오를 다른 프로젝트로 복사 "
+            "(같은 프로젝트를 고르면 이름을 바꿔 복제합니다)"
+        )
+        # 핸들러 코드 시나리오는 config_handlers 소스를 건드려야 해서 복사 대상이
+        # 아닙니다. 스텝 목록 시나리오를 골랐을 때만 켭니다.
+        self._btn_copy_scenario.setEnabled(False)
+        self._btn_copy_scenario.clicked.connect(self._copy_selected_scenario)
+
         header, self._scenario_count = navy_card_header(
-            "시나리오", badge=0, actions=[btn_refresh]
+            "시나리오", badge=0, actions=[self._btn_copy_scenario, btn_refresh]
         )
         layout.addWidget(header)
 
@@ -167,12 +193,14 @@ class ScenarioLibraryPage(QWidget):
         # 다른 화면(특히 "프로젝트 관리"/"시나리오 작성")에서 프로젝트를 추가하거나
         # 시나리오를 추가/삭제하고 돌아왔을 때도 목록이 최신 상태로 보이도록 이 페이지가
         # 다시 보일 때마다 새로고침합니다.
-        self._refresh_project_buttons()
+        self._refresh_project_combo()
         if self._current_project:
             self._on_project_selected(self._current_project)
 
     def _on_project_selected(self, proj_name):
         self._current_project = proj_name
+        self._current_builder_scenario_name = None
+        self._btn_copy_scenario.setEnabled(False)
         clear_layout(self._scenario_list_layout, keep=1)  # keep=1: 카드 헤더
         # clear_layout은 맨 끝의 stretch까지 같이 거두므로 바로 다시 깔아둡니다. 이걸 빼먹으면
         # 아래의 insertWidget(count()-1, ...)이 stretch가 아니라 마지막으로 넣은 항목 앞에
@@ -240,6 +268,79 @@ class ScenarioLibraryPage(QWidget):
             self._on_project_selected(self._current_project)
 
     @staticmethod
+    def _unique_scenario_name(name, existing):
+        """이름 (복사본) -> 이름 (복사본 2) ... 순으로 안 겹치는 이름을 만듭니다."""
+        candidate = f"{name} (복사본)"
+        i = 2
+        while candidate in existing:
+            candidate = f"{name} (복사본 {i})"
+            i += 1
+        return candidate
+
+    def _copy_selected_scenario(self):
+        """목록에서 고른 시나리오를 다른 프로젝트로 복사합니다.
+        같은 프로젝트를 고르면 새 이름을 받아 그 자리에서 복제합니다.
+
+        스텝 목록으로 만든 시나리오(시나리오 작성 화면)만 대상입니다. 핸들러 코드
+        시나리오는 config_handlers 소스 파일을 고쳐야 해서 여기서 다루지 않습니다."""
+        name = self._current_builder_scenario_name
+        if not self._current_project or not name:
+            QMessageBox.warning(
+                self, "시나리오 미선택",
+                "복사할 시나리오를 '시나리오' 묶음에서 먼저 선택해주세요.\n"
+                "(핸들러 코드 시나리오는 복사할 수 없습니다.)",
+            )
+            return
+        steps = scenario_store.list_scenarios(self._current_project).get(name)
+        if steps is None:
+            QMessageBox.warning(self, "시나리오 없음", f"{name!r}을(를) 찾을 수 없습니다.")
+            return
+
+        targets = list(PROJECT_HANDLERS)
+        current_idx = targets.index(self._current_project) if self._current_project in targets else 0
+        target, ok = QInputDialog.getItem(
+            self, "대상 프로젝트 선택",
+            f"{name!r}을(를) 어느 프로젝트로 복사할까요?\n"
+            "(지금 프로젝트를 고르면 이름을 바꿔 복제합니다.)",
+            targets, current_idx, False,
+        )
+        if not ok or not target:
+            return
+
+        existing = scenario_store.list_scenarios(target)
+        new_name = name
+        if target == self._current_project:
+            new_name, ok = QInputDialog.getText(
+                self, "복사본 이름", "새 시나리오 이름:",
+                text=self._unique_scenario_name(name, existing),
+            )
+            new_name = (new_name or "").strip()
+            if not ok or not new_name:
+                return
+        if new_name in existing:
+            ret = QMessageBox.question(
+                self, "이름 중복",
+                f"{target!r} 프로젝트에 이미 있는 {new_name!r}을(를) 덮어쓸까요?",
+                QMessageBox.Yes | QMessageBox.No,
+            )
+            if ret != QMessageBox.Yes:
+                return
+
+        # 폴더 구성은 프로젝트마다 따로라, 대상 프로젝트에 같은 이름의 폴더가 있을
+        # 때만 그 폴더로 넣습니다(없는 폴더를 대신 만들지는 않고 기본 폴더로).
+        folder = scenario_store.scenario_folder(self._current_project, name)
+        target_folder = folder if folder in scenario_store.list_folders(target) else None
+        scenario_store.save_scenario(
+            target, new_name, [dict(step) for step in steps], folder=target_folder
+        )
+
+        self._on_project_selected(self._current_project)
+        QMessageBox.information(
+            self, "복사 완료",
+            f"{name!r}을(를) {target!r} 프로젝트의 {new_name!r}(으)로 복사했습니다.",
+        )
+
+    @staticmethod
     def _find_class_body_end(lines, class_name):
         """lines(파일 전체 줄 목록)에서 class_name의 본문이 끝나는 삽입 지점(줄 인덱스)을 찾습니다.
         클래스 선언 다음부터 들여쓰기가 없는(=클래스 밖으로 나간) 첫 줄 앞에 삽입하고,
@@ -281,7 +382,7 @@ class ScenarioLibraryPage(QWidget):
             f"border:1px dashed {Navy.border_strong}; border-radius:{Navy.radius_sm}px; padding:14px 10px;",
         )
 
-    # ---------- 3단: 코드 보기 / 수정 ----------
+    # ---------- 오른쪽: 코드 보기 / 수정 ----------
     def _build_code_panel(self):
         card = self._build_card()
         layout = QVBoxLayout(card)
@@ -372,6 +473,7 @@ class ScenarioLibraryPage(QWidget):
     def _on_scenario_selected(self, proj_name, method_name):
         self._current_builder_scenario_name = None
         self._detaching_builder_scenario = False
+        self._btn_copy_scenario.setEnabled(False)
 
         module_name, class_name = PROJECT_HANDLERS[proj_name]
         try:
@@ -416,6 +518,7 @@ class ScenarioLibraryPage(QWidget):
         self._current = None  # 코드 파일이 아니라 "저장"으로 덮어쓸 대상이 없음
         self._current_builder_scenario_name = name
         self._detaching_builder_scenario = False
+        self._btn_copy_scenario.setEnabled(True)
         self._code_title_lbl.setText(f"{name}  ·  시나리오 작성")
         self._update_breadcrumb(name)
         preview_lines = [

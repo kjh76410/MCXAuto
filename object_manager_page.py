@@ -7,7 +7,6 @@ from PySide6.QtCore import Qt, QMimeData, QSize, QTimer, Signal
 from PySide6.QtGui import QColor, QDrag, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
-    QButtonGroup,
     QComboBox,
     QFrame,
     QHBoxLayout,
@@ -27,9 +26,8 @@ import object_store
 import project_config_store
 from device_panel import PROJECT_HANDLERS
 from ui_common import (
-    NavListButton,
+    FolderHeaderRow,
     Navy,
-    clear_layout,
     kfont,
     navy_button,
     navy_card,
@@ -39,7 +37,6 @@ from ui_common import (
     navy_mono_font,
     navy_page_css,
     navy_page_header,
-    navy_section_header,
     styled,
 )
 
@@ -107,68 +104,6 @@ class _ObjectRowLabel(QLabel):
         self._press_pos = None
         self._dragging = False
         super().mouseReleaseEvent(event)
-
-
-class _FolderHeaderRow(QWidget):
-    """저장된 객체 목록에서 폴더 한 줄. 평소엔 펼침/접힘 화살표와 이름만 보이다가,
-    마우스를 올리면 오른쪽에 수정/삭제 버튼이 나타납니다. 기본 폴더는 이름은
-    바꿀 수 있지만(계속 기본 폴더 역할은 유지) 삭제는 할 수 없어 삭제 버튼만
-    빠집니다."""
-
-    toggled = Signal()
-    editRequested = Signal(str)
-    deleteRequested = Signal(str)
-
-    def __init__(self, folder, label_text, can_edit=True, can_delete=True, parent=None):
-        super().__init__(parent)
-        self._folder = folder
-        self.setCursor(Qt.PointingHandCursor)
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(6, 3, 6, 3)
-        layout.setSpacing(4)
-
-        self._label = QLabel(label_text)
-        self._label.setFont(kfont(9, True))
-        self._label.setStyleSheet(f"color:{Navy.text_muted};")
-        self._label.setToolTip(label_text)
-        layout.addWidget(self._label, 1)
-
-        self._can_edit = can_edit
-        self._can_delete = can_delete
-
-        self._btn_edit = navy_button("", kind="ghost", height=22, icon_name="fa5s.pen", icon_size=10)
-        self._btn_edit.setFixedWidth(24)
-        self._btn_edit.setToolTip("폴더 이름 수정")
-        self._btn_edit.clicked.connect(lambda: self.editRequested.emit(self._folder))
-        self._btn_edit.setVisible(False)
-        layout.addWidget(self._btn_edit)
-
-        self._btn_delete = navy_button("", kind="danger", height=22, icon_name="fa5s.trash-alt", icon_size=10)
-        self._btn_delete.setFixedWidth(24)
-        self._btn_delete.setToolTip("폴더 삭제 (하위 객체 포함)")
-        self._btn_delete.clicked.connect(lambda: self.deleteRequested.emit(self._folder))
-        self._btn_delete.setVisible(False)
-        layout.addWidget(self._btn_delete)
-
-    def enterEvent(self, event):
-        if self._can_edit:
-            self._btn_edit.setVisible(True)
-        if self._can_delete:
-            self._btn_delete.setVisible(True)
-        super().enterEvent(event)
-
-    def leaveEvent(self, event):
-        self._btn_edit.setVisible(False)
-        self._btn_delete.setVisible(False)
-        super().leaveEvent(event)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            event.accept()
-            self.toggled.emit()
-            return
-        super().mousePressEvent(event)
 
 
 class _SavedObjectList(QListWidget):
@@ -245,8 +180,10 @@ class ObjectManagerPage(QWidget):
     """weditor처럼 연결된 단말 화면에서 UI 요소를 찾아, 이름을 붙여 프로젝트별로
     저장해두는 화면. 여기서 저장한 이름 있는 객체들을 나중에 시나리오 작성 시
     resourceId를 다시 찾을 필요 없이 재사용하는 게 목표입니다.
-    [프로젝트 목록] - [단말 화면/요소 찾기] - [선택한 요소 상세 + 이름 저장 + 저장된 객체 목록]
-    3단 구성입니다."""
+
+    [단말 화면/요소 찾기] : [선택한 요소 상세 + 이름 저장 + 저장된 객체 목록] 두 칸을
+    7:3으로 쓰고, 프로젝트 선택과 기기 연결은 맨 위 제목 줄에 둡니다(예전에는
+    프로젝트 목록이 왼쪽 한 칸을 차지했습니다)."""
 
     def __init__(self, panel_a, panel_b, parent=None):
         super().__init__(parent)
@@ -263,7 +200,6 @@ class ObjectManagerPage(QWidget):
         self._selected_node = None
         self._editing_name = None
         self._current_project = None
-        self._project_buttons = {}
         self._saved_checkboxes = {}
         self._collapsed_folders = set()
 
@@ -272,7 +208,9 @@ class ObjectManagerPage(QWidget):
         outer.setSpacing(16)
 
         header, self._breadcrumb = navy_page_header(
-            "객체 관리", "단말 화면에서 UI 요소를 찾아 이름을 붙여 프로젝트별로 저장합니다."
+            "객체 관리",
+            "단말 화면에서 UI 요소를 찾아 이름을 붙여 프로젝트별로 저장합니다.",
+            actions=self._build_header_actions(),
         )
         outer.addWidget(header)
 
@@ -280,94 +218,91 @@ class ObjectManagerPage(QWidget):
         body.setSpacing(14)
         outer.addLayout(body, 1)
 
-        # 프로젝트 목록을 마지막에 만드는 이유: 그 안에서 첫 프로젝트를 자동 선택하며
-        # _refresh_saved_list() 등이 다른 패널의 위젯(_saved_list 등)을 바로 건드리는데,
-        # 그 위젯들은 아래 두 패널을 먼저 만들어야 존재합니다. 화면상 배치는 addWidget
-        # 순서(project -> inspector -> detail)로 그대로 유지됩니다.
-        inspector_panel = self._build_inspector_panel()
-        detail_panel = self._build_detail_and_saved_panel()
-        project_list = self._build_project_list()
+        # 프로젝트를 고르면 _refresh_saved_list() 등이 두 패널 안의 위젯(_saved_list 등)을
+        # 바로 건드리므로, 패널을 먼저 다 만든 뒤에 드롭다운을 채웁니다(채우면서 첫
+        # 프로젝트가 자동 선택됩니다).
+        body.addWidget(self._build_inspector_panel(), 7)
+        body.addWidget(self._build_detail_and_saved_panel(), 3)
 
-        body.addWidget(project_list, 2)
-        body.addWidget(inspector_panel, 5)
-        body.addWidget(detail_panel, 3)
+        self._refresh_project_combo()
 
     def showEvent(self, event):
         super().showEvent(event)
         # "프로젝트 관리" 화면에서 새 프로젝트를 추가하고 돌아왔을 때도 목록이
         # 최신 상태로 보이도록 이 화면이 다시 보일 때마다 새로고침합니다.
-        self._refresh_project_buttons()
+        self._refresh_project_combo()
 
-    # ---------- 1단: 프로젝트 목록 ----------
-    def _build_project_list(self):
-        self._project_list_card = navy_card()
-        layout = QVBoxLayout(self._project_list_card)
-        layout.setContentsMargins(14, 16, 14, 16)
-        layout.setSpacing(4)
+    # ---------- 제목 줄: 프로젝트 선택 + 기기 연결 ----------
+    def _build_header_actions(self):
+        """제목 "객체 관리" 바로 옆에 붙는 [프로젝트 드롭다운] [기기 연결] [연결 상태].
 
-        header, self._project_count = navy_card_header("프로젝트", badge=0)
-        layout.addWidget(header)
-
-        # 프로젝트 버튼들은 _refresh_project_buttons()가 매번 통째로 지우고 다시 그리므로,
-        # 아래 기기 연결 섹션까지 같이 지워지지 않도록 별도의 내부 레이아웃에 담습니다.
-        # (그 안의 addStretch가 기기 섹션을 카드 아래쪽으로 밀어줍니다.)
-        self._project_list_layout = QVBoxLayout()
-        self._project_list_layout.setSpacing(2)
-        layout.addLayout(self._project_list_layout, 1)
-        self._refresh_project_buttons()
-
-        layout.addSpacing(6)
-
-        device_header, _ = navy_card_header("기기")
-        layout.addWidget(device_header)
+        예전에는 왼쪽에 프로젝트 목록 카드가 한 칸을 차지했지만, 본문을 단말 화면과
+        저장된 객체 두 칸(7:3)에 다 내주려고 제목 줄로 옮겼습니다."""
+        self._project_combo = QComboBox()
+        self._project_combo.setFixedHeight(32)
+        self._project_combo.setMinimumWidth(200)
+        self._project_combo.setFont(kfont(10))
+        self._project_combo.setStyleSheet(navy_input_css())
+        self._project_combo.currentIndexChanged.connect(self._on_project_combo_changed)
 
         self._btn_connect_device = navy_button(
             "기기 연결", kind="primary", height=32, icon_name="fa5s.plug"
         )
         self._btn_connect_device.clicked.connect(lambda: self.panel_a.btn_connect.click())
-        layout.addWidget(self._btn_connect_device)
 
         self._device_status_lbl = QLabel("연결된 단말 없음")
         self._device_status_lbl.setFont(kfont(9))
-        self._device_status_lbl.setStyleSheet(f"color:{Navy.text_muted}; padding-top:2px;")
-        self._device_status_lbl.setWordWrap(True)
-        layout.addWidget(self._device_status_lbl)
+        self._device_status_lbl.setStyleSheet(f"color:{Navy.text_muted};")
         self.panel_a.signals.device_ready.connect(self._on_device_ready)
 
-        return self._project_list_card
+        return [self._project_combo, self._btn_connect_device, self._device_status_lbl]
 
     def _on_device_ready(self, info):
         if info:
             self._device_status_lbl.setText(f"● 단말 연결됨: {info.get('model', '')}")
-            self._device_status_lbl.setStyleSheet(f"color:{Navy.accent}; padding-top:2px;")
+            self._device_status_lbl.setStyleSheet(f"color:{Navy.accent};")
         else:
             self._device_status_lbl.setText("연결된 단말 없음")
-            self._device_status_lbl.setStyleSheet(f"color:{Navy.text_muted}; padding-top:2px;")
+            self._device_status_lbl.setStyleSheet(f"color:{Navy.text_muted};")
 
-    def _refresh_project_buttons(self):
-        clear_layout(self._project_list_layout, keep=0)
-        self._project_buttons = {}
-        self._project_count.setText(str(len(PROJECT_HANDLERS)))
-        group = QButtonGroup(self._project_list_card)
-        group.setExclusive(True)
+    def _refresh_project_combo(self):
+        """등록된 프로젝트로 드롭다운을 다시 채웁니다. 국내/해외가 섞여 있으면 항목
+        앞에 지역을 붙여 구분합니다(드롭다운에는 구분선을 넣을 자리가 없습니다).
+        고르고 있던 프로젝트는 유지하고, 없으면 첫 번째를 자동으로 고릅니다."""
+        self._project_combo.blockSignals(True)
+        self._project_combo.clear()
         groups = project_config_store.group_projects_by_region(list(PROJECT_HANDLERS.keys()))
         for group_label, proj_names in groups:
-            if group_label:
-                self._project_list_layout.addWidget(navy_section_header(group_label))
             for proj_name in proj_names:
-                btn = NavListButton(proj_name, height=34)
-                btn.clicked.connect(lambda checked=False, p=proj_name: self._on_project_selected(p))
-                group.addButton(btn)
-                self._project_list_layout.addWidget(btn)
-                self._project_buttons[proj_name] = btn
-        self._project_list_layout.addStretch(1)
+                label = f"[{group_label}] {proj_name}" if group_label else proj_name
+                self._project_combo.addItem(label, proj_name)
+        idx = self._project_combo.findData(self._current_project)
+        self._project_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self._project_combo.blockSignals(False)
 
-        if self._current_project in self._project_buttons:
-            self._project_buttons[self._current_project].setChecked(True)
-        elif PROJECT_HANDLERS:
-            first_project = next(iter(PROJECT_HANDLERS))
-            self._project_buttons[first_project].setChecked(True)
-            self._on_project_selected(first_project)
+        selected = self._project_combo.currentData()
+        if selected and selected != self._current_project:
+            self._on_project_selected(selected)
+
+    def _on_project_combo_changed(self, _index):
+        proj_name = self._project_combo.currentData()
+        if proj_name:
+            self._on_project_selected(proj_name)
+
+    def select_project(self, project_name):
+        """런처 메뉴처럼 바깥에서 특정 프로젝트를 골라 이 화면을 열 때 씁니다
+        (ui_logic.show_as_left_card가 있으면 불러줍니다).
+
+        이미 그 프로젝트가 골라져 있으면 setCurrentIndex는 시그널을 안 보내므로,
+        어느 쪽이든 목록이 새로 채워지도록 _on_project_selected를 직접 부릅니다."""
+        idx = self._project_combo.findData(project_name)
+        if idx < 0:
+            return False
+        self._project_combo.blockSignals(True)
+        self._project_combo.setCurrentIndex(idx)
+        self._project_combo.blockSignals(False)
+        self._on_project_selected(project_name)
+        return True
 
     def _on_project_selected(self, proj_name):
         self._current_project = proj_name
@@ -507,27 +442,6 @@ class ObjectManagerPage(QWidget):
         btn_add_folder.clicked.connect(self._on_add_folder_clicked)
         folder_row.addWidget(btn_add_folder)
         layout.addLayout(folder_row)
-
-        role_row = QHBoxLayout()
-        role_row.setSpacing(6)
-        role_lbl = QLabel("채널역할")
-        role_lbl.setFont(kfont(9, True))
-        role_lbl.setFixedWidth(66)
-        role_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        role_lbl.setStyleSheet(f"color:{Navy.text_muted};")
-        role_row.addWidget(role_lbl)
-        self._channel_role_combo = QComboBox()
-        self._channel_role_combo.setFixedHeight(30)
-        self._channel_role_combo.setFont(kfont(10))
-        self._channel_role_combo.setStyleSheet(navy_input_css())
-        self._channel_role_combo.addItems(["(없음)", "주채널", "부채널"])
-        self._channel_role_combo.setToolTip(
-            "이 요소가 채널마다 값이 달라지는 자리(예: 채널 이름)를 가리킬 때, "
-            "저장 당시 텍스트 대신 프로젝트 창에서 지정한 주채널/부채널의 실제 "
-            "채널명으로 실행 시점에 바꿔서 찾습니다."
-        )
-        role_row.addWidget(self._channel_role_combo, 1)
-        layout.addLayout(role_row)
 
         self._name_edit = QLineEdit()
         self._name_edit.setPlaceholderText("이 요소에 붙일 이름")
@@ -684,7 +598,6 @@ class ObjectManagerPage(QWidget):
             # 화면에서 새 요소를 고르면 "수정" 모드는 종료하고 새로 만드는 흐름으로 돌아갑니다.
             self._editing_name = None
             self._name_edit.clear()
-            self._channel_role_combo.setCurrentIndex(0)
             self._editing_hint_lbl.setText("")
             self._editing_hint_lbl.setVisible(False)
             self._btn_save.setText("이름으로 저장")
@@ -757,7 +670,6 @@ class ObjectManagerPage(QWidget):
     def _reset_edit_form(self, checked=False):
         self._editing_name = None
         self._name_edit.clear()
-        self._channel_role_combo.setCurrentIndex(0)
         self._editing_hint_lbl.setText("")
         self._editing_hint_lbl.setVisible(False)
         self._btn_save.setText("이름으로 저장")
@@ -859,9 +771,6 @@ class ObjectManagerPage(QWidget):
         idx = self._folder_combo.findText(folder)
         self._folder_combo.setCurrentIndex(idx if idx >= 0 else 0)
 
-        role_idx = self._channel_role_combo.findText(node.get("channel_role") or "(없음)")
-        self._channel_role_combo.setCurrentIndex(role_idx if role_idx >= 0 else 0)
-
         self._detail_labels["resource_id"].setText(node.get("resource_id") or "-")
         self._detail_labels["text"].setText(node.get("text") or "-")
         self._detail_labels["desc"].setText(node.get("desc") or "-")
@@ -878,8 +787,6 @@ class ObjectManagerPage(QWidget):
             QMessageBox.warning(self, "이름 필요", "저장할 이름을 입력해주세요.")
             return
         folder = self._folder_combo.currentText() or object_store.default_folder_name(self._current_project)
-        role = self._channel_role_combo.currentText()
-        channel_role = role if role in ("주채널", "부채널") else None
 
         if self._editing_name:
             existing = object_store.list_objects(self._current_project).get(self._editing_name)
@@ -890,10 +797,6 @@ class ObjectManagerPage(QWidget):
                 return
             node = dict(existing)
             node["folder"] = folder
-            if channel_role:
-                node["channel_role"] = channel_role
-            else:
-                node.pop("channel_role", None)
             if self._editing_name != name:
                 object_store.delete_object(self._current_project, self._editing_name)
             object_store.save_object(self._current_project, name, node)
@@ -905,8 +808,6 @@ class ObjectManagerPage(QWidget):
             node["package"] = self._current_package
             node["activity"] = self._current_activity
             node["folder"] = folder
-            if channel_role:
-                node["channel_role"] = channel_role
             object_store.save_object(self._current_project, name, node)
 
         self._reset_edit_form()
@@ -935,14 +836,15 @@ class ObjectManagerPage(QWidget):
             arrow = "▶" if collapsed else "▼"
             header = QListWidgetItem()
             # 클릭(펼치기/접기)은 받아야 하니 Enabled는 켜두고, 파란 선택 표시만 안 뜨게
-            # Selectable은 뺍니다. 실제 내용/상호작용은 아래 _FolderHeaderRow 위젯이 담당합니다.
+            # Selectable은 뺍니다. 실제 내용/상호작용은 아래 FolderHeaderRow 위젯이 담당합니다.
             header.setFlags(Qt.ItemIsEnabled)
             header.setData(Qt.UserRole + 1, folder)
             self._saved_list.addItem(header)
 
-            header_row = _FolderHeaderRow(
+            header_row = FolderHeaderRow(
                 folder, f"{arrow}  {folder}  ({len(items)})",
                 can_edit=True, can_delete=folder != default_name,
+                delete_tooltip="폴더 삭제 (하위 객체 포함)",
             )
             header_row.toggled.connect(lambda f=folder: self._on_folder_toggled(f))
             header_row.editRequested.connect(self._on_folder_edit_requested)
@@ -961,9 +863,6 @@ class ObjectManagerPage(QWidget):
                 # (뒤쪽의 .../id/xxx 부분이 식별에 쓸모 있으므로 꼬리를 남깁니다).
                 if len(hint) > 40:
                     hint = "…" + hint[-39:]
-                if node.get("channel_role"):
-                    hint = f"[{node['channel_role']}] {hint}"
-
                 item = QListWidgetItem()
                 item.setData(Qt.UserRole, name)
                 item.setData(Qt.UserRole + 1, folder)

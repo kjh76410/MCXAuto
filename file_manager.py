@@ -120,43 +120,48 @@ class FileManager:
             return "분석 오류"
 
     @staticmethod
-    def parse_my_info(file_path):
-        """XML에서 <MCPTTUserID> 태그 내의 이름과 Call ID를 추출합니다."""
+    def parse_my_info_parts(file_path):
+        """XML의 <MCPTTUserID>에서 (단말 이름, 단말 번호)를 뽑아 튜플로 돌려줍니다.
+
+        단말 정보 배지가 "단말 이름 : ... / 단말 번호 : ..." 두 줄로 나눠 보여주기
+        때문에, 예전처럼 "이름 (번호)" 한 문자열로 합쳐 주지 않고 따로 돌려줍니다.
+        읽지 못한 값은 사람이 읽을 수 있는 대체 문구("이름 없음"/"번호 없음" 등)로
+        채워서, 부르는 쪽에서 None 처리를 따로 하지 않아도 되게 합니다."""
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 xml_string = re.sub(r' xmlns=".*?"', "", f.read())
             root = ET.fromstring(xml_string)
 
             user_id_tag = root.find(".//MCPTTUserID")
-            if user_id_tag is not None:
-                name_tag = user_id_tag.find("display-name")
-                name = name_tag.text if name_tag is not None else "이름 없음"
+            if user_id_tag is None:
+                return ("정보 없음", "정보 없음")
 
-                uri_tag = user_id_tag.find("uri-entry")
-                call_id = "번호 없음"
-                
-                if uri_tag is not None and uri_tag.text:
-                    uri_text = uri_tag.text.strip()
-                    
-                    # 💡 [핵심 수정] 그룹 리스트와 동일하게 sip와 tel 형식을 분리합니다!
-                    if uri_text.startswith("sip:"):
-                        match = re.search(r"sip:([^@]+)@", uri_text)
-                        if match:
-                            call_id = match.group(1)
-                    elif uri_text.startswith("tel:"):
-                        match = re.search(r"tel:\+?(.+)", uri_text)
-                        if match:
-                            call_id = match.group(1).strip()
-                    else:
-                        # 예외적인 포맷이 들어올 경우를 대비한 안전망
-                        call_id = uri_text
+            name_tag = user_id_tag.find("display-name")
+            name = name_tag.text if name_tag is not None else "이름 없음"
 
-                return f"{name} ({call_id})"
+            uri_tag = user_id_tag.find("uri-entry")
+            call_id = "번호 없음"
 
-            return "내 정보 없음"
+            if uri_tag is not None and uri_tag.text:
+                uri_text = uri_tag.text.strip()
+
+                # 💡 [핵심 수정] 그룹 리스트와 동일하게 sip와 tel 형식을 분리합니다!
+                if uri_text.startswith("sip:"):
+                    match = re.search(r"sip:([^@]+)@", uri_text)
+                    if match:
+                        call_id = match.group(1)
+                elif uri_text.startswith("tel:"):
+                    match = re.search(r"tel:\+?(.+)", uri_text)
+                    if match:
+                        call_id = match.group(1).strip()
+                else:
+                    # 예외적인 포맷이 들어올 경우를 대비한 안전망
+                    call_id = uri_text
+
+            return (name, call_id)
         except Exception as e:
-            print(f"[FileManager] ⚠️ 내 정보 파싱 에러: {e}")
-            return "파싱 실패"
+            print(f"[FileManager] ⚠️ 단말 정보 파싱 에러: {e}")
+            return ("파싱 실패", "파싱 실패")
 
     @staticmethod
     def get_my_own_number(file_path):

@@ -37,9 +37,9 @@ ACTION_META = {
     "sleep": ("그냥 대기", False, True, "대기할 시간(초)", False),
     "back": ("뒤로가기 버튼", False, False, "", False),
     # 캡처해둔 특정 객체가 아니라, 프로젝트 창의 주채널/부채널 드롭다운에서 지금
-    # 지정된 실제 채널명으로 화면을 찾아 클릭합니다. 채널마다 새로 객체를
-    # 캡처하거나 channel_role을 붙일 필요 없이, 시나리오 자체에 "이 자리는
-    # 주채널/부채널"이라고 바로 넣을 수 있게 하기 위한 전용 동작입니다.
+    # 지정된 실제 채널명으로 화면을 찾아 클릭합니다. 채널마다 객체를 새로 캡처할
+    # 필요 없이, 시나리오 자체에 "이 자리는 주채널/부채널"이라고 바로 넣을 수 있게
+    # 하기 위한 전용 동작입니다.
     "find_main_channel": ("주채널 찾기(클릭)", False, False, "", False),
     "find_sub_channel": ("부채널 찾기(클릭)", False, False, "", False),
     # 재난망/재난망_LM75 전용. 프로젝트 창의 일반그룹/공통통화그룹(+ 각 SRTP)
@@ -48,10 +48,15 @@ ACTION_META = {
     "find_normal_group_srtp": ("일반그룹 SRTP 찾기(클릭)", False, False, "", False),
     "find_common_group": ("공통통화그룹 찾기(클릭)", False, False, "", False),
     "find_common_group_srtp": ("공통통화그룹 SRTP 찾기(클릭)", False, False, "", False),
+    # 해외 프로젝트 전용. 프로젝트 창의 Chat group/PreArranged group/Private
+    # 드롭다운에서 지정한 실제 이름으로 찾아 클릭합니다.
+    "find_chat_group": ("Chat group 찾기(클릭)", False, False, "", False),
+    "find_prearranged_group": ("PreArranged group 찾기(클릭)", False, False, "", False),
+    "find_private": ("Private 찾기(클릭)", False, False, "", False),
 }
 
-# find_main_channel/find_sub_channel/find_normal_group/find_normal_group_srtp/
-# find_common_group/find_common_group_srtp 액션 -> channel_roles의 키.
+# find_* 채널 찾기 액션 -> channel_roles의 키. 프로젝트 창의 "채널 지정"에 어떤
+# 행이 보이는지와 무관하게, 여기 있는 역할이 곧 지정 가능한 채널 역할 전부입니다.
 CHANNEL_FIND_ACTION_ROLES = {
     "find_main_channel": "주채널",
     "find_sub_channel": "부채널",
@@ -59,7 +64,18 @@ CHANNEL_FIND_ACTION_ROLES = {
     "find_normal_group_srtp": "일반그룹 SRTP",
     "find_common_group": "공통통화그룹",
     "find_common_group_srtp": "공통통화그룹 SRTP",
+    "find_chat_group": "Chat group",
+    "find_prearranged_group": "PreArranged group",
+    "find_private": "Private",
 }
+
+# 지정 가능한 채널 역할 전체(위 매핑에 나온 순서 그대로).
+CHANNEL_ROLES = tuple(CHANNEL_FIND_ACTION_ROLES.values())
+
+
+def empty_channel_roles():
+    """아직 아무 채널도 지정되지 않은 channel_roles 매핑(단말 연결/해제 시 초기값)."""
+    return {role: None for role in CHANNEL_ROLES}
 
 
 def step_label(step):
@@ -199,30 +215,8 @@ def step_real_code_lines(step, saved_objects):
     return [line, "time.sleep(1)"]
 
 
-def _resolve_channel_node(node, channel_roles):
-    """node가 특정 채널 역할(주채널/부채널)로 저장된 객체면, 캡처 당시의 채널명
-    대신 지금 그 역할로 지정된 실제 채널명으로 바꿔치기한 사본을 돌려준다.
-    역할이 없거나 channel_roles에 해당 역할이 아직 지정 안 됐으면(None) 캡처된
-    값 그대로 둔다(안전한 폴백).
-
-    resourceId/desc는 함께 비워서 selector()가 text 매칭으로 이 요소를 찾게
-    만든다. 리스트의 채널 행들은 보통 같은 resourceId를 공유하는 재활용 뷰라,
-    resourceId를 그대로 두면 selector()가 우선순위상 resourceId부터 보고
-    아무 행이나(대개 캡처 당시의 첫 행) 찾아버려서 text를 바꾼 게 무의미해진다."""
-    role = node.get("channel_role")
-    if role and channel_roles and channel_roles.get(role):
-        node = dict(node)
-        node["text"] = channel_roles[role]
-        node["resource_id"] = ""
-        node["desc"] = ""
-    return node
-
-
-def _get_node(saved_objects, obj_name, channel_roles=None):
-    node = saved_objects.get(obj_name) if obj_name else None
-    if node is None:
-        return None
-    return _resolve_channel_node(node, channel_roles)
+def _get_node(saved_objects, obj_name):
+    return saved_objects.get(obj_name) if obj_name else None
 
 
 def selector(d, node):
@@ -327,8 +321,8 @@ def ensure_channel_visible(d, channel_name, max_attempts=8, max_swipes=15):
 
 def execute_step(d, saved_objects, step, channel_roles=None):
     """스텝 하나를 실제로 단말에 실행합니다. 실패하면 예외를 던집니다.
-    channel_roles({"주채널": 실제채널명, "부채널": 실제채널명})가 주어지면,
-    channel_role이 지정된 객체는 캡처 당시 값 대신 이 값으로 셀렉터를 만듭니다."""
+    channel_roles({역할명: 실제채널명})는 CHANNEL_FIND_ACTION_ROLES의 "찾기" 액션이
+    어떤 채널/그룹을 눌러야 하는지 알아내는 데 씁니다."""
     action = step["action"]
     value = step.get("value") or ""
     _label, needs_object, _needs_value, _placeholder, needs_object2 = ACTION_META[action]
@@ -357,8 +351,8 @@ def execute_step(d, saved_objects, step, channel_roles=None):
         # 있어서). 없을 때만 클릭할 객체를 찾아 누릅니다.
         obj_name = step.get("object")
         obj2_name = step.get("object2")
-        node = _get_node(saved_objects, obj_name, channel_roles)
-        node2 = _get_node(saved_objects, obj2_name, channel_roles)
+        node = _get_node(saved_objects, obj_name)
+        node2 = _get_node(saved_objects, obj2_name)
         if node is None:
             raise RuntimeError(f"확인할 객체 '{obj_name}'을(를) 찾을 수 없습니다 (객체 관리에서 삭제되었을 수 있음)")
         if node2 is None:
@@ -373,7 +367,7 @@ def execute_step(d, saved_objects, step, channel_roles=None):
     sel = None
     if needs_object:
         obj_name = step.get("object")
-        node = _get_node(saved_objects, obj_name, channel_roles)
+        node = _get_node(saved_objects, obj_name)
         if node is None:
             raise RuntimeError(f"객체 '{obj_name}'을(를) 찾을 수 없습니다 (객체 관리에서 삭제되었을 수 있음)")
         if action in ("click", "long_click", "set_text", "check_same", "toggle_state"):
@@ -387,7 +381,7 @@ def execute_step(d, saved_objects, step, channel_roles=None):
     sel2 = None
     if needs_object2:
         obj2_name = step.get("object2")
-        node2 = _get_node(saved_objects, obj2_name, channel_roles)
+        node2 = _get_node(saved_objects, obj2_name)
         if node2 is None:
             raise RuntimeError(f"비교 대상 객체 '{obj2_name}'을(를) 찾을 수 없습니다 (객체 관리에서 삭제되었을 수 있음)")
         # 보통 두 객체는 같은 화면에 같이 있으니, 첫 객체를 찾아간 뒤라면 대부분
@@ -430,9 +424,8 @@ def execute_step(d, saved_objects, step, channel_roles=None):
 def run_scenario(uuid, project, steps, on_log=print, title=None, channel_roles=None):
     """단말(uuid)에 시나리오 스텝들을 순서대로 실행합니다.
     첫 실패에서 멈추며, 끝까지 성공하면 True를 돌려줍니다.
-    channel_roles는 프로젝트 창의 주채널/부채널 드롭다운에서 지정한
-    {"주채널": 실제채널명, "부채널": 실제채널명} 매핑으로, channel_role이
-    붙은 객체의 셀렉터를 실행 시점에 그 채널명으로 바꿔치기하는 데 씁니다."""
+    channel_roles는 프로젝트 창의 "채널 지정"에서 고른 {역할명: 실제채널명} 매핑으로,
+    "...찾기(클릭)" 액션들이 어떤 채널/그룹을 눌러야 하는지 알아내는 데 씁니다."""
     try:
         import uiautomator2 as u2
 
