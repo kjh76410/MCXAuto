@@ -26,7 +26,8 @@
                     "canned": 1,
                     "attachment": 1
                 }
-            }
+            },
+            "region": "국내"
         },
         {
             "keyword": "STT",
@@ -54,7 +55,8 @@
                     "canned": 1,
                     "attachment": 1
                 }
-            }
+            },
+            "region": "국내"
         },
         {
             "keyword": "CTB.R",
@@ -83,7 +85,8 @@
                     "canned": 1,
                     "attachment": 1
                 }
-            }
+            },
+            "region": "해외"
         },
         {
             "keyword": "Con.R",
@@ -96,7 +99,8 @@
                 "user": "cybertel",
                 "password": "Cybertel1234567890!",
                 "db": "mcptt_server"
-            }
+            },
+            "region": "해외"
         },
         {
             "keyword": "PTA",
@@ -125,7 +129,8 @@
                     "canned": 1,
                     "attachment": 1
                 }
-            }
+            },
+            "region": "해외"
         }
     ],
     "default": "알 수 없는 프로젝트"

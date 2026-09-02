@@ -42,16 +42,23 @@ ACTION_META = {
     # 주채널/부채널"이라고 바로 넣을 수 있게 하기 위한 전용 동작입니다.
     "find_main_channel": ("주채널 찾기(클릭)", False, False, "", False),
     "find_sub_channel": ("부채널 찾기(클릭)", False, False, "", False),
-    # 재난망/재난망_LM75 전용. 프로젝트 창의 공통통화그룹 드롭다운에서 지정한
-    # 실제 그룹명으로 찾아 클릭합니다.
+    # 재난망/재난망_LM75 전용. 프로젝트 창의 일반그룹/공통통화그룹(+ 각 SRTP)
+    # 드롭다운에서 지정한 실제 그룹명으로 찾아 클릭합니다.
+    "find_normal_group": ("일반그룹 찾기(클릭)", False, False, "", False),
+    "find_normal_group_srtp": ("일반그룹 SRTP 찾기(클릭)", False, False, "", False),
     "find_common_group": ("공통통화그룹 찾기(클릭)", False, False, "", False),
+    "find_common_group_srtp": ("공통통화그룹 SRTP 찾기(클릭)", False, False, "", False),
 }
 
-# find_main_channel/find_sub_channel/find_common_group 액션 -> channel_roles의 키.
+# find_main_channel/find_sub_channel/find_normal_group/find_normal_group_srtp/
+# find_common_group/find_common_group_srtp 액션 -> channel_roles의 키.
 CHANNEL_FIND_ACTION_ROLES = {
     "find_main_channel": "주채널",
     "find_sub_channel": "부채널",
+    "find_normal_group": "일반그룹",
+    "find_normal_group_srtp": "일반그룹 SRTP",
     "find_common_group": "공통통화그룹",
+    "find_common_group_srtp": "공통통화그룹 SRTP",
 }
 
 

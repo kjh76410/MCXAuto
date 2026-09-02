@@ -30,6 +30,7 @@ from ui_common import (
     navy_page_css,
     navy_page_header,
     navy_pill,
+    navy_section_header,
 )
 
 
@@ -92,42 +93,74 @@ class ProjectManagerPage(QWidget):
         self._project_count.setText(str(len(projects)))
         self._breadcrumb.setText(f"{len(projects)}개 등록됨")
 
-        for proj in projects:
-            name = proj.get("project_name", "")
-            keyword = proj.get("keyword", "")
-            has_handler = name in PROJECT_HANDLERS
-            status = proj.get("handler_class", "") if has_handler else "핸들러 없음"
+        by_name = {p.get("project_name", ""): p for p in projects}
+        groups = project_config_store.group_projects_by_region(list(by_name.keys()))
 
-            # 한 줄에 [이름 / 단말 인식 ID / 핸들러 상태 배지]를 두 톤으로 나눠 보여주려고
-            # 기본 텍스트 항목 대신 행 위젯을 얹습니다(클릭해서 쓰는 목록은 아니라 표시 전용).
-            item = QListWidgetItem()
-            self._project_list.addItem(item)
+        for group_label, names in groups:
+            if group_label:
+                header_item = QListWidgetItem()
+                header_item.setFlags(Qt.NoItemFlags)
+                self._project_list.addItem(header_item)
+                header_widget = navy_section_header(group_label)
+                header_item.setSizeHint(QSize(0, header_widget.sizeHint().height()))
+                self._project_list.setItemWidget(header_item, header_widget)
 
-            row = QWidget()
-            row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(8, 6, 8, 6)
-            row_layout.setSpacing(10)
+            for name in names:
+                proj = by_name[name]
+                keyword = proj.get("keyword", "")
+                has_handler = name in PROJECT_HANDLERS
+                status = proj.get("handler_class", "") if has_handler else "핸들러 없음"
 
-            name_lbl = QLabel(name)
-            name_lbl.setFont(kfont(11, True))
-            name_lbl.setStyleSheet(f"color:{Navy.text};")
-            row_layout.addWidget(name_lbl)
+                # 한 줄에 [이름 / 단말 인식 ID / 핸들러 상태 배지 / 지역 선택]을 나눠
+                # 보여주려고 기본 텍스트 항목 대신 행 위젯을 얹습니다(클릭해서 쓰는
+                # 목록은 아니라 표시 전용이라, 지역 콤보만 조작 가능합니다).
+                item = QListWidgetItem()
+                self._project_list.addItem(item)
 
-            id_lbl = QLabel(f"ID: {keyword}")
-            id_lbl.setFont(navy_mono_font(9))
-            id_lbl.setStyleSheet(f"color:{Navy.text_muted};")
-            row_layout.addWidget(id_lbl)
-            row_layout.addStretch(1)
+                row = QWidget()
+                row_layout = QHBoxLayout(row)
+                row_layout.setContentsMargins(8, 6, 8, 6)
+                row_layout.setSpacing(10)
 
-            if has_handler:
-                badge = navy_pill(status)
-            else:
-                badge = navy_pill(status, fg=Navy.danger, bg=Navy.danger_soft)
-            badge.setFont(navy_mono_font(8) if has_handler else kfont(9, True))
-            row_layout.addWidget(badge)
+                name_lbl = QLabel(name)
+                name_lbl.setFont(kfont(11, True))
+                name_lbl.setStyleSheet(f"color:{Navy.text};")
+                row_layout.addWidget(name_lbl)
 
-            item.setSizeHint(QSize(0, row.sizeHint().height() + 8))
-            self._project_list.setItemWidget(item, row)
+                id_lbl = QLabel(f"ID: {keyword}")
+                id_lbl.setFont(navy_mono_font(9))
+                id_lbl.setStyleSheet(f"color:{Navy.text_muted};")
+                row_layout.addWidget(id_lbl)
+                row_layout.addStretch(1)
+
+                if has_handler:
+                    badge = navy_pill(status)
+                else:
+                    badge = navy_pill(status, fg=Navy.danger, bg=Navy.danger_soft)
+                badge.setFont(navy_mono_font(8) if has_handler else kfont(9, True))
+                row_layout.addWidget(badge)
+
+                region_combo = QComboBox()
+                region_combo.setFixedHeight(24)
+                region_combo.setFixedWidth(72)
+                region_combo.setFont(kfont(9))
+                region_combo.setStyleSheet(navy_input_css())
+                region_combo.addItems(["미지정", "국내", "해외"])
+                current_region = project_config_store.get_project_region(name) or "미지정"
+                region_combo.setCurrentText(current_region)
+                region_combo.currentTextChanged.connect(
+                    lambda text, n=name: self._on_row_region_changed(n, text)
+                )
+                row_layout.addWidget(region_combo)
+
+                item.setSizeHint(QSize(0, row.sizeHint().height() + 8))
+                self._project_list.setItemWidget(item, row)
+
+    def _on_row_region_changed(self, project_name, region_text):
+        project_config_store.set_project_region(
+            project_name, region_text if region_text != "미지정" else None
+        )
+        self._refresh_project_list()
 
     # ---------- 오른쪽: 새 프로젝트 추가 ----------
     def _build_add_form(self):
@@ -153,6 +186,18 @@ class ProjectManagerPage(QWidget):
         layout.addWidget(self._keyword_edit)
         layout.addWidget(
             self._field_hint("단말 연결 시 버전 문자열에 이 ID가 포함되어 있으면 자동으로 이 프로젝트로 인식합니다.")
+        )
+
+        layout.addSpacing(4)
+        layout.addWidget(self._field_label("지역"))
+        self._region_combo = QComboBox()
+        self._region_combo.setFixedHeight(32)
+        self._region_combo.setFont(kfont(10))
+        self._region_combo.setStyleSheet(navy_input_css())
+        self._region_combo.addItems(["국내", "해외"])
+        layout.addWidget(self._region_combo)
+        layout.addWidget(
+            self._field_hint("객체 관리/시나리오 작성/시나리오 화면의 프로젝트 목록을 국내/해외로 묶어서 보여줍니다.")
         )
 
         layout.addSpacing(4)
@@ -289,7 +334,10 @@ class ProjectManagerPage(QWidget):
             return
 
         new_module_name = f"config_handlers.{new_module_stem}"
-        project_config_store.add_project(source_name, new_name, keyword, new_module_name, new_class_name)
+        project_config_store.add_project(
+            source_name, new_name, keyword, new_module_name, new_class_name,
+            region=self._region_combo.currentText(),
+        )
         reload_project_handlers()
 
         self._name_edit.clear()

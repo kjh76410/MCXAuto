@@ -10,7 +10,7 @@ from object_manager_page import ObjectManagerPage
 from project_manager_page import ProjectManagerPage
 from scenario_builder_page import ScenarioBuilderPage
 from scenario_page import ScenarioLibraryPage
-from ui_common import Navy, load_custom_font, place_as_left_card
+from ui_common import FONT_FAMILY, Navy, load_custom_font, place_as_left_card
 
 # 하위 호환: 예전에 ui_logic에서 바로 이 이름들을 가져다 쓰던 코드(또는 향후 참조)를 위해
 # 그대로 재노출합니다. 실제 정의는 ui_common.py에 있습니다.
@@ -56,9 +56,10 @@ class App(FluentWindow):
         load_custom_font()
         # kfont()로 직접 폰트를 지정하는 위젯 밖에도, qfluentwidgets가 자체적으로
         # 그리는 네비게이션/메뉴/테이블 헤더 등은 이 라이브러리 전역 폰트 목록
-        # (기본값 Segoe UI/Microsoft YaHei/PingFang SC)을 따로 써서 Pretendard가
-        # 안 먹었었습니다. 여기서도 Pretendard를 최우선으로 쓰도록 맞춰줍니다.
-        setFontFamilies(["Pretendard", "Microsoft YaHei", "Segoe UI"])
+        # (기본값 Segoe UI/Microsoft YaHei/PingFang SC)을 따로 써서 커스텀 폰트가
+        # 안 먹습니다. 여기서도 같은 폰트(ui_common.FONT_FAMILY)를 최우선으로
+        # 쓰도록 맞춰줍니다.
+        setFontFamilies([FONT_FAMILY, "Microsoft YaHei", "Segoe UI"])
         # 이 창은 항상 런처에서 작은 카드(팝업)로만 띄우므로(show_as_left_card),
         # Fluent 타이틀바에 큰 제목 글자가 떠 있으면 어색해서 비워둡니다.
         self.setWindowTitle("")

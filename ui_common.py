@@ -68,28 +68,37 @@ class Palette:
     radius = 10
 
 
+FONT_FAMILY = "Noto Sans KR"
+
+
 def load_custom_font():
     if getattr(sys, "frozen", False):
         base_path = sys._MEIPASS
     else:
         base_path = os.path.dirname(os.path.abspath(__file__))
-    for font_file in ("Pretendard-Regular.otf", "NotoSansKR-Regular.ttf"):
-        font_path = os.path.join(base_path, "assets", "fonts", font_file)
-        if os.path.exists(font_path):
-            QFontDatabase.addApplicationFont(font_path)
+    font_path = os.path.join(base_path, "assets", "fonts", "NotoSansKR-Regular.ttf")
+    if os.path.exists(font_path):
+        QFontDatabase.addApplicationFont(font_path)
 
 
 FONT_SCALE = 0.85
 
 
 def kfont(size, bold=False):
-    f = QFont("Pretendard", max(8, round(size * FONT_SCALE)))
+    f = QFont(FONT_FAMILY, max(8, round(size * FONT_SCALE)))
     f.setBold(bold)
-    # Pretendard-Regular.otf는 자체 힌팅 명령이 없는 CFF 윤곽선이라, 작은 크기에서
-    # "그"의 "ㅡ" 같은 얇은 가로 획이 그리드 피팅 과정에서 통째로 사라지는 문제가
-    # 있었습니다. 품질 우선 안티앨리어싱 전략을 강제해 얇은 획이 픽셀 격자에 걸려도
-    # 없어지지 않고 흐리게라도 남도록 합니다.
+    # 예전에 쓰던 Pretendard-Regular.otf(자체 힌팅 명령이 없는 CFF 윤곽선)에서, 작은
+    # 크기에서 "그"의 "ㅡ" 같은 얇은 가로 획이 그리드 피팅 과정에서 통째로 사라지는
+    # 문제가 있었습니다. 안티앨리어싱 전략만으로는 부족해서(그리드 피팅 자체가 얇은
+    # 획을 픽셀 경계 밖으로 밀어내 버림), 힌팅(그리드 피팅)을 아예 꺼서 윤곽선을 있는
+    # 그대로(살짝 흐릿하더라도) 그리도록 합니다. 지금 쓰는 NotoSansKR-Regular.ttf에도
+    # 안전하게 유지합니다.
+    #
+    # (NoAntialias로 바꿔서 색번짐을 없애보려 한 적이 있는데, 실제 화면 DPI
+    # 스케일링에서 글씨가 찌그러져 보여서 되돌렸습니다 — 스크린샷 테스트만으론
+    # 못 잡아낸 회귀였습니다. 색번짐 자체는 남아있을 수 있습니다.)
     f.setStyleStrategy(QFont.PreferAntialias | QFont.PreferQuality)
+    f.setHintingPreference(QFont.PreferNoHinting)
     return f
 
 

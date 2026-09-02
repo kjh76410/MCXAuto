@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -53,6 +54,7 @@ from ui_common import (
     navy_button,
     navy_card,
     navy_card_css,
+    navy_hline,
     navy_input_css,
     navy_mono_font,
     navy_scrollbar_css,
@@ -181,7 +183,11 @@ class DevicePanel(QWidget):
         # 지정한다. scenario_runner.run_scenario에 그대로 넘겨 실행 시점에
         # 객체의 channel_role을 실제 채널명으로 바꿔치기하는 데 쓴다.
         self.all_groups = []
-        self.channel_roles = {"주채널": None, "부채널": None, "공통통화그룹": None}
+        self.channel_roles = {
+            "주채널": None, "부채널": None,
+            "일반그룹": None, "일반그룹 SRTP": None,
+            "공통통화그룹": None, "공통통화그룹 SRTP": None,
+        }
 
         self.log_console = QtLogConsole(self)
 
@@ -217,7 +223,20 @@ class DevicePanel(QWidget):
         frame = navy_card()
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(10, 8, 10, 8)
-        layout.setSpacing(3)
+        layout.setSpacing(6)
+
+        title_row = QHBoxLayout()
+        title_row.setSpacing(6)
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(qta.icon("fa5s.folder-open", color=Navy.accent).pixmap(QSize(13, 13)))
+        icon_lbl.setStyleSheet("background:transparent;")
+        title_row.addWidget(icon_lbl)
+        self.lbl_project = QLabel("프로젝트: 대기 중")
+        self.lbl_project.setFont(kfont(13, True))
+        self.lbl_project.setStyleSheet(f"color:{Navy.accent}; background:transparent;")
+        title_row.addWidget(self.lbl_project)
+        title_row.addStretch(1)
+        layout.addLayout(title_row)
 
         btn_row = QHBoxLayout()
         btn_row.setSpacing(6)
@@ -290,40 +309,66 @@ class DevicePanel(QWidget):
         return col
 
     def _build_project_info_card(self):
-        """프로젝트/네트워크/모델·HW·Android·OS·버전 정보를 미러링 카드와 내 정보
-        배지 바로 아래에 보여줍니다(예전에는 상단 헤더에 있었습니다)."""
+        """네트워크/모델·HW·Android·OS·버전 정보를 미러링 카드와 내 정보 배지
+        바로 아래에 보여줍니다(예전에는 상단 헤더에 있었습니다). 프로젝트 이름은
+        더 이상 여기 반복해서 보여주지 않고, 기기 연결 버튼 위(_build_header)에
+        한 번만 표시합니다."""
         frame = navy_card()
         layout = QVBoxLayout(frame)
-        layout.setContentsMargins(10, 8, 10, 8)
-        layout.setSpacing(3)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(8)
 
-        # 컬럼 폭이 좁아(340px) 한 줄에 다 몰아넣으면 겹치거나 잘려서, 항목마다
-        # 한 줄씩 세로로 쌓습니다.
-        self.lbl_project = QLabel(f"[{self.panel_label}] 프로젝트: 대기 중")
-        self.lbl_project.setFont(kfont(13, True))
-        self.lbl_project.setStyleSheet(f"color:{Navy.accent};")
-        layout.addWidget(self.lbl_project)
-
-        self.lbl_network = QLabel("네트워크: -")
-        self.lbl_network.setFont(kfont(10))
-        self.lbl_network.setStyleSheet(f"color:{Navy.text};")
-        layout.addWidget(self.lbl_network)
-
+        # 연결 상태: 색이 바뀌는 작은 점 + 상태 문구로 한눈에 들어오게 보여줍니다.
+        status_row = QHBoxLayout()
+        status_row.setSpacing(6)
+        self._status_dot = styled(QLabel(), f"background-color:{Navy.text_muted}; border-radius:4px;")
+        self._status_dot.setFixedSize(8, 8)
+        status_row.addWidget(self._status_dot, 0, Qt.AlignVCenter)
         self.label = QLabel("단말을 연결해주세요.")
-        self.label.setFont(kfont(10))
-        self.label.setStyleSheet(f"color:{Navy.text_sub};")
-        layout.addWidget(self.label)
+        self.label.setFont(kfont(10, True))
+        self.label.setStyleSheet(f"color:{Navy.text_sub}; background:transparent;")
+        status_row.addWidget(self.label, 0, Qt.AlignVCenter)
+        status_row.addStretch(1)
+        layout.addLayout(status_row)
 
-        self.lbl_model = QLabel("모델: -")
-        self.lbl_hw_version = QLabel("HW: -")
-        self.lbl_android_ver = QLabel("Android: -")
-        self.lbl_os_build = QLabel("OS: -")
-        self.lbl_version = QLabel("버전: -")
+        layout.addWidget(navy_hline())
+
+        # 항목마다 "키: 값"을 한 줄 문자열로 이어붙이면 컬럼 폭(340px)에서 줄바꿈
+        # 되거나 들쭉날쭉해 보여서, 표처럼 키/값을 두 칸으로 나눠 정렬합니다.
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(4)
+        grid.setColumnStretch(1, 1)
+
+        self.lbl_model = QLabel("-")
+        self.lbl_hw_version = QLabel("-")
+        self.lbl_android_ver = QLabel("-")
+        self.lbl_os_build = QLabel("-")
+        self.lbl_version = QLabel("-")
+        self.lbl_network = QLabel("-")
         self.lbl_project_version = self.lbl_version  # 하위 호환: 예전 이름으로도 접근 가능
-        for lbl in (self.lbl_model, self.lbl_hw_version, self.lbl_android_ver, self.lbl_os_build, self.lbl_version):
-            lbl.setFont(kfont(9))
-            lbl.setStyleSheet(f"color:{Navy.text};")
-            layout.addWidget(lbl)
+
+        rows = (
+            ("모델", self.lbl_model),
+            ("HW", self.lbl_hw_version),
+            ("Android", self.lbl_android_ver),
+            ("OS", self.lbl_os_build),
+            ("버전", self.lbl_version),
+            ("네트워크", self.lbl_network),
+        )
+        for row_idx, (key_text, value_lbl) in enumerate(rows):
+            key_lbl = QLabel(key_text)
+            key_lbl.setFont(kfont(9))
+            key_lbl.setStyleSheet(f"color:{Navy.text_muted}; background:transparent;")
+            grid.addWidget(key_lbl, row_idx, 0)
+
+            value_lbl.setFont(kfont(9, True))
+            value_lbl.setStyleSheet(f"color:{Navy.text}; background:transparent;")
+            value_lbl.setWordWrap(True)
+            grid.addWidget(value_lbl, row_idx, 1)
+
+        layout.addLayout(grid)
 
         return frame
 
@@ -715,13 +760,14 @@ class DevicePanel(QWidget):
             self.project_name = FileManager.get_project_name(version_name)
 
             self.label.setText(f"연결됨: {model}")
-            self.label.setStyleSheet(f"color:{Navy.accent};")
-            self.lbl_model.setText(f"모델: {model}")
-            self.lbl_hw_version.setText(f"HW: {hw_version}")
-            self.lbl_android_ver.setText(f"Android: {android_version}")
-            self.lbl_os_build.setText(f"OS: {os_build}")
-            self.lbl_version.setText(f"버전: {version_name}")
-            self.lbl_project.setText(f"[{self.panel_label}] 프로젝트: {self.project_name}")
+            self.label.setStyleSheet(f"color:{Navy.accent}; background:transparent;")
+            self._status_dot.setStyleSheet(f"background-color:{Navy.success}; border-radius:4px;")
+            self.lbl_model.setText(model)
+            self.lbl_hw_version.setText(hw_version)
+            self.lbl_android_ver.setText(android_version)
+            self.lbl_os_build.setText(os_build)
+            self.lbl_version.setText(version_name)
+            self.lbl_project.setText(f"프로젝트: {self.project_name}")
 
             self.update_project_features(self.project_name)
             self.refresh_all_lists()
@@ -733,19 +779,24 @@ class DevicePanel(QWidget):
         else:
             self.current_uuid = None
             self.label.setText("연결된 단말 없음")
-            self.label.setStyleSheet(f"color:{Navy.text_sub};")
-            self.lbl_model.setText("모델: -")
-            self.lbl_hw_version.setText("HW: -")
-            self.lbl_android_ver.setText("Android: -")
-            self.lbl_os_build.setText("OS: -")
-            self.lbl_version.setText("버전: -")
-            self.lbl_network.setText("네트워크: -")
-            self.lbl_network.setStyleSheet(f"color:{Navy.text};")
-            self.lbl_project.setText(f"[{self.panel_label}] 프로젝트: 대기 중")
-            self.lbl_project.setStyleSheet(f"color:{Navy.accent};")
+            self.label.setStyleSheet(f"color:{Navy.text_sub}; background:transparent;")
+            self._status_dot.setStyleSheet(f"background-color:{Navy.text_muted}; border-radius:4px;")
+            self.lbl_model.setText("-")
+            self.lbl_hw_version.setText("-")
+            self.lbl_android_ver.setText("-")
+            self.lbl_os_build.setText("-")
+            self.lbl_version.setText("-")
+            self.lbl_network.setText("-")
+            self.lbl_network.setStyleSheet(f"color:{Navy.text}; background:transparent;")
+            self.lbl_project.setText("프로젝트: 대기 중")
+            self.lbl_project.setStyleSheet(f"color:{Navy.accent}; background:transparent;")
 
             self.all_groups = []
-            self.channel_roles = {"주채널": None, "부채널": None, "공통통화그룹": None}
+            self.channel_roles = {
+                "주채널": None, "부채널": None,
+                "일반그룹": None, "일반그룹 SRTP": None,
+                "공통통화그룹": None, "공통통화그룹 SRTP": None,
+            }
             self.signals.groups_ready.emit([])
 
             self._reset_feature_tags()
@@ -784,8 +835,8 @@ class DevicePanel(QWidget):
             return
         is_down = ("끊김" in status) or ("불가" in status)
         color = Navy.danger if is_down else Navy.accent
-        self.lbl_network.setText(f"네트워크: {status}")
-        self.lbl_network.setStyleSheet(f"color:{color};")
+        self.lbl_network.setText(status)
+        self.lbl_network.setStyleSheet(f"color:{color}; background:transparent;")
 
     def send_adb_keyevent(self, keycode):
         target_device = self.current_uuid
@@ -1557,7 +1608,7 @@ class DevicePanel(QWidget):
             )
             if "Success" in result.stdout:
                 print("✅ 앱 삭제 성공!")
-                self.lbl_version.setText("버전: 삭제됨")
+                self.lbl_version.setText("삭제됨")
             else:
                 print(f"⚠️ 결과: {result.stdout.strip()}")
                 if "Failure" in result.stdout:

@@ -10,7 +10,8 @@
         1674,
         792,
         1914
-      ]
+      ],
+      "folder": "채널목록"
     },
     "메인화면 참여자 정보": {
       "resource_id": "com.EveryTalk.Global:id/main_menu_member",
@@ -22,7 +23,8 @@
         1489,
         945,
         1654
-      ]
+      ],
+      "folder": "채널목록"
     },
     "채널 목록": {
       "resource_id": "com.EveryTalk.Global:id/layout_main_menu_private",
@@ -34,7 +36,8 @@
         1755,
         292,
         1911
-      ]
+      ],
+      "folder": "채널목록"
     },
     "참여 채널": {
       "resource_id": "com.EveryTalk.Global:id/layout_main_menu_session",
@@ -46,7 +49,8 @@
         1755,
         539,
         1911
-      ]
+      ],
+      "folder": "채널목록"
     },
     "녹취": {
       "resource_id": "",
@@ -58,7 +62,8 @@
         1755,
         787,
         1911
-      ]
+      ],
+      "folder": "채널목록"
     },
     "메시지": {
       "resource_id": "com.EveryTalk.Global:id/layout_main_menu_sms",
@@ -70,7 +75,8 @@
         1755,
         1035,
         1911
-      ]
+      ],
+      "folder": "채널목록"
     },
     "메시지 뱃지": {
       "resource_id": "com.EveryTalk.Global:id/iconSmsText",
@@ -82,7 +88,8 @@
         1762,
         981,
         1828
-      ]
+      ],
+      "folder": "채널목록"
     },
     "내 정보": {
       "resource_id": "com.EveryTalk.Global:id/main_option_button",
@@ -94,7 +101,8 @@
         102,
         960,
         202
-      ]
+      ],
+      "folder": "채널목록"
     },
     "설정": {
       "resource_id": "com.EveryTalk.Global:id/main_menu_setup",
@@ -106,7 +114,8 @@
         102,
         1050,
         192
-      ]
+      ],
+      "folder": "채널목록"
     },
     "미디어 전환": {
       "resource_id": "com.EveryTalk.Global:id/main_menu_voice_video_button",
@@ -118,7 +127,8 @@
         1501,
         300,
         1641
-      ]
+      ],
+      "folder": "채널목록"
     },
     "SW PTT key": {
       "resource_id": "com.EveryTalk.Global:id/main_menu_ptt_key",
@@ -130,7 +140,8 @@
         1421,
         690,
         1721
-      ]
+      ],
+      "folder": "채널목록"
     },
     "스피커OFF": {
       "resource_id": "com.EveryTalk.Global:id/icon_call_speak",
@@ -142,7 +153,8 @@
         1245,
         635,
         1330
-      ]
+      ],
+      "folder": "채널목록"
     },
     "공통통화그룹 바로가기": {
       "resource_id": "com.EveryTalk.Global:id/icon_shortcut",
@@ -154,7 +166,8 @@
         1245,
         855,
         1330
-      ]
+      ],
+      "folder": "채널목록"
     },
     "녹취OFF": {
       "resource_id": "com.EveryTalk.Global:id/record_btn",
@@ -166,7 +179,8 @@
         1245,
         415,
         1330
-      ]
+      ],
+      "folder": "채널목록"
     },
     "메인화면 주채널 아이콘": {
       "resource_id": "com.EveryTalk.Global:id/main_icon_call_group",
@@ -178,7 +192,8 @@
         860,
         467,
         920
-      ]
+      ],
+      "folder": "채널목록"
     },
     "메인화면 우선순위 아이콘": {
       "resource_id": "com.EveryTalk.Global:id/channel_layout",
@@ -190,7 +205,8 @@
         860,
         562,
         920
-      ]
+      ],
+      "folder": "채널목록"
     },
     "메인화면 공통통화그룹 아이콘": {
       "resource_id": "com.EveryTalk.Global:id/main_icon_public_group_image_view",
@@ -202,7 +218,8 @@
         860,
         672,
         920
-      ]
+      ],
+      "folder": "채널목록"
     },
     "메인화면 채널명": {
       "resource_id": "com.EveryTalk.Global:id/enter_ch_name",
@@ -214,7 +231,8 @@
         950,
         965,
         1035
-      ]
+      ],
+      "folder": "채널목록"
     },
     "메인화면 그룹번호": {
       "resource_id": "com.EveryTalk.Global:id/enter_ch_num",
@@ -226,7 +244,8 @@
         1050,
         790,
         1123
-      ]
+      ],
+      "folder": "채널목록"
     },
     "메인화면 주채널 미디어타입": {
       "resource_id": "com.EveryTalk.Global:id/enter_voice_video_status_text_view",
@@ -238,7 +257,23 @@
         1138,
         664,
         1223
-      ]
+      ],
+      "folder": "채널목록"
+    },
+    "일반 메시지 아이콘": {
+      "resource_id": "com.EveryTalk.Global:id/sms_chat_broadcast_message_button",
+      "text": "",
+      "class_name": "android.widget.ToggleButton",
+      "desc": "",
+      "bounds": [
+        20,
+        1178,
+        92,
+        1248
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
+      "folder": "주채널 상세화면"
     }
   },
   "450connect": {},
@@ -256,7 +291,8 @@
         146
       ],
       "package": "com.EveryTalk.Global",
-      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity",
+      "folder": "채널목록"
     },
     "내 정보": {
       "resource_id": "",
@@ -270,7 +306,8 @@
         262
       ],
       "package": "com.EveryTalk.Global",
-      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity",
+      "folder": "채널목록"
     },
     "스캔 사용": {
       "resource_id": "",
@@ -285,7 +322,7 @@
       ],
       "package": "com.EveryTalk.Global",
       "activity": "com.cybertel.mcptt.ui.contact.ContactActivity",
-      "folder": "기본 폴더"
+      "folder": "채널목록"
     },
     "옵션 메뉴 설정": {
       "resource_id": "",
@@ -299,7 +336,8 @@
         470
       ],
       "package": "com.EveryTalk.Global",
-      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity",
+      "folder": "채널목록"
     },
     "채널목록 타이틀바 검색": {
       "resource_id": "com.EveryTalk.Global:id/phone_cmd_group_serch",
@@ -313,7 +351,8 @@
         146
       ],
       "package": "com.EveryTalk.Global",
-      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity",
+      "folder": "채널목록"
     },
     "채널목록 타이틀바 공통통화그룹": {
       "resource_id": "com.EveryTalk.Global:id/phone_cmd_public_group_contacts",
@@ -327,7 +366,8 @@
         146
       ],
       "package": "com.EveryTalk.Global",
-      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity",
+      "folder": "채널목록"
     },
     "채널목록 검색란": {
       "resource_id": "com.EveryTalk.Global:id/group_search",
@@ -341,7 +381,8 @@
         228
       ],
       "package": "com.EveryTalk.Global",
-      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity",
+      "folder": "채널목록"
     },
     "상세화면 검색란": {
       "resource_id": "com.EveryTalk.Global:id/sms_new_message",
@@ -368,21 +409,6 @@
         1162,
         700,
         1262
-      ],
-      "package": "com.EveryTalk.Global",
-      "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
-      "folder": "상세화면"
-    },
-    "상황전파 메시지 아이콘": {
-      "resource_id": "com.EveryTalk.Global:id/sms_chat_broadcast_message_button",
-      "text": "",
-      "class_name": "android.widget.ToggleButton",
-      "desc": "",
-      "bounds": [
-        20,
-        1178,
-        92,
-        1248
       ],
       "package": "com.EveryTalk.Global",
       "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
@@ -475,7 +501,8 @@
         365
       ],
       "package": "com.EveryTalk.Global",
-      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity",
+      "folder": "채널목록"
     },
     "주채널 옵션메뉴": {
       "resource_id": "com.EveryTalk.Global:id/btn_more",
@@ -489,7 +516,8 @@
         348
       ],
       "package": "com.EveryTalk.Global",
-      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity",
+      "folder": "채널목록"
     },
     "주채널 즐겨찾기": {
       "resource_id": "com.EveryTalk.Global:id/fav_group_button",
@@ -503,7 +531,8 @@
         494
       ],
       "package": "com.EveryTalk.Global",
-      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity",
+      "folder": "채널목록"
     },
     "주채널 참여자 정보": {
       "resource_id": "com.EveryTalk.Global:id/group_members",
@@ -517,7 +546,8 @@
         494
       ],
       "package": "com.EveryTalk.Global",
-      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity",
+      "folder": "채널목록"
     },
     "주채널 메시지 알림": {
       "resource_id": "com.EveryTalk.Global:id/group_noti",
@@ -531,7 +561,8 @@
         494
       ],
       "package": "com.EveryTalk.Global",
-      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity"
+      "activity": "com.cybertel.mcptt.ui.contact.ContactActivity",
+      "folder": "채널목록"
     },
     "상세화면 메시지 전송": {
       "resource_id": "com.EveryTalk.Global:id/sms_btn",
@@ -591,6 +622,125 @@
       ],
       "package": "com.EveryTalk.Global",
       "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
+      "folder": "상세화면"
+    },
+    "상황전파 메시지 아이콘": {
+      "resource_id": "com.EveryTalk.Global:id/sms_chat_broadcast_message_button",
+      "text": "",
+      "class_name": "android.widget.ToggleButton",
+      "desc": "",
+      "checkable": true,
+      "checked": true,
+      "bounds": [
+        20,
+        582,
+        92,
+        652
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
+      "folder": "상세화면"
+    },
+    "일반 메시지 아이콘": {
+      "resource_id": "com.EveryTalk.Global:id/sms_chat_broadcast_message_button",
+      "text": "",
+      "class_name": "android.widget.ToggleButton",
+      "desc": "",
+      "checkable": true,
+      "checked": false,
+      "bounds": [
+        20,
+        582,
+        92,
+        652
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.main.mainfragment.MainHistoryActivity",
+      "folder": "상세화면"
+    },
+    "갤러리 이미지 버튼": {
+      "resource_id": "com.EveryTalk.Global:id/checkBox",
+      "text": "",
+      "class_name": "android.widget.CheckBox",
+      "desc": "",
+      "checkable": true,
+      "checked": false,
+      "bounds": [
+        161,
+        178,
+        221,
+        238
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.sms.SmsMultiImageChoiceActivity",
+      "folder": "상세화면"
+    },
+    "갤러리 완료 버튼": {
+      "resource_id": "com.EveryTalk.Global:id/sendButton",
+      "text": "",
+      "class_name": "android.widget.Button",
+      "desc": "",
+      "checkable": false,
+      "checked": false,
+      "bounds": [
+        561,
+        73,
+        688,
+        134
+      ],
+      "package": "com.EveryTalk.Global",
+      "activity": "com.cybertel.mcptt.ui.sms.SmsMultiImageChoiceActivity",
+      "folder": "상세화면"
+    },
+    "동영상 촬영 버튼": {
+      "resource_id": "org.codeaurora.snapcam:id/video_button",
+      "text": "",
+      "class_name": "android.widget.ImageView",
+      "desc": "셔터",
+      "checkable": false,
+      "checked": false,
+      "bounds": [
+        285,
+        1105,
+        435,
+        1255
+      ],
+      "package": "org.codeaurora.snapcam",
+      "activity": "com.android.camera.CameraActivity",
+      "folder": "상세화면"
+    },
+    "동영상 촬영 종료 버튼": {
+      "resource_id": "org.codeaurora.snapcam:id/video_button",
+      "text": "",
+      "class_name": "android.widget.ImageView",
+      "desc": "셔터",
+      "checkable": false,
+      "checked": false,
+      "bounds": [
+        285,
+        1105,
+        435,
+        1255
+      ],
+      "package": "org.codeaurora.snapcam",
+      "activity": "com.android.camera.CameraActivity",
+      "folder": "상세화면"
+    },
+    "촬영된 동영상 선택 버튼": {
+      "resource_id": "org.codeaurora.snapcam:id/done_button",
+      "text": "",
+      "class_name": "android.widget.ImageView",
+      "desc": "리뷰 완료",
+      "checkable": false,
+      "checked": false,
+      "bounds": [
+        576,
+        1132,
+        720,
+        1276
+      ],
+      "package": "org.codeaurora.snapcam",
+      "activity": "com.android.camera.CameraActivity",
       "folder": "상세화면"
     }
   }

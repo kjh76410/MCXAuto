@@ -396,13 +396,6 @@ def unlock_screen(uuid):
         subprocess.run(f"adb -s {uuid} shell input keyevent 82", shell=True)
         time.sleep(0.5)
 
-        # 3. 2차 시도: 중앙 좌표 스와이프 (1차 시도가 안 먹혔을 때를 대비)
-        # 가로 500, 세로 1000(중간쯤)에서 가로 500, 세로 200(위쪽)으로 200ms 동안 조금 빠르게 밀어 올립니다!
-        subprocess.run(
-            f"adb -s {uuid} shell input swipe 500 1000 500 200 200", shell=True
-        )
-        time.sleep(0.5)
-
         print("✅ 잠금 해제 스크립트 실행 완료!")
         return True
     except Exception as e:

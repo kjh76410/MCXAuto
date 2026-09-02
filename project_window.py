@@ -24,9 +24,11 @@ import threading
 from PySide6.QtCore import Qt, QObject, Signal
 from PySide6.QtWidgets import (
     QComboBox,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QMessageBox,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -37,6 +39,10 @@ import scenario_store
 # 공통통화그룹은 재난망 프로젝트에만 있는 개념이라, 채널 지정 드롭다운에도
 # 이 두 프로젝트일 때만 보여줍니다.
 COMMON_CALL_GROUP_PROJECTS = ("재난망", "재난망_LM75")
+
+# 재난망/재난망_LM75에만 있는 채널 역할들(위 COMMON_CALL_GROUP_PROJECTS 프로젝트일
+# 때만 채널 지정 드롭다운에 행을 보여줍니다).
+DISASTER_ONLY_CHANNEL_ROLES = ("일반그룹", "일반그룹 SRTP", "공통통화그룹", "공통통화그룹 SRTP")
 from ui_common import (
     Navy,
     clear_layout,
@@ -123,32 +129,34 @@ class ProjectWindow(QWidget):
         header, self._scenario_count = navy_card_header("시나리오", badge=0, actions=[btn_refresh])
         layout.addWidget(header)
 
-        self._project_label = QLabel("-")
-        self._project_label.setFont(kfont(16, True))
-        self._project_label.setStyleSheet(f"color:{Navy.navy};")
-        layout.addWidget(self._project_label)
-
-        hint = QLabel("항목을 누르면 연결된 단말에서 바로 실행됩니다.")
-        hint.setFont(kfont(9))
-        hint.setWordWrap(True)
-        hint.setStyleSheet(f"color:{Navy.text_muted}; padding-bottom:4px;")
-        layout.addWidget(hint)
-
         layout.addWidget(self._build_channel_section())
 
-        self._scenario_layout = layout
-        layout.addStretch(1)
+        # 시나리오가 많아지면 카드가 창 밖으로 계속 늘어나던 걸 막기 위해,
+        # 목록만 스크롤 영역에 담습니다(위의 헤더/채널 지정은 스크롤과 무관하게
+        # 항상 보입니다). 프로젝트 이름은 왼쪽 대시보드의 기기 연결 버튼 위에
+        # 이미 표시되므로 여기서 다시 보여주지 않습니다.
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        list_container = styled(QWidget(), "background: transparent;")
+        self._scenario_layout = QVBoxLayout(list_container)
+        self._scenario_layout.setContentsMargins(0, 0, 0, 0)
+        self._scenario_layout.setSpacing(6)
+        scroll.setWidget(list_container)
+        layout.addWidget(scroll, 1)
+
         return card
 
-    # ---------- 주채널/부채널(+ 재난망 전용 공통통화그룹) 지정 ----------
+    # ---------- 주채널/부채널(+ 재난망 전용 공통통화그룹/SRTP 채널들) 지정 ----------
     def _build_channel_section(self):
-        """시나리오에서 채널 역할(주채널/부채널/공통통화그룹)로 저장된 객체가,
-        캡처 당시 채널명이 아니라 지금 여기서 고른 실제 채널명으로 동작하게 하는
-        드롭다운. 채널 목록은 단말 연결 시 그룹 목록을 읽어야 알 수 있어서(단말
-        연결 전엔 비어 있음), 패널의 groups_ready 시그널로 매번 다시 채웁니다.
-        공통통화그룹은 재난망/재난망_LM75에만 있는 개념이라, 그 두 프로젝트일
-        때만 행을 보여줍니다(set_project에서 _update_channel_row_visibility로
-        토글)."""
+        """시나리오에서 채널 역할(주채널/부채널/공통통화그룹/일반그룹 SRTP/공통통화그룹
+        SRTP)로 저장된 객체가, 캡처 당시 채널명이 아니라 지금 여기서 고른 실제
+        채널명으로 동작하게 하는 드롭다운. 채널 목록은 단말 연결 시 그룹 목록을
+        읽어야 알 수 있어서(단말 연결 전엔 비어 있음), 패널의 groups_ready
+        시그널로 매번 다시 채웁니다. DISASTER_ONLY_CHANNEL_ROLES는 재난망/
+        재난망_LM75에만 있는 개념이라, 그 두 프로젝트일 때만 행을 보여줍니다
+        (set_project에서 _update_channel_row_visibility로 토글)."""
         section = QWidget()
         layout = QVBoxLayout(section)
         layout.setContentsMargins(0, 0, 0, 8)
@@ -161,14 +169,16 @@ class ProjectWindow(QWidget):
 
         self._channel_combos = {}
         self._channel_rows = {}
-        for role in ("주채널", "부채널", "공통통화그룹"):
+        for role in ("주채널", "부채널", *DISASTER_ONLY_CHANNEL_ROLES):
             row = QWidget()
             row_layout = QHBoxLayout(row)
             row_layout.setContentsMargins(0, 0, 0, 0)
             row_layout.setSpacing(6)
             lbl = QLabel(role)
             lbl.setFont(kfont(9))
-            lbl.setFixedWidth(60)
+            # "공통통화그룹 SRTP"처럼 길어진 역할 이름도 안 잘리도록 넉넉히 잡습니다
+            # (기존 60px은 "주채널"/"부채널" 두 글자 기준이라 SRTP 역할엔 부족했습니다).
+            lbl.setFixedWidth(96)
             lbl.setStyleSheet(f"color:{Navy.text};")
             row_layout.addWidget(lbl)
             combo = self._make_channel_combo()
@@ -214,22 +224,23 @@ class ProjectWindow(QWidget):
             self.panel.channel_roles[role] = self._combo_channel_value(combo)
 
     def _update_channel_row_visibility(self):
-        show_common_group = self._project in COMMON_CALL_GROUP_PROJECTS
-        self._channel_rows["공통통화그룹"].setVisible(show_common_group)
-        if not show_common_group:
-            self.panel.channel_roles["공통통화그룹"] = None
+        show_disaster_roles = self._project in COMMON_CALL_GROUP_PROJECTS
+        for role in DISASTER_ONLY_CHANNEL_ROLES:
+            self._channel_rows[role].setVisible(show_disaster_roles)
+            if not show_disaster_roles:
+                self.panel.channel_roles[role] = None
 
     # ---------- 프로젝트 전환 ----------
     def set_project(self, project_name):
         self._project = project_name
         self.setWindowTitle(f"{project_name} — MCX QA")
-        self._project_label.setText(project_name)
         self._update_channel_row_visibility()
         self.refresh_scenarios()
 
     def refresh_scenarios(self):
-        # keep=4: 타이틀 / 프로젝트 이름 / 안내문구 / 주채널·부채널 지정
-        clear_layout(self._scenario_layout, keep=4)
+        # self._scenario_layout은 이제 스크롤 영역 안 목록 전용 레이아웃이라
+        # (헤더/프로젝트 이름/안내문구/채널 지정은 그 밖에 고정되어 있음) 통째로 비웁니다.
+        clear_layout(self._scenario_layout, keep=0)
         self._scenario_result_labels = {}
 
         saved = scenario_store.list_scenarios(self._project) if self._project else {}

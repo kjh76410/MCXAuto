@@ -56,11 +56,16 @@
         "value": "테스트"
       }
     ],
-    "주채널 일반 메시지 전송": [
+    "주채널 일반 메시지  전송": [
       {
-        "action": "click",
-        "object": "채널목록 주채널",
+        "action": "find_main_channel",
+        "object": null,
         "value": ""
+      },
+      {
+        "action": "toggle_state",
+        "object": "일반 메시지 아이콘",
+        "value": "off"
       },
       {
         "action": "click",
@@ -70,19 +75,24 @@
       {
         "action": "set_text",
         "object": "상세화면 검색란",
-        "value": "테스트 중입니다."
+        "value": "테스트"
       },
       {
-        "action": "set_text",
+        "action": "click",
         "object": "상세화면 메시지 전송",
-        "value": "테스트 중입니다."
+        "value": ""
       }
     ],
-    "주채널 상황전파 메시지 전송": [
+    "주채널 상황전전파 메시지  전송": [
       {
-        "action": "click",
-        "object": "채널목록 주채널",
+        "action": "find_main_channel",
+        "object": null,
         "value": ""
+      },
+      {
+        "action": "toggle_state",
+        "object": "일반 메시지 아이콘",
+        "value": "on"
       },
       {
         "action": "click",
@@ -90,25 +100,160 @@
         "value": ""
       },
       {
-        "action": "click",
-        "object": "상황전파 메시지 아이콘",
-        "value": ""
-      },
-      {
         "action": "set_text",
         "object": "상세화면 검색란",
-        "value": "테스트 중입니다."
+        "value": "테스트"
       },
       {
-        "action": "set_text",
+        "action": "click",
         "object": "상세화면 메시지 전송",
-        "value": "테스트 중입니다."
+        "value": ""
+      }
+    ],
+    "주채널 일반 메시지 1012 전송": [
+      {
+        "action": "find_main_channel",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "toggle_state",
+        "object": "일반 메시지 아이콘",
+        "value": "off"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 검색란",
+        "value": ""
+      },
+      {
+        "action": "set_text",
+        "object": "상세화면 검색란",
+        "value": "가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하ab"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
+      }
+    ],
+    "주채널 장문 메시지 전송 1": [
+      {
+        "action": "find_main_channel",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "toggle_state",
+        "object": "일반 메시지 아이콘",
+        "value": "off"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 검색란",
+        "value": ""
+      },
+      {
+        "action": "set_text",
+        "object": "상세화면 검색란",
+        "value": "[TEST ALL CONTROL CHARACTERS START]\n(이 줄 끝에는 CR 1개 포함)\n\\t탭 1개 포함 (여기까지 탭 문자 있음)\n\\nLF 줄바꿈 후 문장입니다.\n\\rCR 복귀 후 문장입니다.\n(이 줄 끝에는 CR 1개 포함)\n\\r\\nCRLF 조합 줄바꿈입니다.\n(이 줄 끝에는 CRLF 1개 포함)\n\\r\\n\\r\\nCRLFCRLF — 두 줄 띄움 구간입니다.\n\n(이 줄 끝에는 CRLFCRLF 1회 포함)\n\\t탭 1개 포함 (CRLF 이후 탭 위치 테스트)\n\\t\\n탭 후 LF 조합 테스트\n\\n\\tLF 후 탭 조합 테스트\n\\r\\tCR 후 탭 조합 테스트\n\\t\\r\\n탭 후 CRLF 조합 테스트\n\\r\\n\\tCRLF 후 탭 조합 테스트\n\\r\\rCR 2회 연속 테스트\n\n(이 줄 끝에는 CR 2회 포함)\n\\n\\nLF 2회 연속 테스트 (빈 줄 1개 포함)\n\n\\r\\n\\r\\nHTTP 헤더 경계형 CRLFCRLF 조합\n\n[DATA]\\tKEY=VALUE\\tEND\n\\n마지막 줄 LF 테스트 완료!\n[TEST ALL CONTROL CHARACTERS END]"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
+      }
+    ],
+    "주채널 장문 메시지 전송 2": [
+      {
+        "action": "find_main_channel",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "toggle_state",
+        "object": "일반 메시지 아이콘",
+        "value": "off"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 검색란",
+        "value": ""
+      },
+      {
+        "action": "set_text",
+        "object": "상세화면 검색란",
+        "value": "[TEST MESSAGE - CRLF MIX TEST]\n(이 줄 끝에는 CR 1개 포함)\nLine1: Hello World\n(이 줄 끝에는 LF 1개 포함)\nLine2: 안녕하세요\n(이 줄 끝에는 CR 1개 포함)\nLine3: 테스트 중입니다.\n(이 줄 끝에는 LF 1개 포함)\nLine4: 다음 줄은 CRLFCRLF 구간입니다.\n\n(이 줄 끝에는 CRLFCRLF 1회 포함)\nLine5: 이 줄은 CRLF 이후 정상 연결됩니다.\n(이 줄 끝에는 CRLF 1개 포함)\nLine6: 끝입니다.\n(이 줄 끝에는 CR 1개 포함)\n[END]\n(이 줄 끝에는 LF 1개 포함)"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
+      }
+    ],
+    "주채널 장문 메시지 전송 3": [
+      {
+        "action": "find_main_channel",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "toggle_state",
+        "object": "일반 메시지 아이콘",
+        "value": "off"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 검색란",
+        "value": ""
+      },
+      {
+        "action": "set_text",
+        "object": "상세화면 검색란",
+        "value": "[TEST MESSAGE - 종합 문자열 테스트]\n    1. 기본 문자 테스트: ABC abc 123 가나다라마바사\n    2. 특수문자 테스트: @#$%^&*()_+-=[]{};:'\",.<>/?\\|`\n    3. 줄바꿈 및 탭 테스트:\n        - 첫 번째 줄\n        - 두 번째 줄\n        - 세 번째 줄\n\n[JSON 형식 테스트]\n    {\n        \"id\": 1001,\n        \"name\": \"홍길동\",\n        \"email\": \"test@example.com\",\n        \"active\": true\n    }\n\n[시간 및 날짜 테스트]\n    현재 시각: 2025-10-23 11:30:45\n    타임스탬프: 1734955845\n\n[언어 혼합 테스트]\n    Korean: 안녕하세요\n    English: Hello\n    日本語: テストです\n    中文: 测试中\n\n[파일 경로 / URL 테스트]\n    C:\\Users\\Tester\\Documents\\test.txt\n    https://example.com/api/v1/data?user=test&id=123\n\n[결과 요약]\n    Status: SUCCESS ✅\n    ErrorCode: 0\n    Duration: 1523ms"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
+      }
+    ],
+    "주채널 이미지 전송": [
+      {
+        "action": "find_main_channel",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상세화면 첨부파일",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "첨부파일 이미지 메뉴",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "갤러리 이미지 버튼",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "갤러리 완료 버튼",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
       }
     ],
     "주채널 사진 촬영 후 전송": [
       {
-        "action": "click",
-        "object": "채널목록 주채널",
+        "action": "find_main_channel",
+        "object": null,
         "value": ""
       },
       {
@@ -129,6 +274,333 @@
       {
         "action": "click",
         "object": "사진 촬영 후 선택 버튼",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
+      }
+    ],
+    "주채널 동영상 촬영 전송": [
+      {
+        "action": "find_main_channel",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상세화면 첨부파일",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "첨부파일 동영상 촬영 메뉴",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "동영상 촬영 버튼",
+        "value": ""
+      },
+      {
+        "action": "sleep",
+        "object": null,
+        "value": "10"
+      },
+      {
+        "action": "click",
+        "object": "동영상 촬영 종료 버튼",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "촬영된 동영상 선택 버튼",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
+      }
+    ],
+    "주채널 파일 전송": [
+      {
+        "action": "find_main_channel",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상세화면 첨부파일",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "첨부파일 파일 메뉴",
+        "value": ""
+      }
+    ],
+    "공통통화그룹  일반 메시지  전송": [
+      {
+        "action": "find_common_group",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "toggle_state",
+        "object": "일반 메시지 아이콘",
+        "value": "off"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 검색란",
+        "value": ""
+      },
+      {
+        "action": "set_text",
+        "object": "상세화면 검색란",
+        "value": "테스트"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
+      }
+    ],
+    "공통통화그룹 상황전전파 메시지  전송": [
+      {
+        "action": "find_common_group",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "toggle_state",
+        "object": "일반 메시지 아이콘",
+        "value": "on"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 검색란",
+        "value": ""
+      },
+      {
+        "action": "set_text",
+        "object": "상세화면 검색란",
+        "value": "테스트"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
+      }
+    ],
+    "공통통화그룹 일반 메시지 1012 전송": [
+      {
+        "action": "find_common_group",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "toggle_state",
+        "object": "일반 메시지 아이콘",
+        "value": "off"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 검색란",
+        "value": ""
+      },
+      {
+        "action": "set_text",
+        "object": "상세화면 검색란",
+        "value": "가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라마바사아자차카타파하ab"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
+      }
+    ],
+    "공통통화그룹 장문 메시지 전송 1": [
+      {
+        "action": "find_common_group",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "toggle_state",
+        "object": "일반 메시지 아이콘",
+        "value": "off"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 검색란",
+        "value": ""
+      },
+      {
+        "action": "set_text",
+        "object": "상세화면 검색란",
+        "value": "[TEST ALL CONTROL CHARACTERS START]\n(이 줄 끝에는 CR 1개 포함)\n\\t탭 1개 포함 (여기까지 탭 문자 있음)\n\\nLF 줄바꿈 후 문장입니다.\n\\rCR 복귀 후 문장입니다.\n(이 줄 끝에는 CR 1개 포함)\n\\r\\nCRLF 조합 줄바꿈입니다.\n(이 줄 끝에는 CRLF 1개 포함)\n\\r\\n\\r\\nCRLFCRLF — 두 줄 띄움 구간입니다.\n\n(이 줄 끝에는 CRLFCRLF 1회 포함)\n\\t탭 1개 포함 (CRLF 이후 탭 위치 테스트)\n\\t\\n탭 후 LF 조합 테스트\n\\n\\tLF 후 탭 조합 테스트\n\\r\\tCR 후 탭 조합 테스트\n\\t\\r\\n탭 후 CRLF 조합 테스트\n\\r\\n\\tCRLF 후 탭 조합 테스트\n\\r\\rCR 2회 연속 테스트\n\n(이 줄 끝에는 CR 2회 포함)\n\\n\\nLF 2회 연속 테스트 (빈 줄 1개 포함)\n\n\\r\\n\\r\\nHTTP 헤더 경계형 CRLFCRLF 조합\n\n[DATA]\\tKEY=VALUE\\tEND\n\\n마지막 줄 LF 테스트 완료!\n[TEST ALL CONTROL CHARACTERS END]"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
+      }
+    ],
+    "공통통화그룹 장문 메시지 전송 2": [
+      {
+        "action": "find_common_group",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "toggle_state",
+        "object": "일반 메시지 아이콘",
+        "value": "off"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 검색란",
+        "value": ""
+      },
+      {
+        "action": "set_text",
+        "object": "상세화면 검색란",
+        "value": "[TEST MESSAGE - CRLF MIX TEST]\n(이 줄 끝에는 CR 1개 포함)\nLine1: Hello World\n(이 줄 끝에는 LF 1개 포함)\nLine2: 안녕하세요\n(이 줄 끝에는 CR 1개 포함)\nLine3: 테스트 중입니다.\n(이 줄 끝에는 LF 1개 포함)\nLine4: 다음 줄은 CRLFCRLF 구간입니다.\n\n(이 줄 끝에는 CRLFCRLF 1회 포함)\nLine5: 이 줄은 CRLF 이후 정상 연결됩니다.\n(이 줄 끝에는 CRLF 1개 포함)\nLine6: 끝입니다.\n(이 줄 끝에는 CR 1개 포함)\n[END]\n(이 줄 끝에는 LF 1개 포함)"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
+      }
+    ],
+    "공통통화그룹 장문 메시지 전송 3": [
+      {
+        "action": "find_common_group",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "toggle_state",
+        "object": "일반 메시지 아이콘",
+        "value": "off"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 검색란",
+        "value": ""
+      },
+      {
+        "action": "set_text",
+        "object": "상세화면 검색란",
+        "value": "[TEST MESSAGE - 종합 문자열 테스트]\n    1. 기본 문자 테스트: ABC abc 123 가나다라마바사\n    2. 특수문자 테스트: @#$%^&*()_+-=[]{};:'\",.<>/?\\|`\n    3. 줄바꿈 및 탭 테스트:\n        - 첫 번째 줄\n        - 두 번째 줄\n        - 세 번째 줄\n\n[JSON 형식 테스트]\n    {\n        \"id\": 1001,\n        \"name\": \"홍길동\",\n        \"email\": \"test@example.com\",\n        \"active\": true\n    }\n\n[시간 및 날짜 테스트]\n    현재 시각: 2025-10-23 11:30:45\n    타임스탬프: 1734955845\n\n[언어 혼합 테스트]\n    Korean: 안녕하세요\n    English: Hello\n    日本語: テストです\n    中文: 测试中\n\n[파일 경로 / URL 테스트]\n    C:\\Users\\Tester\\Documents\\test.txt\n    https://example.com/api/v1/data?user=test&id=123\n\n[결과 요약]\n    Status: SUCCESS ✅\n    ErrorCode: 0\n    Duration: 1523ms"
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
+      }
+    ],
+    "공통통화그룹 이미지 전송": [
+      {
+        "action": "find_common_group",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상세화면 첨부파일",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "첨부파일 이미지 메뉴",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "갤러리 이미지 버튼",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "갤러리 완료 버튼",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
+      }
+    ],
+    "공통통화그룹 사진 촬영 후 전송": [
+      {
+        "action": "find_common_group",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상세화면 첨부파일",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "첨부파일 사진촬영 메뉴",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "사진촬영 촬영 버튼",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "사진 촬영 후 선택 버튼",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상세화면 메시지 전송",
+        "value": ""
+      }
+    ],
+    "공통통화그룹 동영상 촬영 전송": [
+      {
+        "action": "find_common_group",
+        "object": null,
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "상세화면 첨부파일",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "첨부파일 동영상 촬영 메뉴",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "동영상 촬영 버튼",
+        "value": ""
+      },
+      {
+        "action": "sleep",
+        "object": null,
+        "value": "10"
+      },
+      {
+        "action": "click",
+        "object": "동영상 촬영 종료 버튼",
+        "value": ""
+      },
+      {
+        "action": "click",
+        "object": "촬영된 동영상 선택 버튼",
         "value": ""
       },
       {

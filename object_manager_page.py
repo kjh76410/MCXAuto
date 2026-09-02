@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 import qtawesome as qta
 
 import object_store
+import project_config_store
 from device_panel import PROJECT_HANDLERS
 from ui_common import (
     NavListButton,
@@ -38,6 +39,7 @@ from ui_common import (
     navy_mono_font,
     navy_page_css,
     navy_page_header,
+    navy_section_header,
     styled,
 )
 
@@ -348,12 +350,16 @@ class ObjectManagerPage(QWidget):
         self._project_count.setText(str(len(PROJECT_HANDLERS)))
         group = QButtonGroup(self._project_list_card)
         group.setExclusive(True)
-        for proj_name in PROJECT_HANDLERS:
-            btn = NavListButton(proj_name, height=34)
-            btn.clicked.connect(lambda checked=False, p=proj_name: self._on_project_selected(p))
-            group.addButton(btn)
-            self._project_list_layout.addWidget(btn)
-            self._project_buttons[proj_name] = btn
+        groups = project_config_store.group_projects_by_region(list(PROJECT_HANDLERS.keys()))
+        for group_label, proj_names in groups:
+            if group_label:
+                self._project_list_layout.addWidget(navy_section_header(group_label))
+            for proj_name in proj_names:
+                btn = NavListButton(proj_name, height=34)
+                btn.clicked.connect(lambda checked=False, p=proj_name: self._on_project_selected(p))
+                group.addButton(btn)
+                self._project_list_layout.addWidget(btn)
+                self._project_buttons[proj_name] = btn
         self._project_list_layout.addStretch(1)
 
         if self._current_project in self._project_buttons:
