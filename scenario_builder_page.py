@@ -43,6 +43,7 @@ from ui_common import (
 # 동작 정의와 실제 실행 로직은 화면과 분리해 scenario_runner에 모아뒀습니다
 # (프로젝트 창의 시나리오 목록에서도 같은 엔진으로 실행합니다).
 ACTION_META = scenario_runner.ACTION_META
+MY_INFO_FIELDS = scenario_runner.MY_INFO_FIELDS
 
 # 저장된 시나리오를 폴더 사이로 끌어다 옮길 때 쓰는 드래그 페이로드 형식
 # (객체 관리 화면의 _OBJECT_MIME_TYPE과 같은 방식).
@@ -432,6 +433,16 @@ class ScenarioBuilderPage(QWidget):
         self._toggle_state_combo.addItem("꺼짐(off)으로 맞추기", "off")
         layout.addWidget(self._toggle_state_combo)
 
+        # '객체 값이 단말 정보(XML)와 같은지 확인'만 쓰는, 단말 이름/번호 중 무엇과
+        # 비교할지 고르는 콤보. 값 입력칸과 자리를 같이 쓰고 동작에 따라 하나만 보입니다.
+        self._my_info_field_combo = QComboBox()
+        self._my_info_field_combo.setFixedHeight(30)
+        self._my_info_field_combo.setFont(kfont(10))
+        self._my_info_field_combo.setStyleSheet(navy_input_css())
+        for field_key, field_label in MY_INFO_FIELDS.items():
+            self._my_info_field_combo.addItem(f"{field_label}(XML)과 비교", field_key)
+        layout.addWidget(self._my_info_field_combo)
+
         btn_add = navy_button("스텝 추가", kind="primary", height=32, icon_name="fa5s.plus")
         btn_add.clicked.connect(self._add_step)
         layout.addWidget(btn_add)
@@ -469,12 +480,14 @@ class ScenarioBuilderPage(QWidget):
         )
 
         is_toggle = key == "toggle_state"
-        self._value_edit.setVisible(needs_value and not is_toggle)
-        self._value_edit.setEnabled(needs_value and not is_toggle)
+        is_my_info = key == "check_matches_my_info"
+        self._value_edit.setVisible(needs_value and not is_toggle and not is_my_info)
+        self._value_edit.setEnabled(needs_value and not is_toggle and not is_my_info)
         self._value_edit.setPlaceholderText(placeholder)
-        if not needs_value or is_toggle:
+        if not needs_value or is_toggle or is_my_info:
             self._value_edit.clear()
         self._toggle_state_combo.setVisible(is_toggle)
+        self._my_info_field_combo.setVisible(is_my_info)
 
         self._object2_label.setVisible(needs_object2)
         self._object2_combo.setVisible(needs_object2)
@@ -611,6 +624,8 @@ class ScenarioBuilderPage(QWidget):
 
         if key == "toggle_state":
             value = self._toggle_state_combo.currentData() or "on"
+        elif key == "check_matches_my_info":
+            value = self._my_info_field_combo.currentData() or "name"
         else:
             # set_text는 재난망 문자처럼 앞뒤 개행/공백까지 실제로 보내는 값의
             # 일부일 수 있어 그대로 두고, timeout/대기 시간처럼 숫자를 쓰는
@@ -869,6 +884,11 @@ class ScenarioBuilderPage(QWidget):
         QTimer.singleShot(0, self._refresh_saved_scenarios)
 
     def _refresh_saved_scenarios(self):
+        # 순서 이동/삭제 때마다 목록을 통째로 다시 그리는데(clear() 후 재구성),
+        # 그때마다 스크롤이 맨 위로 튀면 아래쪽 시나리오를 여러 번 옮길 때마다
+        # 매번 다시 스크롤해 찾아야 해서 번거롭습니다. 지금 스크롤 위치를 기억해뒀다가
+        # 다시 그린 뒤 그대로 복원합니다.
+        scroll_value = self._saved_list.verticalScrollBar().value()
         self._saved_list.clear()
         self._refresh_folder_combo()
         if not self._current_project:
@@ -926,6 +946,10 @@ class ScenarioBuilderPage(QWidget):
                 # 잘립니다(객체 관리 화면 폴더 행에서 겪은 것과 같은 문제).
                 item.setSizeHint(QSize(0, row.sizeHint().height() + 10))
                 self._saved_list.setItemWidget(item, row)
+
+        # 방금 넣은 행들의 레이아웃이 끝나야 스크롤 범위(maximum)가 맞게 갱신되므로,
+        # 지금 바로 setValue하면 아직 좁은 범위 기준으로 잘릴 수 있어 한 틱 미룹니다.
+        QTimer.singleShot(0, lambda: self._saved_list.verticalScrollBar().setValue(scroll_value))
 
     def _edit_scenario_by_name(self, name):
         if not self._current_project:

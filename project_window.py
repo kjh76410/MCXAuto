@@ -553,10 +553,10 @@ class ProjectWindow(QWidget):
         if result_lbl is not None:
             if success:
                 result_lbl.setText("PASS")
-                result_lbl.setStyleSheet(f"color:{Navy.accent};")
+                result_lbl.setStyleSheet(f"color:{Navy.success}; font-weight:bold;")
             else:
                 result_lbl.setText("FAIL")
-                result_lbl.setStyleSheet(f"color:{Navy.danger};")
+                result_lbl.setStyleSheet(f"color:{Navy.danger}; font-weight:bold;")
         if self._run_queue:
             self._run_next_in_queue()
 

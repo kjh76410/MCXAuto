@@ -473,15 +473,22 @@ class ObjectManagerPage(QWidget):
         save_btn_row = QHBoxLayout()
         save_btn_row.setSpacing(6)
         self._btn_save = navy_button(
-            "이름으로 저장", kind="primary", height=32, icon_name="fa5s.save"
+            "저장", kind="primary", height=32, icon_name="fa5s.save"
         )
         self._btn_save.clicked.connect(self._save_named_object)
         save_btn_row.addWidget(self._btn_save, 1)
-        btn_new = navy_button("", kind="ghost", height=32, icon_name="fa5s.eraser", icon_size=13)
-        btn_new.setFixedWidth(36)
-        btn_new.setToolTip("수정 취소하고 새로 만들기")
-        btn_new.clicked.connect(self._reset_edit_form)
-        save_btn_row.addWidget(btn_new)
+        # '저장'은 화면에서 요소를 골라야 하지만, 이 버튼은 요소 선택 없이 '지금 이
+        # 화면(Activity)'만 이름 붙여 저장합니다. wait_activity로 기다릴 화면(예:
+        # 채널 목록 화면)에 도착한 뒤 여기서 바로 저장하면 됩니다.
+        self._btn_save_activity = navy_button(
+            "Activity 저장", kind="ghost", height=32, icon_name="fa5s.map-marker-alt"
+        )
+        self._btn_save_activity.setToolTip(
+            "요소 선택 없이, 지금 이 화면(Activity)만 이름 붙여 저장합니다 "
+            "(수정 중인 객체가 있으면 그 객체의 Activity만 갱신)"
+        )
+        self._btn_save_activity.clicked.connect(self._save_activity_only)
+        save_btn_row.addWidget(self._btn_save_activity, 1)
         layout.addLayout(save_btn_row)
 
         layout.addSpacing(6)
@@ -610,7 +617,7 @@ class ObjectManagerPage(QWidget):
             self._name_edit.clear()
             self._editing_hint_lbl.setText("")
             self._editing_hint_lbl.setVisible(False)
-            self._btn_save.setText("이름으로 저장")
+            self._btn_save.setText("저장")
         self._detail_labels["resource_id"].setText(node["resource_id"] or "-")
         self._detail_labels["text"].setText(node["text"] or "-")
         self._detail_labels["desc"].setText(node.get("desc") or "-")
@@ -682,7 +689,7 @@ class ObjectManagerPage(QWidget):
         self._name_edit.clear()
         self._editing_hint_lbl.setText("")
         self._editing_hint_lbl.setVisible(False)
-        self._btn_save.setText("이름으로 저장")
+        self._btn_save.setText("저장")
 
     def _on_folder_toggled(self, folder):
         if folder in self._collapsed_folders:
@@ -822,6 +829,57 @@ class ObjectManagerPage(QWidget):
 
         self._reset_edit_form()
         self._refresh_saved_list()
+
+    def _save_activity_only(self):
+        """'저장'(=요소를 고른 뒤 객체 통째로 저장)과 달리, 화면의 특정 요소를 고를
+        필요 없이 '지금 이 화면(Activity)'만 이름 붙여 저장합니다. 채널 목록 화면처럼
+        로딩 중엔 버튼이 없을 수 있는 화면을 wait_activity로 기다리려고 만든
+        기능이라, 그 화면에 도착한 뒤 여기서 바로 저장하면 됩니다.
+
+        아래 '저장된 객체' 목록에서 기존 객체를 골라 수정 중이면(그 객체의 activity가
+        비어 있는 예전 캡처를 고치는 경우 등) 그 객체의 activity 필드만 갱신하고,
+        아니면(요소 선택 없이 이름만 입력한 새 화면 마커) 새 객체로 만듭니다."""
+        if not self._current_project:
+            QMessageBox.warning(self, "프로젝트 미선택", "먼저 왼쪽에서 프로젝트를 선택해주세요.")
+            return
+        if not self._current_activity:
+            QMessageBox.warning(
+                self, "Activity 없음",
+                "위 정보 영역에 Activity 값이 없습니다. 지금 확인하려는 화면에서 "
+                "'새로고침'을 눌러 화면을 불러와주세요.",
+            )
+            return
+
+        if self._editing_name:
+            existing = object_store.list_objects(self._current_project).get(self._editing_name)
+            if existing is None:
+                QMessageBox.warning(self, "객체 없음", "선택한 객체를 찾을 수 없습니다 (이미 삭제됐을 수 있음).")
+                self._reset_edit_form()
+                self._refresh_saved_list()
+                return
+            node = dict(existing)
+            node["activity"] = self._current_activity
+            name = self._editing_name
+        else:
+            name = self._name_edit.text().strip()
+            if not name:
+                QMessageBox.warning(self, "이름 필요", "저장할 이름을 입력해주세요.")
+                return
+            folder = self._folder_combo.currentText() or object_store.default_folder_name(self._current_project)
+            # 요소는 안 고르고 화면(Activity)만 표시하는 마커라, resourceId/text 등은
+            # 비워둡니다(wait_activity는 activity 값만 읽으므로 문제없습니다).
+            node = {
+                "resource_id": "", "text": "", "desc": "", "class_name": "",
+                "package": self._current_package, "activity": self._current_activity,
+                "folder": folder,
+            }
+
+        object_store.save_object(self._current_project, name, node)
+        self._reset_edit_form()
+        self._refresh_saved_list()
+        QMessageBox.information(
+            self, "저장 완료", f"'{name}'의 Activity를 저장했습니다:\n{self._current_activity}",
+        )
 
     def _refresh_saved_list(self):
         # QListWidgetItem의 기본 체크 표시가 이 앱의 Fluent 테마 아래에서는 그려지지
