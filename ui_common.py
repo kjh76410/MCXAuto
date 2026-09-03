@@ -423,12 +423,15 @@ def navy_page_css(object_name):
     return f"#{object_name} {{ background-color:{Navy.bg}; }}"
 
 
-def navy_page_header(title_text, subtitle_text=None, actions=None):
-    """페이지 맨 위 [큰 제목 + 설명] [actions...] ......... [오른쪽 breadcrumb] 줄.
-    (holder, breadcrumb_label)을 돌려주며, breadcrumb 라벨은 화면 쪽에서 채웁니다.
+def navy_page_header(title_text, subtitle_text=None, actions=None, center_actions=None, right_actions=None):
+    """페이지 맨 위 [큰 제목 + 설명] [actions...] .... [center_actions...] .... [right_actions...]
+    [오른쪽 breadcrumb] 줄. (holder, breadcrumb_label)을 돌려주며, breadcrumb 라벨은 화면
+    쪽에서 채웁니다.
 
-    actions는 제목 바로 오른쪽에 붙일 위젯들입니다(예: 프로젝트 선택 드롭다운,
-    기기 연결 버튼). 제목과 세로 가운데를 맞춰 붙습니다."""
+    actions는 제목 바로 오른쪽에 붙일 위젯들입니다. center_actions는 제목과 right_actions
+    사이 빈 공간(스트레치 두 개 사이)에 놓여, 그 사이 공간 가운데쯤에 위치합니다(예:
+    기기 연결 버튼). right_actions는 줄 맨 오른쪽(breadcrumb 바로 왼쪽)에 붙일 위젯들입니다
+    (예: 화면 오른쪽 끝에 두고 싶은 드롭다운). 셋 다 제목과 세로 가운데를 맞춰 붙습니다."""
     holder = QWidget()
     row = QHBoxLayout(holder)
     row.setContentsMargins(2, 0, 2, 0)
@@ -453,6 +456,11 @@ def navy_page_header(title_text, subtitle_text=None, actions=None):
     for widget in (actions or []):
         row.addWidget(widget, 0, Qt.AlignVCenter)
     row.addStretch(1)
+    for widget in (center_actions or []):
+        row.addWidget(widget, 0, Qt.AlignVCenter)
+    row.addStretch(1)
+    for widget in (right_actions or []):
+        row.addWidget(widget, 0, Qt.AlignVCenter)
 
     breadcrumb = QLabel("")
     breadcrumb.setFont(kfont(10, True))
@@ -505,14 +513,22 @@ class FolderHeaderRow(QWidget):
     deleteRequested = Signal(str)
 
     def __init__(self, folder, label_text, can_edit=True, can_delete=True,
-                 delete_tooltip="폴더 삭제 (하위 항목 포함)", parent=None):
+                 delete_tooltip="폴더 삭제 (하위 항목 포함)", collapsed=False, parent=None):
         super().__init__(parent)
         self._folder = folder
         self.setCursor(Qt.PointingHandCursor)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(6, 3, 6, 3)
-        layout.setSpacing(4)
+        layout.setSpacing(6)
+
+        # 예전엔 펼침/접힘을 ▶/▼ 화살표 글자로 표시했지만, 폴더라는 걸 바로 알아보게
+        # 폴더 아이콘으로 바꿨습니다(접힘: 닫힌 폴더, 펼침: 열린 폴더).
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(
+            qta.icon("fa5s.folder" if collapsed else "fa5s.folder-open", color=Navy.text).pixmap(14, 14)
+        )
+        layout.addWidget(icon_lbl)
 
         self._label = QLabel(label_text)
         # 폴더 이름은 목록을 훑을 때 제일 먼저 읽는 글자입니다. 예전엔 text_muted

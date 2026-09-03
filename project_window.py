@@ -22,7 +22,8 @@ left_column_widget 맨 위, 미러링 카드 바로 위에 붙어 있습니다).
 
 import threading
 
-from PySide6.QtCore import Qt, QObject, QTimer, Signal
+from PySide6.QtCore import Qt, QObject, QPointF, QTimer, Signal
+from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -72,6 +73,49 @@ class _RunSignals(QObject):
     result = Signal(str, bool)
 
 
+class _TreeConnector(QWidget):
+    """폴더 아래 딸린 시나리오 줄임을 보여주는 가는 세로선 하나(ㅣ)."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedWidth(16)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        pen = QPen(QColor(Navy.border_strong))
+        pen.setWidthF(1.6)
+        pen.setCapStyle(Qt.RoundCap)
+        painter.setPen(pen)
+        cx = self.width() / 2
+        painter.drawLine(QPointF(cx, 2), QPointF(cx, self.height() - 2))
+
+
+class _ScenarioCardRow(QFrame):
+    """[이름 + 스텝 수] [PASS/FAIL] 시나리오 카드 한 줄. 폭 전체가 클릭 영역이라
+    이름 글자뿐 아니라 카드 어디를 눌러도 실행됩니다."""
+
+    clicked = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("scenarioCardRow")
+        self.setCursor(Qt.PointingHandCursor)
+        self.setStyleSheet(
+            f"QFrame#scenarioCardRow {{ background-color:{Navy.surface}; "
+            f"border:1px solid {Navy.border}; border-radius:{Navy.radius_sm}px; }}"
+            f"QFrame#scenarioCardRow:hover {{ background-color:{Navy.accent_soft}; "
+            f"border-color:{Navy.accent}; }}"
+        )
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            event.accept()
+            self.clicked.emit()
+            return
+        super().mousePressEvent(event)
+
+
 class ProjectWindow(QWidget):
     """프로젝트 하나를 기준으로 '대시보드 + 시나리오 목록'을 함께 보여주는 창.
     창은 하나만 만들어 두고 set_project()로 프로젝트만 갈아끼우며 재사용합니다."""
@@ -84,6 +128,8 @@ class ProjectWindow(QWidget):
         self._run_signals.log.connect(self._on_run_log)
         self._run_signals.result.connect(self._on_run_result)
         self._running = False
+        # '전체 진행'으로 이어 실행할 시나리오 이름 대기열(폴더 전체 진행용).
+        self._run_queue = []
         self._scenario_result_labels = {}
         # 시나리오 목록에서 접어둔 폴더 이름들(시나리오 작성 화면과 같은 방식).
         self._collapsed_scenario_folders = set()
@@ -324,18 +370,32 @@ class ProjectWindow(QWidget):
             single_folder = len(by_folder) <= 1
             for folder, items in by_folder.items():
                 if not single_folder:
-                    self._scenario_layout.addWidget(self._make_folder_header(folder, len(items)))
+                    self._scenario_layout.addWidget(self._make_folder_header(folder, items))
                     if folder in self._collapsed_scenario_folders:
                         continue
                 for name, steps in items:
-                    self._scenario_layout.addWidget(self._make_scenario_row(name, steps))
+                    self._scenario_layout.addWidget(
+                        self._make_scenario_row(name, steps, indent=not single_folder)
+                    )
 
         self._scenario_layout.addStretch(1)
 
-    def _make_folder_header(self, folder, count):
-        """시나리오 목록 안의 폴더 구분 줄. 누르면 그 폴더를 접었다 폅니다."""
-        arrow = "▶" if folder in self._collapsed_scenario_folders else "▼"
-        btn = navy_button(f"{arrow}  {folder}  ({count})", kind="quiet", height=26)
+    def _make_folder_header(self, folder, items):
+        """시나리오 목록 안의 폴더 구분 줄. 누르면 그 폴더를 접었다 폅니다. 오른쪽
+        '전체 진행' 버튼을 누르면 이 폴더 안의 시나리오를 순서대로 이어서 실행합니다."""
+        collapsed = folder in self._collapsed_scenario_folders
+
+        holder = QWidget()
+        row = QHBoxLayout(holder)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(4)
+
+        # 예전엔 펼침/접힘을 ▶/▼ 화살표 글자로 표시했지만, 다른 화면과 맞춰
+        # 폴더 아이콘으로 바꿨습니다(접힘: 닫힌 폴더, 펼침: 열린 폴더).
+        btn = navy_button(
+            f"{folder}  ({len(items)})", kind="quiet", height=26,
+            icon_name="fa5s.folder" if collapsed else "fa5s.folder-open", icon_size=13,
+        )
         # 다른 화면의 폴더 줄과 같은 이유로 옅은 회색 대신 본문 색을 씁니다.
         btn.setFont(kfont(11, True))
         btn.setStyleSheet(
@@ -343,7 +403,18 @@ class ProjectWindow(QWidget):
             + f"QPushButton {{ text-align:left; padding-left:2px; color:{Navy.text}; }}"
         )
         btn.clicked.connect(lambda checked=False, f=folder: self._toggle_scenario_folder(f))
-        return btn
+        row.addWidget(btn, 1)
+
+        names = [name for name, _steps in items]
+        btn_run_all = navy_button(
+            "전체 진행", kind="ghost", height=26, icon_name="fa5s.play", icon_size=11
+        )
+        btn_run_all.setFont(kfont(10, True))
+        btn_run_all.setToolTip(f"'{folder}' 폴더의 시나리오 {len(names)}개를 순서대로 이어서 실행")
+        btn_run_all.clicked.connect(lambda checked=False, n=names: self._run_folder(n))
+        row.addWidget(btn_run_all)
+
+        return holder
 
     def _toggle_scenario_folder(self, folder):
         if folder in self._collapsed_scenario_folders:
@@ -353,27 +424,48 @@ class ProjectWindow(QWidget):
         # 누른 버튼 자신이 지워지는 자리라, 지금 처리 중인 클릭이 끝난 뒤로 미룹니다.
         QTimer.singleShot(0, self.refresh_scenarios)
 
-    def _make_scenario_row(self, name, steps):
-        """[시나리오 이름 + 스텝 수 (누르면 실행)] [PASS/FAIL] 한 줄."""
+    def _make_scenario_row(self, name, steps, indent=False):
+        """[세로선(폴더 하위일 때만)] + [이름 + 스텝 수 + PASS/FAIL이 담긴 카드] 한 줄.
+        카드는 폭 전체가 클릭 영역이라 어디를 눌러도 실행됩니다(삼각형 재생
+        아이콘은 카드 자체가 버튼 역할을 해서 더 필요 없어 뺐습니다)."""
         row = QWidget()
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 0, 0, 0)
-        row_layout.setSpacing(6)
+        row_layout.setSpacing(4)
 
-        btn = navy_button(
-            f"{name}   {len(steps)}스텝", kind="ghost", height=34, icon_name="fa5s.play"
-        )
-        # 목록에서 제일 많이 읽는 글자라 버튼 기본(11)보다 한 단계 크게 씁니다.
-        # (굵은 글씨가 뭉개지던 문제는 ui_common.kfont가 진짜 굵은 자족을 골라
-        # 쓰게 되면서 해결됐습니다.)
-        btn.setFont(kfont(12, True))
-        # 실행 목록이라 항목이 여러 개 쌓입니다. 가운데 정렬보다 왼쪽 정렬이 읽기 좋습니다.
-        btn.setStyleSheet(
-            btn.styleSheet() + "QPushButton { text-align:left; padding-left:12px; }"
-        )
-        btn.clicked.connect(lambda checked=False, n=name: self._run_scenario(n))
-        row_layout.addWidget(btn, 1)
+        # 폴더 줄 바로 아래 속한 시나리오라는 걸 세로선으로 보여줍니다. 폴더 줄이
+        # 아예 없는 경우(기본 폴더 하나뿐)엔 표시하지 않습니다.
+        if indent:
+            row_layout.addWidget(_TreeConnector())
+        else:
+            spacer = QWidget()
+            spacer.setFixedWidth(16)
+            row_layout.addWidget(spacer)
 
+        card = _ScenarioCardRow()
+        card_layout = QHBoxLayout(card)
+        card_layout.setContentsMargins(14, 4, 14, 4)
+        card_layout.setSpacing(8)
+
+        name_lbl = QLabel(name)
+        # 목록에서 제일 많이 읽는 글자라 한 단계 크게 씁니다.
+        name_lbl.setFont(kfont(12, True))
+        name_lbl.setStyleSheet(f"color:{Navy.text}; background:transparent;")
+        card_layout.addWidget(name_lbl)
+
+        # 스텝 수는 이름과 헷갈리지 않게 진한 회색으로 따로 둡니다.
+        steps_lbl = QLabel(f"{len(steps)}스텝")
+        steps_lbl.setFont(kfont(10))
+        steps_lbl.setStyleSheet("color:#333333; background:transparent;")
+        card_layout.addWidget(steps_lbl)
+        card_layout.addStretch(1)
+
+        card.clicked.connect(lambda n=name: self._run_scenario(n))
+        row_layout.addWidget(card, 1)
+
+        # 결과(PASS/FAIL)는 카드 안이 아니라 카드 옆에 따로 둡니다. 결과가 없을
+        # 때도 자리는 그대로 남겨둬서 결과가 뜨는 순간 옆 카드들과 자리가 안
+        # 밀리게 합니다.
         result_lbl = QLabel("")
         result_lbl.setFont(kfont(10, True))
         result_lbl.setFixedWidth(40)
@@ -390,7 +482,7 @@ class ProjectWindow(QWidget):
 
     # ---------- 실행 ----------
     def _run_scenario(self, name):
-        if self._running:
+        if self._running or self._run_queue:
             QMessageBox.information(self, "실행 중", "이미 실행 중인 시나리오가 있습니다.")
             return
         if not self.panel.current_uuid:
@@ -402,6 +494,35 @@ class ProjectWindow(QWidget):
             QMessageBox.warning(self, "스텝 없음", f"'{name}'에 실행할 스텝이 없습니다.")
             return
 
+        self._start_scenario_run(name, steps)
+
+    def _run_folder(self, names):
+        """'전체 진행' 버튼: 폴더 안 시나리오를 이름 순서 그대로 하나씩 이어서
+        실행합니다(동시 실행은 안 되므로 한 개가 끝나야 다음이 시작됩니다)."""
+        if self._running or self._run_queue:
+            QMessageBox.information(self, "실행 중", "이미 실행 중인 시나리오가 있습니다.")
+            return
+        if not self.panel.current_uuid:
+            QMessageBox.warning(self, "단말 미연결", "먼저 왼쪽 대시보드에서 단말을 연결해주세요.")
+            return
+        if not names:
+            return
+
+        self._run_queue = list(names)
+        self._run_next_in_queue()
+
+    def _run_next_in_queue(self):
+        """대기열에서 다음 시나리오를 꺼내 실행합니다. 스텝이 없어 실행할 수 없는
+        시나리오는 (전체 진행 중에 대화상자로 끊기지 않도록) 건너뜁니다."""
+        while self._run_queue:
+            name = self._run_queue.pop(0)
+            steps = scenario_store.list_scenarios(self._project).get(name)
+            if not steps:
+                continue
+            self._start_scenario_run(name, steps)
+            return
+
+    def _start_scenario_run(self, name, steps):
         result_lbl = self._scenario_result_labels.get(name)
         if result_lbl:
             result_lbl.setText("...")
@@ -427,16 +548,17 @@ class ProjectWindow(QWidget):
 
     def _on_run_result(self, name, success):
         # 시나리오 목록이 그 사이에 새로고침됐으면(스텝 편집 등) 이 이름의 라벨이
-        # 더 이상 없을 수 있어 조용히 무시합니다.
+        # 더 이상 없을 수 있어 조용히 무시합니다(대기열은 계속 이어갑니다).
         result_lbl = self._scenario_result_labels.get(name)
-        if result_lbl is None:
-            return
-        if success:
-            result_lbl.setText("PASS")
-            result_lbl.setStyleSheet(f"color:{Navy.accent};")
-        else:
-            result_lbl.setText("FAIL")
-            result_lbl.setStyleSheet(f"color:{Navy.danger};")
+        if result_lbl is not None:
+            if success:
+                result_lbl.setText("PASS")
+                result_lbl.setStyleSheet(f"color:{Navy.accent};")
+            else:
+                result_lbl.setText("FAIL")
+                result_lbl.setStyleSheet(f"color:{Navy.danger};")
+        if self._run_queue:
+            self._run_next_in_queue()
 
     def _on_run_log(self, text):
         # 실행 로그는 왼쪽 대시보드의 로그창에 그대로 흘려보냅니다.

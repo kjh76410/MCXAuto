@@ -210,8 +210,12 @@ class ObjectManagerPage(QWidget):
         header, self._breadcrumb = navy_page_header(
             "객체 관리",
             "단말 화면에서 UI 요소를 찾아 이름을 붙여 프로젝트별로 저장합니다.",
-            actions=self._build_header_actions(),
+            center_actions=self._build_header_actions(),
+            right_actions=self._build_header_right_actions(),
         )
+        # 프로젝트는 이미 오른쪽 드롭다운(right_actions)에 나와 있어 breadcrumb에
+        # 프로젝트명을 또 텍스트로 보여줄 필요가 없습니다.
+        self._breadcrumb.setVisible(False)
         outer.addWidget(header)
 
         body = QHBoxLayout()
@@ -234,17 +238,13 @@ class ObjectManagerPage(QWidget):
 
     # ---------- 제목 줄: 프로젝트 선택 + 기기 연결 ----------
     def _build_header_actions(self):
-        """제목 "객체 관리" 바로 옆에 붙는 [프로젝트 드롭다운] [기기 연결] [연결 상태].
+        """제목 줄 가운데(제목과 오른쪽 프로젝트 드롭다운 사이 빈 공간 가운데)에
+        놓이는 [기기 연결] [연결 상태].
 
         예전에는 왼쪽에 프로젝트 목록 카드가 한 칸을 차지했지만, 본문을 단말 화면과
-        저장된 객체 두 칸(7:3)에 다 내주려고 제목 줄로 옮겼습니다."""
-        self._project_combo = QComboBox()
-        self._project_combo.setFixedHeight(32)
-        self._project_combo.setMinimumWidth(200)
-        self._project_combo.setFont(kfont(10))
-        self._project_combo.setStyleSheet(navy_input_css())
-        self._project_combo.currentIndexChanged.connect(self._on_project_combo_changed)
-
+        저장된 객체 두 칸(7:3)에 다 내주려고 제목 줄로 옮겼습니다. 프로젝트
+        드롭다운은 반대로 제목 줄 맨 오른쪽에 두므로 _build_header_right_actions에서
+        따로 만듭니다."""
         self._btn_connect_device = navy_button(
             "기기 연결", kind="primary", height=32, icon_name="fa5s.plug"
         )
@@ -255,7 +255,17 @@ class ObjectManagerPage(QWidget):
         self._device_status_lbl.setStyleSheet(f"color:{Navy.text_muted};")
         self.panel_a.signals.device_ready.connect(self._on_device_ready)
 
-        return [self._project_combo, self._btn_connect_device, self._device_status_lbl]
+        return [self._btn_connect_device, self._device_status_lbl]
+
+    def _build_header_right_actions(self):
+        """제목 줄 맨 오른쪽(원래 breadcrumb 자리 바로 왼쪽)에 붙는 [프로젝트 드롭다운]."""
+        self._project_combo = QComboBox()
+        self._project_combo.setFixedHeight(32)
+        self._project_combo.setMinimumWidth(200)
+        self._project_combo.setFont(kfont(10))
+        self._project_combo.setStyleSheet(navy_input_css())
+        self._project_combo.currentIndexChanged.connect(self._on_project_combo_changed)
+        return [self._project_combo]
 
     def _on_device_ready(self, info):
         if info:
@@ -833,7 +843,6 @@ class ObjectManagerPage(QWidget):
 
         for folder, items in by_folder.items():
             collapsed = folder in self._collapsed_folders
-            arrow = "▶" if collapsed else "▼"
             header = QListWidgetItem()
             # 클릭(펼치기/접기)은 받아야 하니 Enabled는 켜두고, 파란 선택 표시만 안 뜨게
             # Selectable은 뺍니다. 실제 내용/상호작용은 아래 FolderHeaderRow 위젯이 담당합니다.
@@ -842,9 +851,10 @@ class ObjectManagerPage(QWidget):
             self._saved_list.addItem(header)
 
             header_row = FolderHeaderRow(
-                folder, f"{arrow}  {folder}  ({len(items)})",
+                folder, f"{folder}  ({len(items)})",
                 can_edit=True, can_delete=folder != default_name,
                 delete_tooltip="폴더 삭제 (하위 객체 포함)",
+                collapsed=collapsed,
             )
             header_row.toggled.connect(lambda f=folder: self._on_folder_toggled(f))
             header_row.editRequested.connect(self._on_folder_edit_requested)

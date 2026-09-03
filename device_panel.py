@@ -302,8 +302,32 @@ class DevicePanel(QWidget):
         col_layout.addWidget(self._build_mirror_card(), 0, Qt.AlignHCenter)
         col_layout.addWidget(self._build_my_id_chip(), 0, Qt.AlignHCenter)
         col_layout.addWidget(self._build_project_info_card())
+        col_layout.addLayout(self._build_log_toggle_row())
         col_layout.addStretch(1)
         return col
+
+    def _build_log_toggle_row(self):
+        """Logcat ON / PCAP ON 토글 버튼. 예전엔 오른쪽 Network & System Logs
+        카드 제목 줄에 있었지만, 미러링 화면 쪽(단말 정보 카드 바로 아래)으로
+        옮겼습니다."""
+        row = QHBoxLayout()
+        row.setSpacing(6)
+
+        self.btn_toggle_log = TogglePushButton(qta.icon("fa5s.file-alt", color=Navy.text), "Logcat ON")
+        self.btn_toggle_log.setFixedHeight(24)
+        self.btn_toggle_log.setFont(kfont(11, True))
+        self.btn_toggle_log.setCursor(Qt.PointingHandCursor)
+        self.btn_toggle_log.setIconSize(QSize(14, 14))
+        self.btn_toggle_log.clicked.connect(self.toggle_log)
+        self.btn_toggle_pcap = TogglePushButton(qta.icon("fa5s.circle", color=Navy.text), "PCAP ON")
+        self.btn_toggle_pcap.setFixedHeight(24)
+        self.btn_toggle_pcap.setFont(kfont(11, True))
+        self.btn_toggle_pcap.setCursor(Qt.PointingHandCursor)
+        self.btn_toggle_pcap.setIconSize(QSize(10, 10))
+        self.btn_toggle_pcap.clicked.connect(self.toggle_pcap)
+        row.addWidget(self.btn_toggle_log, 1)
+        row.addWidget(self.btn_toggle_pcap, 1)
+        return row
 
     def _build_project_info_card(self):
         """네트워크/모델·HW·Android·OS·버전 정보를 미러링 카드와 단말 정보 배지
@@ -573,31 +597,6 @@ class DevicePanel(QWidget):
         monitor_layout = QVBoxLayout(monitor)
         monitor_layout.setContentsMargins(12, 10, 12, 12)
         monitor_layout.setSpacing(4)
-
-        monitor_header = QHBoxLayout()
-        lbl_title = QLabel("Network & System Logs")
-        lbl_title.setFont(kfont(12, True))
-        lbl_title.setStyleSheet(f"color:{Navy.text};")
-        monitor_header.addWidget(lbl_title)
-        monitor_header.addStretch(1)
-
-        self.btn_toggle_log = TogglePushButton(qta.icon("fa5s.file-alt", color=Navy.text), "Logcat ON")
-        self.btn_toggle_log.setFixedHeight(24)
-        self.btn_toggle_log.setFont(kfont(11, True))
-        self.btn_toggle_log.setCursor(Qt.PointingHandCursor)
-        self.btn_toggle_log.setIconSize(QSize(14, 14))
-        self.btn_toggle_log.setFixedWidth(120)
-        self.btn_toggle_log.clicked.connect(self.toggle_log)
-        self.btn_toggle_pcap = TogglePushButton(qta.icon("fa5s.circle", color=Navy.text), "PCAP ON")
-        self.btn_toggle_pcap.setFixedHeight(24)
-        self.btn_toggle_pcap.setFont(kfont(11, True))
-        self.btn_toggle_pcap.setCursor(Qt.PointingHandCursor)
-        self.btn_toggle_pcap.setIconSize(QSize(10, 10))
-        self.btn_toggle_pcap.setFixedWidth(150)
-        self.btn_toggle_pcap.clicked.connect(self.toggle_pcap)
-        monitor_header.addWidget(self.btn_toggle_log)
-        monitor_header.addWidget(self.btn_toggle_pcap)
-        monitor_layout.addLayout(monitor_header)
 
         self.tab_view = QTabWidget()
         self.tab_view.setStyleSheet(

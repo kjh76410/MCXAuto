@@ -6,12 +6,15 @@ import re
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetricsF
 from PySide6.QtWidgets import (
+    QApplication,
     QButtonGroup,
     QComboBox,
+    QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QMessageBox,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -93,12 +96,15 @@ class ScenarioLibraryPage(QWidget):
         header, self._breadcrumb = navy_page_header(
             "시나리오",
             "프로젝트별로 저장된 시나리오 코드를 확인하고 바로 수정합니다.",
-            actions=[self._build_project_combo()],
+            right_actions=[self._build_project_combo()],
         )
+        # 프로젝트는 이미 오른쪽 드롭다운에 나와 있어 breadcrumb에 프로젝트명을
+        # 또 텍스트로 보여줄 필요가 없습니다.
+        self._breadcrumb.setVisible(False)
         return header
 
     def _build_project_combo(self):
-        """제목 "시나리오" 바로 옆에 붙는 프로젝트 선택 드롭다운.
+        """제목 줄 맨 오른쪽에 붙는 프로젝트 선택 드롭다운.
         예전에는 왼쪽에 프로젝트 목록 카드가 한 칸을 차지했지만, 다른 화면들(객체
         관리/시나리오 작성)과 같은 방식으로 제목 줄로 옮겼습니다."""
         self._project_combo = QComboBox()
@@ -184,9 +190,21 @@ class ScenarioLibraryPage(QWidget):
         )
         layout.addWidget(header)
 
-        layout.addStretch(1)
+        # 핸들러/시나리오 항목이 많아지면 카드가 창 밖으로 계속 늘어나던 걸 막기
+        # 위해, 목록만 스크롤 영역에 담습니다(위 헤더는 스크롤과 무관하게 항상 보임).
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        list_container = styled(QWidget(), "background: transparent;")
+        list_layout = QVBoxLayout(list_container)
+        list_layout.setContentsMargins(0, 0, 0, 0)
+        list_layout.setSpacing(4)
+        list_layout.addStretch(1)
+        scroll.setWidget(list_container)
+        layout.addWidget(scroll, 1)
 
-        return card, layout
+        return card, list_layout
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -201,10 +219,11 @@ class ScenarioLibraryPage(QWidget):
         self._current_project = proj_name
         self._current_builder_scenario_name = None
         self._btn_copy_scenario.setEnabled(False)
-        clear_layout(self._scenario_list_layout, keep=1)  # keep=1: 카드 헤더
-        # clear_layout은 맨 끝의 stretch까지 같이 거두므로 바로 다시 깔아둡니다. 이걸 빼먹으면
-        # 아래의 insertWidget(count()-1, ...)이 stretch가 아니라 마지막으로 넣은 항목 앞에
-        # 계속 쌓이게 됩니다.
+        # 카드 헤더는 스크롤 영역 밖에 따로 있어 이 레이아웃엔 목록 항목뿐이라
+        # 통째로 비웁니다. clear_layout은 맨 끝의 stretch까지 같이 거두므로 바로
+        # 다시 깔아둡니다. 이걸 빼먹으면 아래의 insertWidget(count()-1, ...)이
+        # stretch가 아니라 마지막으로 넣은 항목 앞에 계속 쌓이게 됩니다.
+        clear_layout(self._scenario_list_layout, keep=0)
         self._scenario_list_layout.addStretch(1)
         self._scenario_buttons = {}
         self._show_code_placeholder("왼쪽에서 시나리오를 선택하세요.")
@@ -408,6 +427,14 @@ class ScenarioLibraryPage(QWidget):
         self._btn_edit_code.setVisible(False)
         header.addWidget(self._btn_edit_code)
 
+        self._btn_copy_code = navy_button(
+            "", kind="ghost", height=26, icon_name="fa5s.copy", icon_size=12
+        )
+        self._btn_copy_code.setFixedWidth(30)
+        self._btn_copy_code.setToolTip("지금 보이는 코드를 클립보드에 복사")
+        self._btn_copy_code.clicked.connect(self._copy_code_to_clipboard)
+        header.addWidget(self._btn_copy_code)
+
         header.addStretch(1)
 
         self._btn_save = navy_button("저장", kind="primary", height=32, icon_name="fa5s.check")
@@ -452,6 +479,9 @@ class ScenarioLibraryPage(QWidget):
         layout.addWidget(self._status_lbl)
 
         return card
+
+    def _copy_code_to_clipboard(self):
+        QApplication.clipboard().setText(self._code_edit.toPlainText())
 
     def _saved_objects_for_current_project(self):
         if not self._current_project:
